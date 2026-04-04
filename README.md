@@ -12,3 +12,16 @@ Tracked subtree:
 
 Current custom keymap:
 - `keyboards/geigeigeist/klor/keymaps/zynex/`
+
+Reference docs:
+- [OMARCHY_BINDING_MANIFEST.md](/home/kboc/Klor-Omarchy-keymap/OMARCHY_BINDING_MANIFEST.md)
+- [OMARCHY_BINDING_CONFLICTS.md](/home/kboc/Klor-Omarchy-keymap/OMARCHY_BINDING_CONFLICTS.md)
+- [OMARCHY_SHORTCUT_MAP.md](/home/kboc/Klor-Omarchy-keymap/OMARCHY_SHORTCUT_MAP.md)
+
+## Changelog
+
+- Replaced the base-layer right Shift position with `MO(_OMARCHY)`.
+- Added a dedicated `_OMARCHY` layer for launcher, menus, scratchpad controls, and other secondary Omarchy actions.
+- Kept native Omarchy workspace and focus behavior on the main desktop modifier path instead of moving it behind a layer.
+- Added [KLOR_OMARCHY_REVISION.md](/home/kboc/Klor-Omarchy-keymap/KLOR_OMARCHY_REVISION.md) with a readable layer view.
+- Archived the synced keymap snapshot and UF2 builds under [`artifacts/`](/home/kboc/Klor-Omarchy-keymap/artifacts).

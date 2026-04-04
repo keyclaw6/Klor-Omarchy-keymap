@@ -22,6 +22,7 @@ enum klor_layers {
     _QWERTY,
     _LOWER,
     _RAISE,
+    _OMARCHY,
     _ADJUST,
 };
 
@@ -74,7 +75,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
    │   TAB   │    A    │    S    │    D    │    F    │    G    ├─╯                ╰─┤    H    │    J    │    K    │    L    │    ;    │    "    │
    ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
-   │ CMD/WIN │    Z    │    X    │    C    │    V    │    B    ││  MUTE  ││PLY/PSE ││    N    │    M    │    ,    │    .    │    /    │  SHIFT  │
+    │ CMD/WIN │    Z    │    X    │    C    │    V    │    B    ││  MUTE  ││PLY/PSE ││    N    │    M    │    ,    │    .    │    /    │ OMARCHY │
    └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
                                  │  CTRL   │  LOWER  │  SPACE  │ SHIFT   ││   ALT   │  ENTER  │  RAISE  │ BSPACE  │
                                  └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘ */
@@ -83,7 +84,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
               KC_Q,     KC_W,     KC_E,     KC_R,     KC_T,                          KC_Y,     KC_U,     KC_I,     KC_O,     KC_P,
     KC_TAB,   KC_A,     KC_S,     KC_D,     KC_F,     KC_G,                          KC_H,     KC_J,     KC_K,     KC_L,     KC_SCLN,  KC_QUOT,
-    KC_LGUI,  KC_Z,     KC_X,     KC_C,     KC_V,     KC_B,     KC_MUTE,   KC_MPLY,  KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,  KC_RSFT,
+    KC_LGUI,  KC_Z,     KC_X,     KC_C,     KC_V,     KC_B,     KC_MUTE,   KC_MPLY,  KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,  MO(_OMARCHY),
                                   KC_LCTL,  LOWER,    KC_SPC,   KC_LSFT,   KC_LALT,  KC_ENT,   RAISE,    KC_BSPC
  ),
 
@@ -132,6 +133,29 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
               KC_EXLM,  KC_AT,    KC_HASH,  KC_DLR,   KC_PERC,                       KC_CIRC,  KC_AMPR,  KC_BSLS,RALT(KC_3),RALT(KC_A),
   LALT(KC_F13),LALT(KC_F14),LALT(KC_F15),LALT(KC_F16),LALT(KC_F17),RALT(KC_S),      RALT(KC_Y),RALT(KC_5),RALT(KC_4),RALT(KC_EQL),  RALT(KC_U), RALT(KC_O),
   LALT(KC_F18),LALT(KC_F19),LALT(KC_F20),LALT(KC_F21),LALT(KC_F22),LALT(KC_F23),KC_MUTE,KC_MPLY,RALT(KC_COMM),RALT(KC_DOT),  RALT(KC_C), LSFT(KC_GRV),   KC_GRV,  _______,
+                                  _______,  _______,  _______,  _______,   _______,  _______,  _______,  _______
+ ),
+
+ /*
+   ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
+
+   ┌───────────────────────────────────────────────────────────┐
+   │ o m a r c h y                                             │
+   └───────────────────────────────────────────────────────────┘
+             ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
+             │ LAUNCH  │ SYSTEM  │ CAPTURE │ TOGGLE  │ KEYS    │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │ WAYBAR  │ SHARE   │ LOCK    │ SCRATCH │ SEND    │
+   ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
+   │         │ AUDIO   │ BT      │ WIFI    │ ACTIVITY│ NIGHT   ├─╯                ╰─┤ NOTIF   │ CLEAR   │ INVOKE  │ RESTORE │ ZOOM    │ RESET   │
+   ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
+   │         │         │         │         │         │         ││  MUTE  ││PLY/PSE ││         │         │         │         │         │         │
+   └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
+                                 │    ▼    │    ▼    │    ▼    │    ▼    ││    ▼    │    ▼    │    ▼    │    ▼    │
+                                 └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘ */
+
+   [_OMARCHY] = LAYOUT_polydactyl(
+              LGUI(KC_SPACE),    LGUI(KC_ESC),       LGUI(LCTL(KC_C)),   LGUI(LCTL(KC_O)),   LGUI(KC_K),                  LGUI(LSFT(KC_SPACE)), LGUI(KC_COMM),      LGUI(LSFT(KC_COMM)), LGUI(LALT(KC_COMM)), LGUI(LSFT(LALT(KC_COMM))),
+    _______,    LGUI(LCTL(KC_A)),  LGUI(LCTL(KC_B)),   LGUI(LCTL(KC_W)),   LGUI(LCTL(KC_T)),   LGUI(LCTL(KC_N)),           LGUI(LCTL(KC_L)),     LGUI(KC_S),          LGUI(LALT(KC_S)),     _______,               LGUI(LCTL(KC_Z)), LGUI(LCTL(LALT(KC_Z))),
+    _______,    _______,          _______,            _______,            _______,            _______,                    KC_MUTE,              KC_MPLY,              _______,              _______,              _______,            _______,              _______,              _______,
                                   _______,  _______,  _______,  _______,   _______,  _______,  _______,  _______
  ),
 
@@ -278,7 +302,7 @@ void render_layer_status(void) {
 int layerstate = 0;
 
 layer_state_t layer_state_set_kb(layer_state_t state) {
-      switch (get_highest_layer(layer_state | default_layer_state)) {
+       switch (get_highest_layer(layer_state | default_layer_state)) {
             case 0:
                 strcpy ( layer_state_str, "BASE QWERTY");
                 break;
@@ -289,6 +313,9 @@ layer_state_t layer_state_set_kb(layer_state_t state) {
                 strcpy ( layer_state_str, "RAISE");
                 break;
             case 3:
+                strcpy ( layer_state_str, "OMARCHY");
+                break;
+            case 4:
                 strcpy ( layer_state_str, "ADJUST");
                 break;
             default:
