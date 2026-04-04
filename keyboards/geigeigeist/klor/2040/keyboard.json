@@ -1,0 +1,5 @@
+{
+    "bootloader": "rp2040",
+    "keyboard_name": "KLOR RP2040",
+    "processor": "RP2040"
+}
