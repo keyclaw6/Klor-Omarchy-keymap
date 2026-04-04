@@ -6,7 +6,7 @@
          ┌─────┬─────┬─────┬─────┬─────┐                    ┌─────┬─────┬─────┬─────┬─────┐
          │  Q  │  W  │  E  │  R  │  T  │                    │  Y  │  U  │  I  │  O  │  P  │
  ┌───────┼─────┼─────┼─────┼─────┼─────┼────────────────────┼─────┼─────┼─────┼─────┼─────┼───────┐
- │  TAB  │  A  │  S  │  D  │  F  │  G  │                    │  H  │  J  │  K  │  L  │  ;  │  '    │
+ │  TAB  │GUI/A│ALT/S│CTL/D│SFT/F│  G  │                    │  H  │SFT/J│CTL/K│ALT/L│GUI/;│  '    │
  ├───────┼─────┼─────┼─────┼─────┼─────┤╭──────────╮╭───────┤├─────┼─────┼─────┼─────┼─────┼───────┤
  │LGUI   │  Z  │  X  │  C  │  V  │  B  ││  MUTE  ││ PLY/PSE││  N  │  M  │  ,  │  .  │  /  │ NAV   │
   └───────┴─────┴─────┴─────┴─────┴─────┤│        ││        │├─────┴─────┴─────┴─────┴─────┴───────┘
@@ -15,19 +15,29 @@
                           └─────┴─────┴┘└────────┘└────────┘└┴─────┴─────┴─────┘
 ```
 
-**Thumb keys:** `CTRL` `LOWER` `SPACE` `NAV` | `ALT` `ENTER` `RAISE` `BSPC`
+**Home row mods (GACS order):** Hold a home row key to get its modifier; tap for the letter.
+| Key | Tap | Hold | | Key | Tap | Hold |
+|-----|-----|------|-|-----|-----|------|
+| A | a | LGUI | | J | j | RSFT |
+| S | s | LALT | | K | k | RCTL |
+| D | d | LCTL | | L | l | LALT* |
+| F | f | LSFT | | ; | ; | RGUI |
+
+*L uses LALT (not RALT/AltGr) to avoid conflicts with RAISE layer international characters.
+
+**Thumb keys:** `CTRL` `LOWER` `SPACE` `SHIFT` | `ALT` `ENTER` `RAISE` `BSPC`
 **Center keys:** `MUTE` and `PLY/PSE` (always active, don't change with layers)
 **Encoders:** Both left and right encoders control volume (clockwise = up, counter = down)
 
 ---
 
-## Layer 0: QWERTY (Base Layer)
+## Layer 0: QWERTY (Base Layer) — Home Row Mods
 
 ```
          ┌─────┬─────┬─────┬─────┬─────┐                    ┌─────┬─────┬─────┬─────┬─────┐
          │  Q  │  W  │  E  │  R  │  T  │                    │  Y  │  U  │  I  │  O  │  P  │
  ┌───────┼─────┼─────┼─────┼─────┼─────┼────────────────────┼─────┼─────┼─────┼─────┼─────┼───────┐
- │  TAB  │  A  │  S  │  D  │  F  │  G  │                    │  H  │  J  │  K  │  L  │  ;  │  '    │
+ │  TAB  │GUI/A│ALT/S│CTL/D│SFT/F│  G  │                    │  H  │SFT/J│CTL/K│ALT/L│GUI/;│  '    │
  ├───────┼─────┼─────┼─────┼─────┼─────┤╭──────────╮╭───────┤├─────┼─────┼─────┼─────┼─────┼───────┤
  │LGUI   │  Z  │  X  │  C  │  V  │  B  ││  MUTE  ││ PLY/PSE││  N  │  M  │  ,  │  .  │  /  │ NAV   │
  └───────┴─────┴─────┴─────┴─────┴─────┤│        ││        │├─────┴─────┴─────┴─────┴─────┴───────┘
@@ -36,11 +46,18 @@
                           └─────┴─────┴┘└────────┘└────────┘└┴─────┴─────┴─────┘
 ```
 
-**How it works:** Standard QWERTY typing. Hold `LGUI` (bottom-left) to access Omarchy/SUPER shortcuts.
+**How it works:** Standard QWERTY typing with home row mods. Tap the home row keys for letters; hold them for modifiers (GACS order: GUI, ALT, CTL, SFT from pinky to index). Three layers of protection prevent accidental modifier activation during fast typing:
+
+- **Flow Tap** (150ms): If you typed an alpha key within the last 150ms, mod-taps immediately register as taps — no buffering delay.
+- **Chordal Hold**: Same-hand key after a mod-tap = always tap (typing). Opposite-hand key = defer to Hold On Other Key Press.
+- **Hold On Other Key Press**: Opposite-hand key press instantly activates the modifier (no waiting for release).
+
+Hold `LGUI` (bottom-left) to access Omarchy/SUPER shortcuts.
 Hold `LOWER` or `RAISE` thumb keys to access layers below.
 
 **Special:**
 - `TAB + Q` (combo) = `ESC`
+- `QUICK_TAP_TERM 0`: Mod-taps do not auto-repeat. Double-tap-and-hold a home row key activates the modifier, not letter repeat.
 
 ---
 

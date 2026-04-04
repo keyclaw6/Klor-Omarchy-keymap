@@ -9,14 +9,12 @@ for more options.
 // #define MASTER_RIGHT
 
 
-//#define TAPPING_TERM 170
-#define TAPPING_TERM 170
-
-// Prevent normal rollover on alphas from accidentally triggering mods.
-// #define IGNORE_MOD_TAP_INTERRUPT // Deprecated - now default behavior
-
-// Enable rapid switch from tap to hold, disables double tap hold auto-repeat.
-#define TAPPING_FORCE_HOLD
+// ── Tap-hold: Home Row Mods (Flow Tap + Chordal Hold + HOOKE) ──
+#define TAPPING_TERM 200
+#define QUICK_TAP_TERM 0        // Disable auto-repeat on mod-taps (fixes camelCase)
+#define CHORDAL_HOLD             // Same-hand tap-then-tap = typing; opposite-hand = defer to HOOKE
+#define HOLD_ON_OTHER_KEY_PRESS  // Instant modifier activation (safe with Chordal Hold guard)
+#define FLOW_TAP_TERM 150        // Fast typing bypass: alpha within 150ms of previous = always tap
 
 // Auto Shift
 #define NO_AUTO_SHIFT_ALPHA
