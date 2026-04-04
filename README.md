@@ -22,13 +22,39 @@ The **NAV layer** wraps every mapped key in `LGUI()`, so pressing a key on NAV s
 
 ## Build
 
+### Standard QMK (zynex keymap)
+
 ```
 qmk compile -kb geigeigeist/klor/2040 -km zynex
 ```
 
-Output: `geigeigeist_klor_2040_zynex.uf2` (~80KB)
+Output: `geigeigeist_klor_2040_zynex.uf2` (~85 KB)
+
+### Vial (vial keymap)
+
+Vial requires the [vial-qmk fork](https://github.com/vial-kb/vial-qmk), not stock QMK:
+
+```bash
+# Clone vial-qmk (separate from qmk_firmware — do NOT nest them)
+git clone https://github.com/vial-kb/vial-qmk ~/vial-qmk
+cd ~/vial-qmk && make git-submodule
+
+# Copy this repo's keyboard definition into the vial-qmk tree
+cp -r /path/to/this/repo/keyboards/geigeigeist ~/vial-qmk/keyboards/
+
+# Build the Vial firmware (use make, not qmk compile)
+make geigeigeist/klor/2040:vial
+```
+
+Output: `geigeigeist_klor_2040_vial.uf2` (~110 KB)
+
+### Flashing
 
 Flash by holding BOOT + tapping RESET on the keyboard, then copying the UF2 to the mounted `RPI-RP2` drive.
+
+### Using Vial
+
+After flashing the Vial firmware, open [Vial](https://get.vial.today/) (desktop app or [vial.rocks](https://vial.rocks) web app). The keyboard will be auto-detected. You can remap keys, configure combos, tap dance, encoders, and tune HRM settings — all in real time without reflashing.
 
 ## Repo Structure
 
@@ -39,16 +65,25 @@ keyboards/geigeigeist/klor/           # Full board definition (from QMK upstream
     config.h                           # Keymap config (tap-hold: Flow Tap + Chordal Hold + HOOKE)
     rules.mk                           # Build flags (KEY_OVERRIDE_ENABLE=no, OLED_ENABLE=no)
     zynex_logo.h                       # OLED logo (dead code, kept behind #ifdef)
+  keymaps/vial/
+    keymap.c                           # Vial-compatible keymap (MO() layers, encoder map, QK_KB_0)
+    config.h                           # Vial UID, unlock combo, HRM config, dynamic feature slots
+    rules.mk                           # VIA_ENABLE + VIAL_ENABLE + feature flags
+    vial.json                          # Keyboard layout definition for Vial GUI
 
 firmware/home-row-mods/
-  geigeigeist_klor_2040_zynex.uf2     # Current active firmware (84,992 bytes)
+  geigeigeist_klor_2040_zynex.uf2     # Stock QMK firmware with HRM (84,992 bytes)
 
 firmware/nav-layer/
   geigeigeist_klor_2040_zynex.uf2     # Previous firmware — rollback target (81,920 bytes)
 
+firmware/vial/
+  geigeigeist_klor_2040_vial.uf2      # Vial firmware (112,640 bytes)
+
 artifacts/
-  geigeigeist_klor_2040_zynex_hrm.uf2 # Artifact copy of current firmware
+  geigeigeist_klor_2040_zynex_hrm.uf2 # Artifact copy of stock QMK firmware
   geigeigeist_klor_2040_zynex_nav.uf2 # Artifact copy of previous firmware
+  geigeigeist_klor_2040_vial.uf2      # Artifact copy of Vial firmware
 ```
 
 ## Documentation
@@ -81,7 +116,23 @@ artifacts/
 
 6. **SNAP2 macro (LOWER bottom-left)** — Sends `Shift+Win+S` (Windows screenshot). Does nothing on Omarchy. Left in place for potential Windows use.
 
+7. **Vial keymap as separate build target** — The `vial` keymap lives alongside `zynex`. It's built from the vial-qmk fork (not stock QMK) and converts all custom keycodes to standard QMK equivalents so Vial can remap them. The `zynex` keymap remains the stock QMK reference. Choose based on your preference: `zynex` for maximum QMK feature access (Chordal Hold, Flow Tap guaranteed), `vial` for runtime configurability through a GUI.
+
 ## Changelog
+
+### Vial support (2026-04-04)
+
+Added a `vial` keymap for real-time keyboard configuration through the [Vial](https://get.vial.today/) GUI:
+
+- **New keymap:** `keyboards/geigeigeist/klor/keymaps/vial/` — built from the [vial-qmk](https://github.com/vial-kb/vial-qmk) fork
+- **Layer switching:** Converted custom `LOWER`/`RAISE` keycodes to `MO(_LOWER)`/`MO(_RAISE)` + `TRI_LAYER_ENABLE` (standard QMK, Vial-visible)
+- **Custom keycode:** `SNAP2` uses `QK_KB_0` (visible in Vial as "Screenshot" under User tab)
+- **Encoder map:** Replaced `encoder_update_user` callback with `encoder_map` (per-layer, Vial-remappable)
+- **Dynamic features:** Combos (8 slots), Tap Dance (8 slots), Key Overrides (4 slots), QMK Settings — all configurable through Vial GUI
+- **Unlock combo:** Q + P (matrix positions [0,1] + [4,1])
+- **Firmware size:** 112,640 bytes (110 KB) — 5.4% of 2 MB flash
+- **HRM preserved:** Full Chordal Hold + Flow Tap + HOOKE configuration carries over from `zynex`
+- **Rollback:** Flash `firmware/home-row-mods/geigeigeist_klor_2040_zynex.uf2` to return to stock QMK
 
 ### Home Row Mods (2026-04-04)
 
