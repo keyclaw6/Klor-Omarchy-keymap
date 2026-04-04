@@ -25,7 +25,7 @@ enum klor_layers {
     _LOWER,
     _RAISE,
     _ADJUST,
-    _OMARCHY,
+    _NAV,
 };
 
 // ┌───────────────────────────────────────────────────────────┐
@@ -47,17 +47,6 @@ enum custom_keycodes {
 const uint16_t PROGMEM esc_combo[] = {KC_TAB, KC_Q, COMBO_END};
 combo_t key_combos[COMBO_COUNT] = {
     COMBO(esc_combo, KC_ESC)
-};
-
-// ┌───────────────────────────────────────────────────────────┐
-// │ d e f i n e   k e y   o v e r r i d e s                   │
-// └───────────────────────────────────────────────────────────┘
-
-const key_override_t sve_key_override = ko_make_basic(MOD_MASK_GUI, KC_S, C(KC_S));
-
-const key_override_t *key_overrides[] = {
-  &sve_key_override,
-  NULL // Null terminate the array of overrides!
 };
 
 // ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -86,7 +75,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
               KC_Q,     KC_W,     KC_E,     KC_R,     KC_T,                          KC_Y,     KC_U,     KC_I,     KC_O,     KC_P,
     KC_TAB,   KC_A,     KC_S,     KC_D,     KC_F,     KC_G,                          KC_H,     KC_J,     KC_K,     KC_L,     KC_SCLN,  KC_QUOT,
-    KC_LGUI,  KC_Z,     KC_X,     KC_C,     KC_V,     KC_B,     KC_MUTE,   KC_MPLY,  KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,  MO(_OMARCHY),
+    KC_LGUI,  KC_Z,     KC_X,     KC_C,     KC_V,     KC_B,     KC_MUTE,   KC_MPLY,  KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,  MO(_NAV),
                                   KC_LCTL,  LOWER,    KC_SPC,   KC_LSFT,   KC_LALT,  KC_ENT,   RAISE,    KC_BSPC
  ),
 
@@ -164,28 +153,30 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  ),
 
  /*
-   ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
+    ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
 
-   ┌───────────────────────────────────────────────────────────┐
-   │ o m a r c h y                                             │
-   └───────────────────────────────────────────────────────────┘
-             ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
-             │ LAUNCH  │ SYSTEM  │ CAPTURE │ TOGGLE  │  KEYS   │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │ WAYBAR  │ NOTIFY  │ CLRALL  │ INVOKE  │ RESTORE │
-   ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
-   │         │  AUDIO  │  BLUET  │  WIFI   │ ACTIVTY │ NIGHTLT ├─╯                ╰─┤  IDLE   │         │         │         │         │         │
-   ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
-   │         │         │         │         │         │         ││  MUTE  ││PLY/PSE ││         │         │         │         │         │ (hold)  │
-   └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
-                                 │         │         │         │         ││         │         │         │         │
-                                 └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘ */
+    ┌───────────────────────────────────────────────────────────┐
+    │ n a v                                                     │
+    └───────────────────────────────────────────────────────────┘
+              ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
+              │         │         │    ↑    │         │         │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │         │    7    │    8    │    9    │         │
+    ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
+    │         │         │    ←    │    ↓    │    →    │         ├─╯                ╰─┤         │    4    │    5    │    6    │         │         │
+    ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
+    │         │         │         │         │         │         ││  MUTE  ││PLY/PSE ││         │    1    │    2    │    3    │         │         │
+    └─────────┴─────────┴─────────┴─────────┴─────────┴─────────┤│        ││        │├─────────┴─────────┴─────────┴─────────┴─────────┴─────────┘
+                                  │         │         │         │         ││         │         │         │         │
+                                  └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘
+    Right thumb (BSPC position) = 0
+ */
 
-   [_OMARCHY] = LAYOUT_polydactyl(
+   [_NAV] = LAYOUT_polydactyl(
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
-              LGUI(KC_SPC),  LGUI(KC_ESC),  LCTL(LGUI(KC_C)),  LCTL(LGUI(KC_O)),  LGUI(KC_K),                       LSFT(LGUI(KC_SPC)),  LGUI(KC_COMM),  LSFT(LGUI(KC_COMM)),  LALT(LGUI(KC_COMM)),  LSFT(LALT(LGUI(KC_COMM))),
-    XXXXXXX,  LCTL(LGUI(KC_A)),  LCTL(LGUI(KC_B)),  LCTL(LGUI(KC_W)),  LCTL(LGUI(KC_T)),  LCTL(LGUI(KC_N)),        LCTL(LGUI(KC_I)),  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
-    XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_MUTE,   KC_MPLY,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  _______,
-                                  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,   XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX
- )
+             _______,  _______,  LGUI(KC_UP), _______, _______,                      _______,  LGUI(KC_7), LGUI(KC_8), LGUI(KC_9), _______,
+   _______,  _______,  LGUI(KC_LEFT), LGUI(KC_DOWN), LGUI(KC_RGHT), _______,         _______,  LGUI(KC_4), LGUI(KC_5), LGUI(KC_6), _______,  _______,
+   _______,  _______,  _______,  _______,  _______,  _______,  _______,   _______,    _______,  LGUI(KC_1), LGUI(KC_2), LGUI(KC_3), _______,  _______,
+                                   _______,  _______,  _______,  _______,   _______,  _______,  _______,  LGUI(KC_0)
+  ),
 };
 
 // ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -319,7 +310,7 @@ layer_state_t layer_state_set_user(layer_state_t state) {
                 strcpy ( layer_state_str, "ADJUST");
                 break;
             case 4:
-                strcpy ( layer_state_str, "OMARCHY");
+                strcpy ( layer_state_str, "NAV");
                 break;
             default:
                 strcpy ( layer_state_str, "UNKNOWN");

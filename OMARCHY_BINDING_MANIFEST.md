@@ -156,7 +156,7 @@ Source: <https://raw.githubusercontent.com/basecamp/omarchy/dev/default/hypr/bin
 
 ### `default/hypr/bindings/utilities.conf`
 
-Source: <https://github.com/basecamp/omarchy/blob/dev/default/hypr/bindings/utilities.conf>
+Source: <https://raw.githubusercontent.com/basecamp/omarchy/dev/default/hypr/bindings/utilities.conf>
 
 | Keys | Directive | Action | Description |
 | --- | --- | --- | --- |
@@ -317,4 +317,38 @@ These are not Hyprland binds, but they are native to the bundled input-method st
 | `SUPER + ~` | `Quick Phrase` | Same function as `SUPER + ;` |
 | `CTRL + ;` | `Clipboard history` | Open clipboard history |
 | `CTRL + ALT + H` | `Autocomplete toggle` | Toggle autocomplete |
+
+## Live User Overrides (this machine)
+
+These bindings are ACTIVE on this machine via `~/.config/hypr/bindings.conf`.
+They are NOT part of the upstream Omarchy repo but override/extend the defaults.
+
+Source: `~/.config/hypr/bindings.conf`
+
+| Keys | Directive | Action | Description |
+| --- | --- | --- | --- |
+| `SUPER + ALT + RETURN` | `bindd` | `exec, uwsm-app -- xdg-terminal-exec --dir="$(omarchy-cmd-terminal-cwd)" tmux new` | Terminal with tmux |
+| `SUPER + RETURN` | `bindd` | `exec, uwsm-app -- xdg-terminal-exec --dir="$(omarchy-cmd-terminal-cwd)"` | Terminal |
+| `SUPER + SHIFT + RETURN` | `bindd` | `exec, omarchy-launch-browser` | Browser |
+| `SUPER + SHIFT + F` | `bindd` | `exec, uwsm-app -- nautilus --new-window` | File manager |
+| `SUPER + ALT + SHIFT + F` | `bindd` | `exec, uwsm-app -- nautilus --new-window "$(omarchy-cmd-terminal-cwd)"` | File manager in cwd |
+| `SUPER + SHIFT + B` | `bindd` | `exec, omarchy-launch-browser` | Browser (duplicate) |
+| `SUPER + SHIFT + ALT + B` | `bindd` | `exec, omarchy-launch-browser --private` | Browser private |
+| `SUPER + SHIFT + M` | `bindd` | `exec, omarchy-launch-or-focus spotify` | Spotify |
+| `SUPER + SHIFT + N` | `bindd` | `exec, omarchy-launch-editor` | Editor |
+| `SUPER + SHIFT + D` | `bindd` | `exec, omarchy-launch-tui lazydocker` | LazyDocker |
+| `SUPER + SHIFT + G` | `bindd` | `exec, omarchy-launch-or-focus ^signal$ "uwsm-app -- signal-desktop"` | Signal |
+| `SUPER + SHIFT + O` | `bindd` | `exec, omarchy-launch-or-focus ^obsidian$ "uwsm-app -- obsidian -disable-gpu --enable-wayland-ime"` | Obsidian |
+| `SUPER + SHIFT + W` | `bindd` | `exec, uwsm-app -- typora --enable-wayland-ime` | Typora |
+| `SUPER + SHIFT + SLASH` | `bindd` | `exec, uwsm-app -- 1password` | 1Password |
+| `SUPER + SHIFT + A` | `bindd` | `exec, omarchy-launch-webapp "https://chatgpt.com"` | ChatGPT |
+| `SUPER + SHIFT + ALT + A` | `bindd` | `exec, omarchy-launch-webapp "https://grok.com"` | Grok |
+| `SUPER + SHIFT + C` | `bindd` | `exec, omarchy-launch-webapp "https://app.hey.com/calendar/weeks/"` | Calendar |
+| `SUPER + SHIFT + E` | `bindd` | `exec, omarchy-launch-webapp "https://app.hey.com"` | Email |
+| `SUPER + SHIFT + Y` | `bindd` | `exec, omarchy-launch-webapp "https://youtube.com/"` | YouTube |
+| `SUPER + SHIFT + ALT + G` | `bindd` | `exec, omarchy-launch-or-focus-webapp WhatsApp "https://web.whatsapp.com/"` | WhatsApp |
+| `SUPER + SHIFT + CTRL + G` | `bindd` | `exec, omarchy-launch-or-focus-webapp "Google Messages" "https://messages.google.com/web/conversations"` | Google Messages |
+| `SUPER + SHIFT + P` | `bindd` | `exec, omarchy-launch-or-focus-webapp "Google Photos" "https://photos.google.com/"` | Google Photos |
+| `SUPER + SHIFT + X` | `bindd` | `exec, omarchy-launch-webapp "https://x.com/"` | X |
+| `SUPER + SHIFT + ALT + X` | `bindd` | `exec, omarchy-launch-webapp "https://x.com/compose/post"` | X compose post |
 

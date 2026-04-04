@@ -1,14 +1,8 @@
 # Omarchy Shortcut Map
 
-Derived design map. Use [OMARCHY_BINDING_MANIFEST.md](/home/kboc/Klor-Omarchy-keymap/OMARCHY_BINDING_MANIFEST.md) as the source-annotated inventory.
+Derived design map. Use [OMARCHY_BINDING_MANIFEST.md](OMARCHY_BINDING_MANIFEST.md) as the source-annotated inventory.
 
-Current active source chain, as quoted in the official repo discussion:
-- `~/.config/hypr/monitors.conf`
-- `~/.config/hypr/input.conf`
-- `~/.config/hypr/bindings.conf`
-- `~/.config/hypr/envs.conf`
-- `~/.config/hypr/looknfeel.conf`
-- `~/.config/hypr/autostart.conf`
+Current active source chain (verified live on this machine):
 - `~/.local/share/omarchy/default/hypr/autostart.conf`
 - `~/.local/share/omarchy/default/hypr/bindings/media.conf`
 - `~/.local/share/omarchy/default/hypr/bindings/clipboard.conf`
@@ -19,6 +13,13 @@ Current active source chain, as quoted in the official repo discussion:
 - `~/.local/share/omarchy/default/hypr/input.conf`
 - `~/.local/share/omarchy/default/hypr/windows.conf`
 - `~/.config/omarchy/current/theme/hyprland.conf`
+- `~/.config/hypr/monitors.conf`
+- `~/.config/hypr/input.conf`
+- `~/.config/hypr/bindings.conf` (user-customized — see section 2B below)
+- `~/.config/hypr/looknfeel.conf`
+- `~/.config/hypr/autostart.conf`
+
+Note: `~/.config/hypr/envs.conf` does NOT exist on this system and is NOT in the source chain.
 
 Notes:
 - `default/hypr/bindings.conf` and `default/hypr/bindings/tiling.conf` are deprecated in-file.
@@ -40,7 +41,7 @@ Notes:
 
 ## 2. Application Launching
 
-### Current active default launcher/menu bindings
+### Current active default launcher/menu bindings (from `default/hypr/bindings/utilities.conf`)
 
 | Keys | Action | Description |
 | --- | --- | --- |
@@ -54,19 +55,41 @@ Notes:
 | `SUPER + K` | `exec, omarchy-menu-keybindings` | Show the keybinding reference menu. |
 | `XF86Calculator` | `exec, gnome-calculator` | Open the calculator. |
 
-### Official alternate launcher set: `plain-bindings.conf`
+### 2B. User-customized app bindings (`~/.config/hypr/bindings.conf`)
+
+These are ACTIVE on this machine and override/extend the Omarchy defaults.
+They use `bindd` with named categories (e.g. `Tmux`, `Browser`, `File manager`).
 
 | Keys | Action | Description |
 | --- | --- | --- |
-| `SUPER + RETURN` | `exec, uwsm-app -- xdg-terminal-exec --dir="$(omarchy-cmd-terminal-cwd)"` | Launch the terminal in the current terminal directory. |
+| `SUPER + ALT + RETURN` | `exec, uwsm-app -- xdg-terminal-exec --dir="$(omarchy-cmd-terminal-cwd)" tmux new` | Launch terminal with tmux. |
+| `SUPER + RETURN` | `exec, uwsm-app -- xdg-terminal-exec --dir="$(omarchy-cmd-terminal-cwd)"` | Launch the terminal. |
 | `SUPER + SHIFT + RETURN` | `exec, omarchy-launch-browser` | Launch the browser. |
-| `SUPER + SHIFT + F` | `exec, uwsm-app -- nautilus --new-window` | Launch the file manager in a new window. |
-| `SUPER + ALT + SHIFT + F` | `exec, uwsm-app -- nautilus --new-window "$(omarchy-cmd-terminal-cwd)"` | Launch the file manager in the current terminal directory. |
-| `SUPER + SHIFT + B` | `exec, omarchy-launch-browser` | Launch the browser. |
-| `SUPER + SHIFT + ALT + B` | `exec, omarchy-launch-browser --private` | Launch the browser in private mode. |
+| `SUPER + SHIFT + F` | `exec, uwsm-app -- nautilus --new-window` | Launch the file manager. |
+| `SUPER + ALT + SHIFT + F` | `exec, uwsm-app -- nautilus --new-window "$(omarchy-cmd-terminal-cwd)"` | Launch file manager in cwd. |
+| `SUPER + SHIFT + B` | `exec, omarchy-launch-browser` | Launch the browser (duplicate binding). |
+| `SUPER + SHIFT + ALT + B` | `exec, omarchy-launch-browser --private` | Launch browser in private mode. |
+| `SUPER + SHIFT + M` | `exec, omarchy-launch-or-focus spotify` | Launch or focus Spotify. |
 | `SUPER + SHIFT + N` | `exec, omarchy-launch-editor` | Launch the editor. |
+| `SUPER + SHIFT + D` | `exec, omarchy-launch-tui lazydocker` | Launch LazyDocker TUI. |
+| `SUPER + SHIFT + G` | `exec, omarchy-launch-or-focus ^signal$ "uwsm-app -- signal-desktop"` | Launch or focus Signal. |
+| `SUPER + SHIFT + O` | `exec, omarchy-launch-or-focus ^obsidian$ "uwsm-app -- obsidian -disable-gpu --enable-wayland-ime"` | Launch or focus Obsidian. |
+| `SUPER + SHIFT + W` | `exec, uwsm-app -- typora --enable-wayland-ime` | Launch Typora. |
+| `SUPER + SHIFT + SLASH` | `exec, uwsm-app -- 1password` | Launch 1Password. |
+| `SUPER + SHIFT + A` | `exec, omarchy-launch-webapp "https://chatgpt.com"` | Launch ChatGPT webapp. |
+| `SUPER + SHIFT + ALT + A` | `exec, omarchy-launch-webapp "https://grok.com"` | Launch Grok webapp. |
+| `SUPER + SHIFT + C` | `exec, omarchy-launch-webapp "https://app.hey.com/calendar/weeks/"` | Launch Calendar webapp. |
+| `SUPER + SHIFT + E` | `exec, omarchy-launch-webapp "https://app.hey.com"` | Launch Email webapp. |
+| `SUPER + SHIFT + Y` | `exec, omarchy-launch-webapp "https://youtube.com/"` | Launch YouTube webapp. |
+| `SUPER + SHIFT + ALT + G` | `exec, omarchy-launch-or-focus-webapp WhatsApp "https://web.whatsapp.com/"` | Launch or focus WhatsApp. |
+| `SUPER + SHIFT + CTRL + G` | `exec, omarchy-launch-or-focus-webapp "Google Messages" "https://messages.google.com/web/conversations"` | Launch Google Messages. |
+| `SUPER + SHIFT + P` | `exec, omarchy-launch-or-focus-webapp "Google Photos" "https://photos.google.com/"` | Launch Google Photos. |
+| `SUPER + SHIFT + X` | `exec, omarchy-launch-webapp "https://x.com/"` | Launch X webapp. |
+| `SUPER + SHIFT + ALT + X` | `exec, omarchy-launch-webapp "https://x.com/compose/post"` | Launch X compose post. |
 
-### Deprecated legacy launcher set: `default/hypr/bindings.conf`
+### Deprecated Omarchy launcher set: `default/hypr/bindings.conf`
+
+This file exists in `~/.local/share/omarchy/default/hypr/bindings.conf` but is NOT sourced by the current `hyprland.conf`. It uses old `$variable` style.
 
 | Keys | Action | Description |
 | --- | --- | --- |
@@ -130,6 +153,7 @@ Notes:
 | `SUPER + MOUSE_UP` | `workspace, e-1` | Scroll to the previous workspace. |
 | `SUPER + MOUSE_272` | `movewindow` | Move the active window by dragging with the primary mouse button. |
 | `SUPER + MOUSE_273` | `resizewindow` | Resize the active window by dragging with the secondary mouse button. |
+| `SUPER + Slash` | `exec, omarchy-hyprland-monitor-scaling-cycle` | Cycle monitor scaling. |
 
 ### Deprecated legacy tiling set: `default/hypr/bindings/tiling.conf`
 
@@ -198,6 +222,8 @@ Notes:
 
 ### Current active default media bindings
 
+These bindings come from `default/hypr/bindings/media.conf` and are verified identical to the live upstream Omarchy default on this machine.
+
 | Keys | Action | Description |
 | --- | --- | --- |
 | `XF86AudioRaiseVolume` | `exec, $osdclient --output-volume raise` | Raise output volume. |
@@ -221,6 +247,8 @@ Notes:
 
 ### Current active utility/system bindings
 
+These bindings come from `default/hypr/bindings/utilities.conf` and are verified identical to the live upstream Omarchy default on this machine.
+
 | Keys | Action | Description |
 | --- | --- | --- |
 | `SUPER + CTRL + I` | `exec, omarchy-toggle-idle` | Toggle locking on idle. |
@@ -240,6 +268,8 @@ Notes:
 ## 6. UI / Session
 
 ### Current active menu and panel bindings
+
+These bindings come from `default/hypr/bindings/utilities.conf` and are verified identical to the live upstream Omarchy default on this machine.
 
 | Keys | Action | Description |
 | --- | --- | --- |
@@ -261,7 +291,7 @@ Notes:
 | `SUPER + ALT + COMMA` | `exec, makoctl invoke` | Re-open the last dismissed notification. |
 | `SUPER + SHIFT + ALT + COMMA` | `exec, makoctl restore` | Restore the last dismissed notification. |
 | `SUPER + CTRL + S` | `exec, omarchy-menu share` | Open the share menu. |
-| `SUPER + CTRL + X` | `exec, voxtype record toggle` | Toggle dictation. |
+| `SUPER + CTRL + X` | `exec, voxtype record toggle` | Toggle dictation. **NOTE: `voxtype` binary not installed on this system — documented but non-functional.** |
 | `SUPER + CTRL + ALT + T` | `exec, notify-send -u low " $(date +"%A %H:%M · %d %B %Y · Week %V")"` | Show the current time without using the bar. |
 | `SUPER + CTRL + ALT + B` | `exec, notify-send -u low "$(omarchy-battery-status)"` | Show battery status without using the bar. |
 | `SUPER + CTRL + Z` | `exec, hyprctl keyword cursor:zoom_factor $(hyprctl getoption cursor:zoom_factor -j | jq '.float + 1')` | Zoom in. |
