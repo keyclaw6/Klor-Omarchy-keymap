@@ -8,7 +8,9 @@
 #include <stdio.h>
 #include <string.h>
 #include "klor.h"
+#ifdef OLED_ENABLE
 #include "zynex_logo.h"
+#endif
 
 // ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 // │ D E F I N I T I O N S                                                                                                                      │
@@ -106,10 +108,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
    [_LOWER] = LAYOUT_polydactyl(
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
-              KC_CAPS,  KC_HOME,  KC_UP,    KC_EQL,   KC_LCBR,                       KC_RCBR,  KC_P7,    KC_P8,    KC_P9,    KC_PPLS,
-    KC_ESC,   KC_DEL,   KC_LEFT,  KC_DOWN,  KC_RGHT,  KC_LBRC,                       KC_RBRC,  KC_P4,    KC_P5,    KC_P6,    KC_MINS,  KC_UNDS,
-    SNAP2,    KC_END,   KC_PGUP,  C(KC_S),  KC_PGDN,  KC_LPRN,  KC_MUTE,   KC_MPLY,  KC_RPRN,  KC_P1,    KC_P2,    KC_P3,    KC_PAST,  _______,
-                                  _______,  _______,  _______,  _______,   _______,  _______,  _______,  KC_P0
+              KC_CAPS,  KC_HOME,  KC_UP,    KC_EQL,   KC_LCBR,                       KC_RCBR,  KC_7,    KC_8,    KC_9,    KC_PPLS,
+    KC_ESC,   KC_DEL,   KC_LEFT,  KC_DOWN,  KC_RGHT,  KC_LBRC,                       KC_RBRC,  KC_4,    KC_5,    KC_6,    KC_MINS,  KC_UNDS,
+    SNAP2,    KC_END,   KC_PGUP,  C(KC_S),  KC_PGDN,  KC_LPRN,  KC_MUTE,   KC_MPLY,  KC_RPRN,  KC_1,    KC_2,    KC_3,    KC_PAST,  _______,
+                                  _______,  _______,  _______,  _______,   _______,  _______,  _______,  KC_0
  ),
 
  /*
@@ -445,12 +447,4 @@ bool encoder_update_user(uint8_t index, bool clockwise) {
 // │ I N I T I A L I Z A T I O N                                                                                                                │
 // └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
-// Force NumLock ON at keyboard boot to ensure numpad works reliably
-void keyboard_post_init_user(void) {
-    // Wait for USB to initialize
-    wait_ms(100);
-    // Force NumLock to ON state
-    if (!host_keyboard_led_state().num_lock) {
-        tap_code(KC_NUM_LOCK);
-    }
-}
+
