@@ -8,14 +8,14 @@
  ┌───────┼─────┼─────┼─────┼─────┼─────┼────────────────────┼─────┼─────┼─────┼─────┼─────┼───────┐
  │  TAB  │  A  │  S  │  D  │  F  │  G  │                    │  H  │  J  │  K  │  L  │  ;  │  '    │
  ├───────┼─────┼─────┼─────┼─────┼─────┤╭──────────╮╭───────┤├─────┼─────┼─────┼─────┼─────┼───────┤
- │LGUI   │  Z  │  X  │  C  │  V  │  B  ││  MUTE  ││ PLY/PSE││  N  │  M  │  ,  │  .  │  /  │SHIFT  │
- └───────┴─────┴─────┴─────┴─────┴─────┤│        ││        │├─────┴─────┴─────┴─────┴─────┴───────┘
+ │LGUI   │  Z  │  X  │  C  │  V  │  B  ││  MUTE  ││ PLY/PSE││  N  │  M  │  ,  │  .  │  /  │ NAV   │
+  └───────┴─────┴─────┴─────┴─────┴─────┤│        ││        │├─────┴─────┴─────┴─────┴─────┴───────┘
                           ┌─────┬─────┬┤│        ││        ├┤┌─────┬─────┬─────┐
                           │CTRL │LOWER│││  SPACE ││  ALT   │││ ENTER│RAISE│BSPC │
                           └─────┴─────┴┘└────────┘└────────┘└┴─────┴─────┴─────┘
 ```
 
-**Thumb keys:** `CTRL` `LOWER` `SPACE` `SHIFT` | `ALT` `ENTER` `RAISE` `BSPC`
+**Thumb keys:** `CTRL` `LOWER` `SPACE` `NAV` | `ALT` `ENTER` `RAISE` `BSPC`
 **Center keys:** `MUTE` and `PLY/PSE` (always active, don't change with layers)
 **Encoders:** Both left and right encoders control volume (clockwise = up, counter = down)
 
@@ -29,7 +29,7 @@
  ┌───────┼─────┼─────┼─────┼─────┼─────┼────────────────────┼─────┼─────┼─────┼─────┼─────┼───────┐
  │  TAB  │  A  │  S  │  D  │  F  │  G  │                    │  H  │  J  │  K  │  L  │  ;  │  '    │
  ├───────┼─────┼─────┼─────┼─────┼─────┤╭──────────╮╭───────┤├─────┼─────┼─────┼─────┼─────┼───────┤
- │LGUI   │  Z  │  X  │  C  │  V  │  B  ││  MUTE  ││ PLY/PSE││  N  │  M  │  ,  │  .  │  /  │SHIFT  │
+ │LGUI   │  Z  │  X  │  C  │  V  │  B  ││  MUTE  ││ PLY/PSE││  N  │  M  │  ,  │  .  │  /  │ NAV   │
  └───────┴─────┴─────┴─────┴─────┴─────┤│        ││        │├─────┴─────┴─────┴─────┴─────┴───────┘
                           ┌─────┬─────┬┤│        ││        ├┤┌─────┬─────┬─────┐
                           │CTRL │LOWER│││  SPACE ││  ALT   │││ ENTER│RAISE│BSPC │
@@ -41,7 +41,6 @@ Hold `LOWER` or `RAISE` thumb keys to access layers below.
 
 **Special:**
 - `TAB + Q` (combo) = `ESC`
-- `LGUI + S` (override) = `Ctrl+S` (save) — blocks Omarchy scratchpad
 
 ---
 
@@ -185,15 +184,13 @@ All other keys = transparent (pass through to base layer for typing).
 
 ## Conflicts & Gotchas
 
-1. **`WIN+S` on LOWER layer** — Sends Windows screenshot shortcut (`Win+Shift+S`). On Linux this may do nothing unless a screenshot tool is bound to it.
+1. **`WIN+S` on LOWER layer (SNAP2 macro)** — Sends `Shift+Win+S` (Windows screenshot shortcut). Does nothing on Omarchy/Linux. Pre-existing; left in place for Windows compatibility.
 
 2. **`LGUI` on QWERTY** — The bottom-left key is `LGUI` (Super). Holding it + any letter sends `SUPER+letter` to Hyprland. This is intentional and how Omarchy works, but be aware you're triggering desktop shortcuts while typing.
 
-3. **`sve_key_override` removed** — Previously converted `SUPER+S` to `Ctrl+S`, which blocked Omarchy's scratchpad toggle. This override has been removed so `SUPER+S` (scratchpad) now works natively.
+3. **`voxtype` not installed** — `SUPER + CTRL + X` (dictation toggle) is in Omarchy config but the binary isn't installed on this system.
 
-4. **`voxtype` not installed** — `SUPER + CTRL + X` (dictation toggle) is in Omarchy config but the binary isn't installed on this system.
-
-5. **Fcitx5 runtime bindings** — `SUPER + ;` and `CTRL + ;` are Fcitx5 input method shortcuts, separate from Hyprland. Fcitx5 IS installed (v5.1.19).
+4. **Fcitx5 runtime bindings** — `SUPER + ;` and `CTRL + ;` are Fcitx5 input method shortcuts, separate from Hyprland. Fcitx5 IS installed (v5.1.19).
 
 ---
 

@@ -1,27 +1,24 @@
 # Klor-Omarchy-keymap
 
-Snapshot of the KLOR RP2040 keymap work, mirrored from QMK for rollback and diffing.
+QMK keymap for a KLOR split keyboard (42-key Polydactyl layout, RP2040) running on [Omarchy](https://omarchy.com) (Arch Linux + Hyprland).
 
-Source baseline:
-- QMK repo: `qmk_firmware`
-- Commit: `1426eedfc1`
-- Branch: `master`
+## Hardware
 
-Tracked subtree:
-- `keyboards/geigeigeist/klor/`
+- **Board:** KLOR by geigeigeist, Polydactyl variant (42 keys)
+- **Controller:** RP2040
+- **Encoders:** 2 (left = mute, right = play/pause; both scroll volume)
 
-Current custom keymap:
-- `keyboards/geigeigeist/klor/keymaps/zynex/`
+## Layers
 
-Reference docs:
-- [OMARCHY_BINDING_MANIFEST.md](/home/kboc/Klor-Omarchy-keymap/OMARCHY_BINDING_MANIFEST.md)
-- [OMARCHY_BINDING_CONFLICTS.md](/home/kboc/Klor-Omarchy-keymap/OMARCHY_BINDING_CONFLICTS.md)
-- [OMARCHY_SHORTCUT_MAP.md](/home/kboc/Klor-Omarchy-keymap/OMARCHY_SHORTCUT_MAP.md)
+| # | Name | Activation |
+|---|------|-----------|
+| 0 | `_QWERTY` | Default base layer |
+| 1 | `_LOWER` | Hold left thumb `LOWER` key |
+| 2 | `_RAISE` | Hold right thumb `RAISE` key |
+| 3 | `_ADJUST` | Hold `LOWER` + `RAISE` together |
+| 4 | `_NAV` | Hold bottom-right key (replaces right Shift) |
 
-Known-good fallback:
-- [known-good-klor/README.md](/home/kboc/Klor-Omarchy-keymap/known-good-klor/README.md)
-- [known-good-klor/zynex/keymap.c](/home/kboc/Klor-Omarchy-keymap/known-good-klor/zynex/keymap.c)
-- [artifacts/geigeigeist_klor_2040_zynex_known_good.uf2](/home/kboc/Klor-Omarchy-keymap/artifacts/geigeigeist_klor_2040_zynex_known_good.uf2)
+The **NAV layer** wraps every mapped key in `LGUI()`, so pressing a key on NAV sends `SUPER + keycode`. This gives direct access to Omarchy workspace switching (`SUPER+1`-`SUPER+0`), directional focus/swap (`SUPER+arrows`), and workspace cycling (`SUPER+TAB`) from a single held key. Add Shift/Alt/Ctrl for Omarchy's variant shortcuts (move-to-workspace, grouped windows, etc.).
 
 ## Build
 
@@ -29,30 +26,79 @@ Known-good fallback:
 qmk compile -kb geigeigeist/klor/2040 -km zynex
 ```
 
+Output: `geigeigeist_klor_2040_zynex.uf2` (~80KB)
+
+Flash by holding BOOT + tapping RESET on the keyboard, then copying the UF2 to the mounted `RPI-RP2` drive.
+
+## Repo Structure
+
+```
+keyboards/geigeigeist/klor/           # Full board definition (from QMK upstream)
+  keymaps/zynex/
+    keymap.c                           # Active keymap (5 layers, combos, macros)
+    config.h                           # Keymap config
+    rules.mk                           # Build flags (KEY_OVERRIDE_ENABLE=no, OLED_ENABLE=no)
+    zynex_logo.h                       # OLED logo (dead code, kept behind #ifdef)
+
+firmware/nav-layer/
+  geigeigeist_klor_2040_zynex.uf2     # Current active firmware (81,920 bytes)
+
+artifacts/
+  geigeigeist_klor_2040_zynex_nav.uf2 # Artifact copy of current firmware
+```
+
+## Documentation
+
+| File | Purpose |
+|------|---------|
+| [KLOR_KEYMAP_OVERVIEW.md](KLOR_KEYMAP_OVERVIEW.md) | Human-readable layer diagrams and key maps |
+| [OMARCHY_SHORTCUT_MAP.md](OMARCHY_SHORTCUT_MAP.md) | Comprehensive Omarchy keybinding reference |
+| [OMARCHY_BINDING_MANIFEST.md](OMARCHY_BINDING_MANIFEST.md) | Source-annotated inventory of all Omarchy bindings |
+| [OMARCHY_BINDING_CONFLICTS.md](OMARCHY_BINDING_CONFLICTS.md) | Known binding conflicts between keyboard and Omarchy |
+
+## QMK Baseline
+
+- **QMK repo:** `qmk_firmware`
+- **Commit:** `1426eedfc1`
+- **Branch:** `master`
+- **Tracked subtree:** `keyboards/geigeigeist/klor/`
+
+## Notable Design Decisions
+
+1. **Right Shift replaced with `MO(_NAV)`** — The bottom-right key on QWERTY activates the NAV layer instead of acting as right Shift. Right Shift was rarely used since the left thumb handles Shift for most shortcuts.
+
+2. **No key overrides** — `KEY_OVERRIDE_ENABLE = no`. An earlier `sve_key_override` that converted `SUPER+S` to `Ctrl+S` was removed because it blocked Omarchy's scratchpad toggle.
+
+3. **Standard number keycodes in LOWER** — Uses `KC_0`-`KC_9` (not keypad `KC_P0`-`KC_P9`) to eliminate NumLock dependency.
+
+4. **OLED disabled** — `OLED_ENABLE = no`. All OLED code is behind `#ifdef` guards and compiles away cleanly.
+
+5. **SNAP2 macro (LOWER bottom-left)** — Sends `Shift+Win+S` (Windows screenshot). Does nothing on Omarchy. Left in place for potential Windows use.
+
 ## Changelog
 
-- Replaced the base-layer right Shift position with `MO(_OMARCHY)`.
-- Added a dedicated `_OMARCHY` layer for launcher, menus, scratchpad controls, and other secondary Omarchy actions.
-- Kept native Omarchy workspace and focus behavior on the main desktop modifier path instead of moving it behind a layer.
-- Added [KLOR_OMARCHY_REVISION.md](/home/kboc/Klor-Omarchy-keymap/KLOR_OMARCHY_REVISION.md) with a readable layer view.
-- Archived the synced keymap snapshot and UF2 builds under [`artifacts/`](/home/kboc/Klor-Omarchy-keymap/artifacts).
-- Added a separate known-good KLOR snapshot from `Downloads` for recovery and rollback.
+### Nav-layer redesign (2026-04-04)
 
-### Minimal rescue pass (2026-04-04)
+Replaced the `_OMARCHY` layer with a new `_NAV` layer:
 
-Verified and fixed compilation:
-
-- **Fixed**: Changed `layer_state_set_kb` to `layer_state_set_user` in keymap.c. Keymaps should use `_user` callbacks per QMK convention; `_kb` is for keyboard-level code and could conflict if `klor.c` adds the same function.
-- **Confirmed**: The `oled_task_user` change (from old keymap's `oled_task_kb`) was correct and necessary — `klor.c` already defines `oled_task_kb`, so the old keymap would fail to link with a "multiple definition" error.
-- **Confirmed**: The `_OMARCHY` layer addition is structurally valid with correct key counts (44 keys per layer matching `LAYOUT_polydactyl`).
-- **Confirmed**: `MO(_OMARCHY)` replacing `KC_RSFT` is a valid QMK keycode for momentary layer activation.
-- **Build result**: Compiles successfully with `qmk compile -kb geigeigeist/klor/2040 -km zynex`.
+- **Removed:** `_OMARCHY` layer (had launcher/system/capture shortcuts that duplicated Omarchy's native `LGUI+key` behavior)
+- **Added:** `_NAV` layer with LGUI-wrapped arrows (workspace focus/swap), numbers 0-9 (workspace switching), and TAB (workspace cycling)
+- **Removed:** `sve_key_override` (`SUPER+S` -> `Ctrl+S`), disabled `KEY_OVERRIDE_ENABLE`
+- **Result:** Cleaner 5-layer design. All common Omarchy shortcuts accessible via NAV hold + number/arrow, with Shift/Alt/Ctrl modifiers for variants.
 
 ### Full Omarchy implementation pass (2026-04-04)
 
-Applied remaining intended changes on top of the minimal Omarchy adaptation:
+- Replaced keypad keycodes (`KC_P0`-`KC_P9`) with standard (`KC_0`-`KC_9`) in LOWER layer
+- Removed `keyboard_post_init_user()` NumLock-on-boot hack
+- Disabled OLED support (`OLED_ENABLE = no`)
 
-- **Changed**: Replaced keypad number keycodes (`KC_P0`–`KC_P9`) with standard number keycodes (`KC_0`–`KC_9`) in the LOWER layer. Eliminates NumLock dependency and enables consistent behavior across Omarchy, Ubuntu, and Windows.
-- **Removed**: `keyboard_post_init_user()` NumLock-on-boot hack (no longer needed with standard keycodes).
-- **Disabled**: OLED support (`OLED_ENABLE = no` in rules.mk). OLED display is not used on this board. All OLED code remains behind `#ifdef` guards for safety.
-- **Artifact**: `firmware/omarchy-final/geigeigeist_klor_2040_zynex.uf2` (86,528 bytes).
+### Minimal rescue pass (2026-04-04)
+
+- Fixed `layer_state_set_kb` -> `layer_state_set_user` (keymaps use `_user` callbacks)
+- Confirmed `oled_task_user` rename was correct (`klor.c` already defines `oled_task_kb`)
+- First successful compile of the Omarchy adaptation
+
+### Initial snapshot
+
+- Imported KLOR board definition and `zynex` keymap from QMK
+- Added `_OMARCHY` layer (later replaced by `_NAV`)
