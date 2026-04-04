@@ -23,6 +23,7 @@ enum klor_layers {
     _LOWER,
     _RAISE,
     _ADJUST,
+    _OMARCHY,
 };
 
 // ┌───────────────────────────────────────────────────────────┐
@@ -83,7 +84,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
               KC_Q,     KC_W,     KC_E,     KC_R,     KC_T,                          KC_Y,     KC_U,     KC_I,     KC_O,     KC_P,
     KC_TAB,   KC_A,     KC_S,     KC_D,     KC_F,     KC_G,                          KC_H,     KC_J,     KC_K,     KC_L,     KC_SCLN,  KC_QUOT,
-    KC_LGUI,  KC_Z,     KC_X,     KC_C,     KC_V,     KC_B,     KC_MUTE,   KC_MPLY,  KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,  KC_RSFT,
+    KC_LGUI,  KC_Z,     KC_X,     KC_C,     KC_V,     KC_B,     KC_MUTE,   KC_MPLY,  KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,  MO(_OMARCHY),
                                   KC_LCTL,  LOWER,    KC_SPC,   KC_LSFT,   KC_LALT,  KC_ENT,   RAISE,    KC_BSPC
  ),
 
@@ -158,6 +159,30 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     KC_F20,   KC_F21,   KC_F22,   KC_F23,   KC_F24,   KC_APP,                        XXXXXXX,  KC_F4,    KC_F5,    KC_F6,    KC_F12,   KC_F13,
     QK_BOOT,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_MUTE,   KC_MPLY,  XXXXXXX,  KC_F1,    KC_F2,    KC_F3,    KC_F10,   KC_F11,
                                   _______,  _______,  _______,  _______,   _______,  _______,  _______,  KC_BSPC
+ ),
+
+ /*
+   ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
+
+   ┌───────────────────────────────────────────────────────────┐
+   │ o m a r c h y                                             │
+   └───────────────────────────────────────────────────────────┘
+             ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
+             │ LAUNCH  │ SYSTEM  │ CAPTURE │ TOGGLE  │  KEYS   │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │ WAYBAR  │ NOTIFY  │ CLRALL  │ INVOKE  │ RESTORE │
+   ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
+   │         │  AUDIO  │  BLUET  │  WIFI   │ ACTIVTY │ NIGHTLT ├─╯                ╰─┤  IDLE   │         │         │         │         │         │
+   ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
+   │         │         │         │         │         │         ││  MUTE  ││PLY/PSE ││         │         │         │         │         │ (hold)  │
+   └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
+                                 │         │         │         │         ││         │         │         │         │
+                                 └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘ */
+
+   [_OMARCHY] = LAYOUT_polydactyl(
+ //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
+              LGUI(KC_SPC),  LGUI(KC_ESC),  LCTL(LGUI(KC_C)),  LCTL(LGUI(KC_O)),  LGUI(KC_K),                       LSFT(LGUI(KC_SPC)),  LGUI(KC_COMM),  LSFT(LGUI(KC_COMM)),  LALT(LGUI(KC_COMM)),  LSFT(LALT(LGUI(KC_COMM))),
+    XXXXXXX,  LCTL(LGUI(KC_A)),  LCTL(LGUI(KC_B)),  LCTL(LGUI(KC_W)),  LCTL(LGUI(KC_T)),  LCTL(LGUI(KC_N)),        LCTL(LGUI(KC_I)),  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,
+    XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_MUTE,   KC_MPLY,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  _______,
+                                  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,   XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX
  )
 };
 
@@ -290,6 +315,9 @@ layer_state_t layer_state_set_user(layer_state_t state) {
                 break;
             case 3:
                 strcpy ( layer_state_str, "ADJUST");
+                break;
+            case 4:
+                strcpy ( layer_state_str, "OMARCHY");
                 break;
             default:
                 strcpy ( layer_state_str, "UNKNOWN");
