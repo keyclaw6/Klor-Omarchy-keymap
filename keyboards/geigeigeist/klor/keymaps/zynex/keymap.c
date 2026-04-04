@@ -173,7 +173,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    [_NAV] = LAYOUT_polydactyl(
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
              _______,  _______,  LGUI(KC_UP), _______, _______,                      _______,  LGUI(KC_7), LGUI(KC_8), LGUI(KC_9), _______,
-   _______,  _______,  LGUI(KC_LEFT), LGUI(KC_DOWN), LGUI(KC_RGHT), _______,         _______,  LGUI(KC_4), LGUI(KC_5), LGUI(KC_6), _______,  _______,
+   LGUI(KC_TAB), _______,  LGUI(KC_LEFT), LGUI(KC_DOWN), LGUI(KC_RGHT), _______,     _______,  LGUI(KC_4), LGUI(KC_5), LGUI(KC_6), _______,  _______,
    _______,  _______,  _______,  _______,  _______,  _______,  _______,   _______,    _______,  LGUI(KC_1), LGUI(KC_2), LGUI(KC_3), _______,  _______,
                                    _______,  _______,  _______,  _______,   _______,  _______,  _______,  LGUI(KC_0)
   ),
