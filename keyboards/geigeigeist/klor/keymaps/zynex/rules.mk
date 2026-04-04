@@ -3,7 +3,7 @@ ENCODER_ENABLE = yes
 EXTRAKEY_ENABLE = yes
 DYNAMIC_MACRO_ENABLE = no
 COMBO_ENABLE = yes
-KEY_OVERRIDE_ENABLE = yes
+KEY_OVERRIDE_ENABLE = no
 
 # Disable features for hardware not present on this Polydactyl build.
 # HAPTIC (DRV2605L) is enabled in keyboard.json but the chip is not on this PCB.
