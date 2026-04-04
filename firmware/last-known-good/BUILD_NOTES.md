@@ -35,6 +35,34 @@ Re-validated compilation of the last known good keymap against latest QMK master
 - **Result**: Success — no changes required beyond the two callback renames already present.
 - **Artifact**: `firmware/last-known-good/geigeigeist_klor_2040_zynex.uf2` (131072 bytes)
 
+## Latency fix (2026-04-04)
+
+### Symptom
+3–4 second delay between keypress and character appearing on screen.
+
+### Root cause
+The upstream KLOR keyboard.json enables `haptic: true` with driver `drv2605l` (I2C).
+The DRV2605L chip is **not physically present** on this Polydactyl board. Every I2C
+transaction to the missing device blocks for its timeout duration, stalling the matrix
+scan loop and causing massive input latency on every keypress.
+
+Additionally, `rgb_matrix: true` (WS2812) and `audio: true` (from 2040/rules.mk
+overriding keyboard.json) were enabled for hardware not installed on this board.
+
+### Fix applied
+Added three lines to keymap-level `rules.mk`:
+```
+HAPTIC_ENABLE = no     # DRV2605L not present → I2C timeout elimination (primary fix)
+RGB_MATRIX_ENABLE = no # WS2812 LEDs not installed
+AUDIO_ENABLE = no      # Buzzer not installed
+```
+
+No layout, layer, or key behavior changes were made.
+
+### Result
+- Firmware size reduced from 131,072 → 100,352 bytes (~30KB of unused driver code removed)
+- DRV2605L, RGB matrix, and audio drivers confirmed excluded from compiled binary
+
 ## Flashing
 
 Put the KLOR into bootloader mode (hold BOOT while plugging in USB, or press QK_BOOT from the ADJUST layer), then copy the `.uf2` file to the RP2040 mass storage device.
