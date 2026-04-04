@@ -25,6 +25,16 @@ qmk compile -kb geigeigeist/klor/2040 -km zynex
 - **Status**: Success
 - **Artifact**: `firmware/last-known-good/geigeigeist_klor_2040_zynex.uf2`
 
+## Build validation (2026-04-04)
+
+Re-validated compilation of the last known good keymap against latest QMK master.
+
+- **QMK CLI**: 1.2.0
+- **ARM toolchain**: arm-none-eabi-gcc 13.2.1 20231009
+- **Build command**: `qmk compile -kb geigeigeist/klor/2040 -km zynex`
+- **Result**: Success — no changes required beyond the two callback renames already present.
+- **Artifact**: `firmware/last-known-good/geigeigeist_klor_2040_zynex.uf2` (131072 bytes)
+
 ## Flashing
 
 Put the KLOR into bootloader mode (hold BOOT while plugging in USB, or press QK_BOOT from the ADJUST layer), then copy the `.uf2` file to the RP2040 mass storage device.
