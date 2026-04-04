@@ -47,3 +47,12 @@ Verified and fixed compilation:
 - **Confirmed**: The `_OMARCHY` layer addition is structurally valid with correct key counts (44 keys per layer matching `LAYOUT_polydactyl`).
 - **Confirmed**: `MO(_OMARCHY)` replacing `KC_RSFT` is a valid QMK keycode for momentary layer activation.
 - **Build result**: Compiles successfully with `qmk compile -kb geigeigeist/klor/2040 -km zynex`.
+
+### Full Omarchy implementation pass (2026-04-04)
+
+Applied remaining intended changes on top of the minimal Omarchy adaptation:
+
+- **Changed**: Replaced keypad number keycodes (`KC_P0`–`KC_P9`) with standard number keycodes (`KC_0`–`KC_9`) in the LOWER layer. Eliminates NumLock dependency and enables consistent behavior across Omarchy, Ubuntu, and Windows.
+- **Removed**: `keyboard_post_init_user()` NumLock-on-boot hack (no longer needed with standard keycodes).
+- **Disabled**: OLED support (`OLED_ENABLE = no` in rules.mk). OLED display is not used on this board. All OLED code remains behind `#ifdef` guards for safety.
+- **Artifact**: `firmware/omarchy-final/geigeigeist_klor_2040_zynex.uf2` (86,528 bytes).
