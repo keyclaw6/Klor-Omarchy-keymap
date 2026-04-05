@@ -1,174 +1,237 @@
-# Klor-Omarchy-keymap
+# KLOR AI Writing Workstation
 
-QMK keymap for a KLOR split keyboard (42-key Polydactyl layout, RP2040) running on [Omarchy](https://omarchy.com) (Arch Linux + Hyprland).
+Custom QMK/Vial firmware and AI bridge daemon for the [KLOR split keyboard](https://github.com/GEIGEIGEIST/KLOR) (RP2040 Polydactyl). Transforms a mechanical keyboard into an AI-powered writing tool with LLM text transformations, speech-to-text, Danish character support, and autocorrect.
 
-## Hardware
+## What It Does
 
-- **Board:** KLOR by geigeigeist, Polydactyl variant (42 keys)
-- **Controller:** RP2040
-- **Encoders:** 2 (left = mute, right = play/pause; both scroll volume)
+**Triple-tap Right Alt** to enter command mode, then press a letter key to trigger an action:
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| I | Improve | Improve writing quality of selected text |
+| R | Rewrite | Rephrase selected text differently |
+| E | Expand | Add more detail to selected text |
+| G | Grammar | Fix grammar and spelling errors |
+| S | Summarize | Condense selected text to key points |
+| D | Translate DA>EN | Translate Danish to English |
+| N | Translate EN>DA | Translate English to Danish |
+| T | Speech-to-text | Tap 1-3 times for correction depth levels |
+
+All 26 letter keys are mapped — unconfigured ones are placeholders you can assign to custom prompts without reflashing firmware.
+
+**Danish characters** via hold-to-activate on the base layer:
+- Hold P = å/Å
+- Hold ; = æ/Æ
+- Hold ' = ø/Ø
+
+**Autocorrect** built into firmware: common English typos, company names, and text expansion shortcuts.
+
+## Architecture
+
+```
+┌─────────────┐    Raw HID (USB)     ┌──────────────┐
+│  KLOR Kbd   │ ──────────────────> │ Bridge Daemon │
+│  (RP2040)   │   32-byte packets    │  (Python)     │
+│  QMK/Vial   │ <────────────────── │  asyncio      │
+└─────────────┘    status/heartbeat  └──────┬───────┘
+                                            │
+                              ┌──────────────┼──────────────┐
+                              ▼              ▼              ▼
+                        ┌──────────┐  ┌──────────┐  ┌──────────┐
+                        │ OpenRouter│  │ElevenLabs│  │ wtype /  │
+                        │   LLM    │  │ Scribe v2│  │ clipboard│
+                        └──────────┘  └──────────┘  └──────────┘
+```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for full technical details.
+
+## Requirements
+
+**Hardware:**
+- KLOR split keyboard (Polydactyl layout, RP2040 MCU)
+- USB connection to host computer
+
+**Software (Linux/Wayland):**
+- Python 3.10+
+- QMK build environment (for firmware compilation only)
+- System packages: `wtype`, `wl-clipboard`
+- Python packages: `hidapi`, `openai`, `pyyaml`, `keyring`, `sounddevice`, `numpy`, `aiohttp`
+
+**Software (Windows):**
+- Python 3.10+
+- Python packages: same as above plus `pyautogui`, `pyperclip`
+
+**API Keys:**
+- [OpenRouter](https://openrouter.ai/) — for LLM text transformations
+- [ElevenLabs](https://elevenlabs.io/) — for speech-to-text (optional, only needed for STT)
+
+## Quick Start
+
+### 1. Flash Firmware
+
+Put your KLOR into bootloader mode, then:
+
+```bash
+cp firmware/geigeigeist_klor_2040_vial.uf2 /run/media/$USER/RPI-RP2/
+```
+
+**Entering bootloader mode:** Press all 4 thumb keys on one half simultaneously, 5 times in a row (within 3 seconds). Each half can enter bootloader independently — no need to short pins or use the reset button. Alternatively, `QK_BOOT` is on the ADJUST layer (LOWER+RAISE, bottom-left key).
+
+### 2. Run Setup
+
+**Linux (Arch/Debian/Fedora):**
+```bash
+git clone https://github.com/YOUR_USERNAME/Klor-Omarchy-keymap.git
+cd Klor-Omarchy-keymap
+bash setup.sh
+```
+
+**Windows (PowerShell as Admin):**
+```powershell
+git clone https://github.com/YOUR_USERNAME/Klor-Omarchy-keymap.git
+cd Klor-Omarchy-keymap
+.\setup-windows.ps1
+```
+
+### 3. Set API Keys
+
+Keys are stored in your OS keyring — never in config files or on the keyboard.
+
+```bash
+python3 <<'EOF'
+import keyring
+keyring.set_password("klor-bridge", "openrouter_key", "sk-or-YOUR-KEY")
+EOF
+
+python3 <<'EOF'
+import keyring
+keyring.set_password("klor-bridge", "elevenlabs_key", "YOUR-KEY")
+EOF
+```
+
+Or use environment variables:
+```bash
+export KLOR_OPENROUTER_KEY=sk-or-...
+export KLOR_ELEVENLABS_KEY=...
+```
+
+### 4. Start the Bridge
+
+**Linux (systemd):**
+```bash
+systemctl --user enable --now klor-bridge
+journalctl --user -u klor-bridge -f  # view logs
+```
+
+**Manual / debugging:**
+```bash
+python3 ~/.config/klor-bridge/klor-bridge.py --verbose
+```
+
+**Windows:**
+```powershell
+python %USERPROFILE%\.config\klor-bridge\klor-bridge-windows.py --verbose
+```
+
+## Customization
+
+### Adding a New Action
+
+No firmware reflash needed — just edit config files and restart the bridge.
+
+1. Open `~/.config/klor-bridge/actions.yml`
+2. Find an unconfigured placeholder (e.g., `placeholder_b` for the B key)
+3. Change `type: unconfigured` to `type: llm_text`
+4. Set `prompt_key` to a template name
+5. Add the template in `~/.config/klor-bridge/prompts.yml`
+6. Restart the bridge: `systemctl --user restart klor-bridge`
+
+### Changing the LLM Model
+
+Edit `~/.config/klor-bridge/config.yml`:
+```yaml
+llm:
+  default_model: anthropic/claude-3.5-sonnet  # or any OpenRouter model
+```
+
+### Adding Autocorrect Entries
+
+Edit `bridge/autocorrect.txt`, then regenerate and reflash:
+```bash
+cd ~/vial-qmk
+qmk generate-autocorrect-data ~/.config/klor-bridge/autocorrect.txt -kb geigeigeist/klor/2040 -km vial
+qmk compile -kb geigeigeist/klor/2040 -km vial
+```
+
+### Speech-to-Text Depth Levels
+
+After entering command mode (triple-tap RALT), tap T multiple times:
+- **T x1** — Layer 1 only: raw ElevenLabs transcription
+- **T x2** — L1 + Layer 2: domain-specific corrections (lexicon + regex)
+- **T x3** — L1 + L2 + Layer 3: LLM post-processing for grammar cleanup
+
+## Repository Structure
+
+```
+├── README.md                 # This file
+├── ARCHITECTURE.md           # Technical design documentation
+├── OMARCHY.md                # Omarchy desktop integration guide
+├── setup.sh                  # Linux setup script
+├── setup-windows.ps1         # Windows setup script
+├── bridge/                   # Python bridge daemon + config templates
+│   ├── klor-bridge.py        # Linux daemon (Wayland)
+│   ├── klor-bridge-windows.py# Windows daemon (pyautogui)
+│   ├── config.yml            # Bridge configuration
+│   ├── actions.yml           # Action registry (26 keys)
+│   ├── prompts.yml           # LLM prompt templates
+│   ├── lexicon.yml           # Domain vocabulary for STT
+│   ├── corrections.yml       # Regex corrections for STT
+│   └── autocorrect.txt       # QMK autocorrect dictionary source
+├── keyboards/                # QMK firmware source
+│   └── geigeigeist/klor/keymaps/vial/
+│       ├── keymap.c          # Main firmware (~650 lines)
+│       ├── config.h          # QMK configuration
+│       ├── rules.mk          # Build features
+│       ├── autocorrect_data.h# Generated autocorrect trie
+│       └── vial.json         # Vial GUI descriptor
+├── firmware/                 # Pre-built firmware
+│   └── geigeigeist_klor_2040_vial.uf2
+└── systemd/                  # Linux service files
+    ├── klor-bridge.service   # systemd user service
+    └── 99-klor-hid.rules     # udev rule for HID access
+```
+
+## Building Firmware from Source
+
+```bash
+# Clone vial-qmk (one-time)
+git clone https://github.com/vial-kb/vial-qmk.git ~/vial-qmk
+cd ~/vial-qmk
+make git-submodule
+
+# Copy keymap source
+cp -r Klor-Omarchy-keymap/keyboards/geigeigeist ~/vial-qmk/keyboards/
+
+# Compile
+qmk compile -kb geigeigeist/klor/2040 -km vial
+```
+
+The compiled `.uf2` file will be at `~/vial-qmk/geigeigeist_klor_2040_vial.uf2`.
 
 ## Layers
 
 | # | Name | Activation |
 |---|------|-----------|
-| 0 | `_QWERTY` | Default base layer |
-| 1 | `_LOWER` | Hold left thumb `LOWER` key |
-| 2 | `_RAISE` | Hold right thumb `RAISE` key |
-| 3 | `_ADJUST` | Hold `LOWER` + `RAISE` together |
-| 4 | `_NAV` | Hold bottom-right key (replaces right Shift) |
+| 0 | `_QWERTY` | Default base layer (HRM + Danish hold keys) |
+| 1 | `_LOWER` | Hold left thumb `LOWER` key (numbers, nav, brackets) |
+| 2 | `_RAISE` | Hold right thumb `RAISE` key (symbols, Unicode, Danish) |
+| 3 | `_ADJUST` | Hold `LOWER` + `RAISE` together (F-keys) |
+| 4 | `_NAV` | Hold bottom-right key (Hyprland workspace switching) |
 
-The **NAV layer** wraps every mapped key in `LGUI()`, so pressing a key on NAV sends `SUPER + keycode`. This gives direct access to Omarchy workspace switching (`SUPER+1`-`SUPER+0`), directional focus/swap (`SUPER+arrows`), and workspace cycling (`SUPER+TAB`) from a single held key. Add Shift/Alt/Ctrl for Omarchy's variant shortcuts (move-to-workspace, grouped windows, etc.).
+## Vial Compatibility
 
-## Build
+This firmware is fully Vial-compatible. You can remap keys using the [Vial GUI](https://get.vial.today/) while keeping all custom features (Danish characters, command mode, autocorrect) active. The Raw HID bridge protocol coexists with Vial's protocol through the `raw_hid_receive_kb()` hook.
 
-### Standard QMK (zynex keymap)
+## License
 
-```
-qmk compile -kb geigeigeist/klor/2040 -km zynex
-```
-
-Output: `geigeigeist_klor_2040_zynex.uf2` (~85 KB)
-
-### Vial (vial keymap)
-
-Vial requires the [vial-qmk fork](https://github.com/vial-kb/vial-qmk), not stock QMK:
-
-```bash
-# Clone vial-qmk (separate from qmk_firmware — do NOT nest them)
-git clone https://github.com/vial-kb/vial-qmk ~/vial-qmk
-cd ~/vial-qmk && make git-submodule
-
-# Copy this repo's keyboard definition into the vial-qmk tree
-cp -r /path/to/this/repo/keyboards/geigeigeist ~/vial-qmk/keyboards/
-
-# Build the Vial firmware (use make, not qmk compile)
-make geigeigeist/klor/2040:vial
-```
-
-Output: `geigeigeist_klor_2040_vial.uf2` (~110 KB)
-
-### Flashing
-
-Flash by holding BOOT + tapping RESET on the keyboard, then copying the UF2 to the mounted `RPI-RP2` drive.
-
-### Using Vial
-
-After flashing the Vial firmware, open [Vial](https://get.vial.today/) (desktop app or [vial.rocks](https://vial.rocks) web app). The keyboard will be auto-detected. You can remap keys, configure combos, tap dance, encoders, and tune HRM settings — all in real time without reflashing.
-
-## Repo Structure
-
-```
-keyboards/geigeigeist/klor/           # Full board definition (from QMK upstream)
-  keymaps/zynex/
-    keymap.c                           # Active keymap (5 layers, combos, macros, home row mods)
-    config.h                           # Keymap config (tap-hold: Flow Tap + Chordal Hold + HOOKE)
-    rules.mk                           # Build flags (KEY_OVERRIDE_ENABLE=no, OLED_ENABLE=no)
-    zynex_logo.h                       # OLED logo (dead code, kept behind #ifdef)
-  keymaps/vial/
-    keymap.c                           # Vial-compatible keymap (MO() layers, encoder map, QK_KB_0)
-    config.h                           # Vial UID, unlock combo, HRM config, dynamic feature slots
-    rules.mk                           # VIA_ENABLE + VIAL_ENABLE + feature flags
-    vial.json                          # Keyboard layout definition for Vial GUI
-
-firmware/home-row-mods/
-  geigeigeist_klor_2040_zynex.uf2     # Stock QMK firmware with HRM (84,992 bytes)
-
-firmware/nav-layer/
-  geigeigeist_klor_2040_zynex.uf2     # Previous firmware — rollback target (81,920 bytes)
-
-firmware/vial/
-  geigeigeist_klor_2040_vial.uf2      # Vial firmware (112,640 bytes)
-
-artifacts/
-  geigeigeist_klor_2040_zynex_hrm.uf2 # Artifact copy of stock QMK firmware
-  geigeigeist_klor_2040_zynex_nav.uf2 # Artifact copy of previous firmware
-  geigeigeist_klor_2040_vial.uf2      # Artifact copy of Vial firmware
-```
-
-## Documentation
-
-| File | Purpose |
-|------|---------|
-| [KLOR_KEYMAP_OVERVIEW.md](KLOR_KEYMAP_OVERVIEW.md) | Human-readable layer diagrams and key maps |
-| [OMARCHY_SHORTCUT_MAP.md](OMARCHY_SHORTCUT_MAP.md) | Comprehensive Omarchy keybinding reference |
-| [OMARCHY_BINDING_MANIFEST.md](OMARCHY_BINDING_MANIFEST.md) | Source-annotated inventory of all Omarchy bindings |
-| [OMARCHY_BINDING_CONFLICTS.md](OMARCHY_BINDING_CONFLICTS.md) | Known binding conflicts between keyboard and Omarchy |
-
-## QMK Baseline
-
-- **QMK repo:** `qmk_firmware`
-- **Commit:** `1426eedfc1`
-- **Branch:** `master`
-- **Tracked subtree:** `keyboards/geigeigeist/klor/`
-
-## Notable Design Decisions
-
-1. **Home Row Mods (GACS order)** — The home row keys (A, S, D, F / J, K, L, ;) are dual-function: tap for the letter, hold for a modifier. Uses the "Modern Safe" approach with three layers of protection against misfires: Flow Tap (fast typing bypass), Chordal Hold (same-hand = tap), and Hold On Other Key Press (instant opposite-hand activation). See `KLOR_KEYMAP_OVERVIEW.md` for details.
-
-2. **Right Shift replaced with `MO(_NAV)`** — The bottom-right key on QWERTY activates the NAV layer instead of acting as right Shift. Right Shift was rarely used since the left thumb handles Shift for most shortcuts.
-
-3. **No key overrides** — `KEY_OVERRIDE_ENABLE = no`. An earlier `sve_key_override` that converted `SUPER+S` to `Ctrl+S` was removed because it blocked Omarchy's scratchpad toggle.
-
-4. **Standard number keycodes in LOWER** — Uses `KC_0`-`KC_9` (not keypad `KC_P0`-`KC_P9`) to eliminate NumLock dependency.
-
-5. **OLED disabled** — `OLED_ENABLE = no`. All OLED code is behind `#ifdef` guards and compiles away cleanly.
-
-6. **SNAP2 macro (LOWER bottom-left)** — Sends `Shift+Win+S` (Windows screenshot). Does nothing on Omarchy. Left in place for potential Windows use.
-
-7. **Vial keymap as separate build target** — The `vial` keymap lives alongside `zynex`. It's built from the vial-qmk fork (not stock QMK) and converts all custom keycodes to standard QMK equivalents so Vial can remap them. The `zynex` keymap remains the stock QMK reference. Choose based on your preference: `zynex` for maximum QMK feature access (Chordal Hold, Flow Tap guaranteed), `vial` for runtime configurability through a GUI.
-
-## Changelog
-
-### Vial support (2026-04-04)
-
-Added a `vial` keymap for real-time keyboard configuration through the [Vial](https://get.vial.today/) GUI:
-
-- **New keymap:** `keyboards/geigeigeist/klor/keymaps/vial/` — built from the [vial-qmk](https://github.com/vial-kb/vial-qmk) fork
-- **Layer switching:** Converted custom `LOWER`/`RAISE` keycodes to `MO(_LOWER)`/`MO(_RAISE)` + `TRI_LAYER_ENABLE` (standard QMK, Vial-visible)
-- **Custom keycode:** `SNAP2` uses `QK_KB_0` (visible in Vial as "Screenshot" under User tab)
-- **Encoder map:** Replaced `encoder_update_user` callback with `encoder_map` (per-layer, Vial-remappable)
-- **Dynamic features:** Combos (8 slots), Tap Dance (8 slots), Key Overrides (4 slots), QMK Settings — all configurable through Vial GUI
-- **Unlock combo:** Q + P (matrix positions [0,1] + [4,1])
-- **Firmware size:** 112,640 bytes (110 KB) — 5.4% of 2 MB flash
-- **HRM preserved:** Full Chordal Hold + Flow Tap + HOOKE configuration carries over from `zynex`
-- **Rollback:** Flash `firmware/home-row-mods/geigeigeist_klor_2040_zynex.uf2` to return to stock QMK
-
-### Home Row Mods (2026-04-04)
-
-Added home row mods to the QWERTY base layer using the "Modern Safe" approach:
-
-- **Mod-tap keys:** `GUI/A`, `ALT/S`, `CTL/D`, `SFT/F` | `SFT/J`, `CTL/K`, `ALT/L`, `GUI/;` (GACS order)
-- **Flow Tap** (`FLOW_TAP_TERM 150`): Fast typing automatically bypasses mod-tap — no lag or false triggers during normal typing
-- **Chordal Hold**: Same-hand key after mod-tap = always tap; opposite-hand = modifier. Eliminates same-hand misfires entirely
-- **Hold On Other Key Press**: Opposite-hand modifier activates instantly on key press (safe because Chordal Hold guards same-hand)
-- **`QUICK_TAP_TERM 0`**: Disables auto-repeat on mod-taps (fixes accidental letter repeat in camelCase scenarios)
-- **AltGr safety**: Right-hand Alt position (L) uses `LALT` instead of `RALT` to avoid conflicts with `RALT()` international characters on the RAISE layer
-- Removed stale `TAPPING_FORCE_HOLD` define (silently ignored since QMK 0.20)
-- **Rollback:** Flash `firmware/nav-layer/geigeigeist_klor_2040_zynex.uf2`
-
-### Nav-layer redesign (2026-04-04)
-
-Replaced the `_OMARCHY` layer with a new `_NAV` layer:
-
-- **Removed:** `_OMARCHY` layer (had launcher/system/capture shortcuts that duplicated Omarchy's native `LGUI+key` behavior)
-- **Added:** `_NAV` layer with LGUI-wrapped arrows (workspace focus/swap), numbers 0-9 (workspace switching), and TAB (workspace cycling)
-- **Removed:** `sve_key_override` (`SUPER+S` -> `Ctrl+S`), disabled `KEY_OVERRIDE_ENABLE`
-- **Result:** Cleaner 5-layer design. All common Omarchy shortcuts accessible via NAV hold + number/arrow, with Shift/Alt/Ctrl modifiers for variants.
-
-### Full Omarchy implementation pass (2026-04-04)
-
-- Replaced keypad keycodes (`KC_P0`-`KC_P9`) with standard (`KC_0`-`KC_9`) in LOWER layer
-- Removed `keyboard_post_init_user()` NumLock-on-boot hack
-- Disabled OLED support (`OLED_ENABLE = no`)
-
-### Minimal rescue pass (2026-04-04)
-
-- Fixed `layer_state_set_kb` -> `layer_state_set_user` (keymaps use `_user` callbacks)
-- Confirmed `oled_task_user` rename was correct (`klor.c` already defines `oled_task_kb`)
-- First successful compile of the Omarchy adaptation
-
-### Initial snapshot
-
-- Imported KLOR board definition and `zynex` keymap from QMK
-- Added `_OMARCHY` layer (later replaced by `_NAV`)
+This keymap and bridge daemon are provided as-is for the KLOR keyboard community. The KLOR keyboard design is by [GEIGEIGEIST](https://github.com/GEIGEIGEIST/KLOR).

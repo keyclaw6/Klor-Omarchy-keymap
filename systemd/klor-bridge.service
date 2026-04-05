@@ -1,0 +1,33 @@
+[Unit]
+Description=KLOR Bridge AI writing assistant daemon
+Documentation=file://%h/.config/klor-bridge/config.yml
+After=graphical-session.target
+BindsTo=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.config/klor-bridge/klor-bridge.py
+Restart=on-failure
+RestartSec=5
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+
+# Inherit Wayland session environment (needed for wtype, wl-clipboard)
+# Run: systemctl --user import-environment WAYLAND_DISPLAY XDG_RUNTIME_DIR
+# Or add to hyprland.conf: exec-once = systemctl --user import-environment WAYLAND_DISPLAY XDG_RUNTIME_DIR
+
+# Resource limits
+MemoryMax=512M
+CPUQuota=50%
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=%h/.config/klor-bridge %h/.cache
+PrivateTmp=yes
+
+# HID device access (requires user to be in 'input' group or udev rule)
+DeviceAllow=/dev/hidraw* rw
+
+[Install]
+WantedBy=graphical-session.target

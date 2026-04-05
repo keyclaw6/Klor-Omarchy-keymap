@@ -1,0 +1,58 @@
+# KLOR Bridge Configuration
+# ─────────────────────────
+# Main config for the klor-bridge Python daemon.
+#
+# API keys are stored in OS keyring (gnome-keyring / keyring lib),
+# NEVER in this file. Fallback: environment variables.
+#
+# Set keys via (paste each block into your terminal):
+#
+#   python3 <<'EOF'
+#   import keyring
+#   keyring.set_password("klor-bridge", "openrouter_key", "sk-or-...")
+#   EOF
+#
+#   python3 <<'EOF'
+#   import keyring
+#   keyring.set_password("klor-bridge", "elevenlabs_key", "...")
+#   EOF
+#
+# Or export as environment variables:
+#   export KLOR_OPENROUTER_KEY=sk-or-...
+#   export KLOR_ELEVENLABS_KEY=...
+
+bridge:
+  vid: 0x3A3C              # USB Vendor ID (matches firmware's VID)
+  pid: 0x0001              # USB Product ID (matches firmware's PID)
+  usage_page: 0xFF60       # QMK Raw HID usage page (standard)
+  usage_id: 0x61           # QMK Raw HID usage ID (standard)
+  reconnect_interval: 5    # Seconds between reconnect attempts when keyboard disconnected
+  heartbeat_interval: 5    # Seconds between heartbeat pings to verify connection
+
+llm:
+  provider: openrouter     # API provider (only openrouter supported currently)
+  base_url: https://openrouter.ai/api/v1  # OpenAI-compatible API endpoint
+  default_model: nvidia/nemotron-3-super-120b-a12b  # Model for text transformations
+  max_tokens: 4096         # Maximum response length
+  temperature: 0.3         # Lower = more deterministic, higher = more creative (0.0-2.0)
+
+stt:
+  # language: omitted = auto-detect (ElevenLabs detects Danish/English automatically)
+  # Set to a specific ISO 639-3 code (e.g., "dan", "eng") to force a language.
+  audio_device: default    # Sounddevice device index or name ("default" uses system default)
+  sample_rate: 16000       # Audio sample rate in Hz (16000 is standard for STT)
+  channels: 1              # Mono audio (1 channel)
+
+  elevenlabs:
+    model_id: scribe_v2    # ElevenLabs STT model
+    no_verbatim: true      # Clean up filler words (um, uh, etc.)
+    diarize: false         # Single-speaker dictation — no speaker separation needed
+    timestamps_granularity: none  # No timestamps for dictation use case
+    tag_audio_events: false # Don't tag non-speech audio events
+
+platform:
+  # Linux/Wayland tools (change these for other platforms — see klor-bridge-windows.py)
+  clipboard_read: wl-paste     # Command to read clipboard contents
+  clipboard_write: wl-copy     # Command to write to clipboard
+  key_simulator: wtype         # Command to simulate keypresses (Ctrl+C, Ctrl+V)
+  copy_delay_ms: 150           # Delay (ms) after Ctrl+C before reading clipboard

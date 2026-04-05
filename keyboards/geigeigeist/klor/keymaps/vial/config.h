@@ -33,7 +33,14 @@
 /* ── Save space ── */
 #undef LOCKING_SUPPORT_ENABLE
 #undef LOCKING_RESYNC_ENABLE
-#define NO_ACTION_ONESHOT
+
+/* ── One-shot keys (OSM/OSL) ── */
+#define ONESHOT_TIMEOUT 3000       // Cancel if no key pressed within 3s
+#define ONESHOT_TAP_TOGGLE 2       // Double-tap OSM = toggle (caps lock)
+
+/* ── Unicode (Danish æ ø å via Ctrl+Shift+U on Linux/GTK) ── */
+#define UNICODE_SELECTED_MODES UNICODE_MODE_LINUX
+#define UNICODE_TYPE_DELAY 10      // Safety margin for Wayland apps
 
 /* ── Vial dynamic feature slots ── */
 #define DYNAMIC_KEYMAP_LAYER_COUNT 5

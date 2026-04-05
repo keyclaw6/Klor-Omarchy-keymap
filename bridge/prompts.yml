@@ -1,0 +1,107 @@
+# KLOR Bridge Prompt Templates
+# ─────────────────────────────
+# Each key matches a prompt_key value from actions.yml.
+# ${text} is replaced with the selected/transcribed text at runtime.
+#
+# HOW TO ADD A NEW PROMPT:
+#   1. Pick a name (e.g., "make_formal")
+#   2. Add it here as a YAML key with a multi-line template using |
+#   3. In actions.yml, set prompt_key: make_formal on your action
+#   4. Restart the bridge daemon — no firmware reflash needed
+#
+# TIPS:
+#   - Always end with "Return ONLY the result, nothing else."
+#     to prevent the LLM from adding commentary
+#   - Keep prompts focused on a single transformation
+#   - Test with different LLM models via config.yml's default_model
+
+# ── Active prompts (used by configured actions) ──────────────────
+
+improve_writing: |
+  Improve the following text. Make it clearer, more concise, and better structured.
+  Preserve the original meaning and tone. Return ONLY the improved text, nothing else.
+
+  Text:
+  ${text}
+
+rewrite: |
+  Rewrite the following text with different phrasing while preserving the meaning.
+  Make it sound natural and professional. Return ONLY the rewritten text, nothing else.
+
+  Text:
+  ${text}
+
+expand: |
+  Expand the following text with more detail, examples, or explanations.
+  Keep the same style and tone. Return ONLY the expanded text, nothing else.
+
+  Text:
+  ${text}
+
+fix_grammar: |
+  Fix all grammar, spelling, and punctuation errors in the following text.
+  Do not change the meaning or style. Return ONLY the corrected text, nothing else.
+
+  Text:
+  ${text}
+
+summarize: |
+  Summarize the following text concisely. Capture the key points in 1-3 sentences.
+  Return ONLY the summary, nothing else.
+
+  Text:
+  ${text}
+
+translate_da_en: |
+  Translate the following Danish text to English.
+  Preserve the tone and register. Return ONLY the English translation, nothing else.
+
+  Text:
+  ${text}
+
+translate_en_da: |
+  Translate the following English text to Danish.
+  Preserve the tone and register. Use natural Danish phrasing.
+  Return ONLY the Danish translation, nothing else.
+
+  Text:
+  ${text}
+
+stt_postprocess: |
+  The following is a speech-to-text transcript that may contain errors.
+  Fix any obvious transcription mistakes, grammar issues, and formatting problems.
+  Preserve the speaker's intended meaning. Return ONLY the corrected text, nothing else.
+
+  Transcript:
+  ${text}
+
+# ── Example prompts for unconfigured keys ────────────────────────
+# Uncomment and assign a prompt_key in actions.yml to activate.
+#
+# make_formal: |
+#   Rewrite the following text in a formal, professional tone.
+#   Return ONLY the formal version, nothing else.
+#
+#   Text:
+#   ${text}
+#
+# make_casual: |
+#   Rewrite the following text in a casual, conversational tone.
+#   Return ONLY the casual version, nothing else.
+#
+#   Text:
+#   ${text}
+#
+# explain_code: |
+#   Explain what the following code does in plain English.
+#   Be concise but thorough. Return ONLY the explanation, nothing else.
+#
+#   Code:
+#   ${text}
+#
+# write_email: |
+#   Turn the following notes into a professional email.
+#   Return ONLY the email body, nothing else.
+#
+#   Notes:
+#   ${text}
