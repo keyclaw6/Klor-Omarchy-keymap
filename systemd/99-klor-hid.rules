@@ -1,0 +1,4 @@
+# KLOR Split Keyboard - Raw HID access for klor-bridge daemon
+# VID=0x3A3C PID=0x0001
+# Install: sudo cp this-file /etc/udev/rules.d/99-klor-hid.rules && sudo udevadm control --reload-rules && sudo udevadm trigger
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3a3c", ATTRS{idProduct}=="0001", MODE="0660", TAG+="uaccess"

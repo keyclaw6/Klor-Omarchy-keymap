@@ -20,4 +20,13 @@ HAPTIC_ENABLE = no
 RGB_MATRIX_ENABLE = no
 AUDIO_ENABLE = no
 
+# ── Danish characters (æ ø å) ──
+UNICODEMAP_ENABLE = yes
+
+# ── Autocorrect (typo correction + text expansion) ──
+AUTOCORRECT_ENABLE = yes
+
+# ── Raw HID for bridge protocol (VIA already implies this, explicit for clarity) ──
+RAW_ENABLE = yes
+
 PIN_COMPATIBLE = promicro

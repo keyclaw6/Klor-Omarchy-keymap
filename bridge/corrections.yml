@@ -1,0 +1,45 @@
+# KLOR Bridge Exact Corrections
+# ──────────────────────────────
+# STT Layer 2: regex-based exact replacements applied before fuzzy matching.
+# Format: pattern → replacement (Python regex)
+# Applied in order, top to bottom.
+
+corrections:
+  # Common STT mistakes for technical terms
+  - pattern: "\\bclore\\b"
+    replace: "KLOR"
+    ignorecase: true
+
+  - pattern: "\\bqueue mk\\b"
+    replace: "QMK"
+    ignorecase: true
+
+  - pattern: "\\bQ\\.?M\\.?K\\.?\\b"
+    replace: "QMK"
+
+  - pattern: "\\bvial\\b"
+    replace: "Vial"
+
+  - pattern: "\\bhyperland\\b"
+    replace: "Hyprland"
+    ignorecase: true
+
+  - pattern: "\\bway bar\\b"
+    replace: "Waybar"
+    ignorecase: true
+
+  - pattern: "\\bopen router\\b"
+    replace: "OpenRouter"
+    ignorecase: true
+
+  - pattern: "\\beleven labs\\b"
+    replace: "ElevenLabs"
+    ignorecase: true
+
+  - pattern: "\\braspberry pi pico\\b"
+    replace: "Raspberry Pi Pico"
+    ignorecase: true
+
+  - pattern: "\\brp2040\\b"
+    replace: "RP2040"
+    ignorecase: true

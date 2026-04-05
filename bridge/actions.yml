@@ -1,0 +1,189 @@
+# KLOR Bridge Action Registry
+# ───────────────────────────
+# Maps firmware action IDs to behaviors. The firmware sends ASCII codes
+# (A=0x41 through Z=0x5A) when a letter is pressed in command mode.
+#
+# HOW TO ADD/CHANGE ACTIONS:
+#   1. Find the letter you want to assign in this file
+#   2. Change type from "unconfigured" to "llm_text" or another type
+#   3. Set prompt_key to match a template name in prompts.yml
+#   4. Add/edit the matching prompt template in prompts.yml
+#   5. No firmware reflash needed — just restart the bridge daemon
+#
+# Action types:
+#   llm_text      — Copy selected text → LLM transform → paste result
+#   stt_toggle    — Start/stop speech-to-text recording
+#   unconfigured  — Placeholder; bridge logs a notice and does nothing
+#
+# The T key (0x54) is NOT listed here — it uses a special firmware path
+# that sends ACTION_STT (0x10) with a depth parameter (1-3 taps).
+
+actions:
+  # ── Configured actions ──────────────────────────────────────────
+
+  improve:
+    action_id: 0x49          # I key
+    type: llm_text
+    key: i
+    prompt_key: improve_writing
+    description: Improve writing quality of selected text
+
+  rewrite:
+    action_id: 0x52          # R key
+    type: llm_text
+    key: r
+    prompt_key: rewrite
+    description: Rewrite selected text with different phrasing
+
+  expand:
+    action_id: 0x45          # E key
+    type: llm_text
+    key: e
+    prompt_key: expand
+    description: Expand selected text with more detail
+
+  grammar:
+    action_id: 0x47          # G key
+    type: llm_text
+    key: g
+    prompt_key: fix_grammar
+    description: Fix grammar and spelling errors
+
+  summarize:
+    action_id: 0x53          # S key
+    type: llm_text
+    key: s
+    prompt_key: summarize
+    description: Summarize selected text concisely
+
+  translate_da_en:
+    action_id: 0x44          # D key
+    type: llm_text
+    key: d
+    prompt_key: translate_da_en
+    description: Translate Danish text to English
+
+  translate_en_da:
+    action_id: 0x4E          # N key
+    type: llm_text
+    key: "n"
+    prompt_key: translate_en_da
+    description: Translate English text to Danish
+
+  transcribe:
+    action_id: 0x10          # Special STT action (not ASCII — firmware sends 0x10)
+    type: stt_toggle
+    key: t
+    description: Toggle speech-to-text (tap count = correction depth)
+
+  # ── Unconfigured placeholders ───────────────────────────────────
+  # These keys are mapped in firmware but have no action assigned yet.
+  # To activate one, change type to "llm_text" and set a prompt_key.
+
+  placeholder_a:
+    action_id: 0x41          # A key
+    type: unconfigured
+    key: a
+    description: Unassigned — edit to add your action
+
+  placeholder_b:
+    action_id: 0x42          # B key
+    type: unconfigured
+    key: b
+    description: Unassigned — edit to add your action
+
+  placeholder_c:
+    action_id: 0x43          # C key
+    type: unconfigured
+    key: c
+    description: Unassigned — edit to add your action
+
+  placeholder_f:
+    action_id: 0x46          # F key
+    type: unconfigured
+    key: f
+    description: Unassigned — edit to add your action
+
+  placeholder_h:
+    action_id: 0x48          # H key
+    type: unconfigured
+    key: h
+    description: Unassigned — edit to add your action
+
+  placeholder_j:
+    action_id: 0x4A          # J key
+    type: unconfigured
+    key: j
+    description: Unassigned — edit to add your action
+
+  placeholder_k:
+    action_id: 0x4B          # K key
+    type: unconfigured
+    key: k
+    description: Unassigned — edit to add your action
+
+  placeholder_l:
+    action_id: 0x4C          # L key
+    type: unconfigured
+    key: l
+    description: Unassigned — edit to add your action
+
+  placeholder_m:
+    action_id: 0x4D          # M key
+    type: unconfigured
+    key: m
+    description: Unassigned — edit to add your action
+
+  placeholder_o:
+    action_id: 0x4F          # O key
+    type: unconfigured
+    key: o
+    description: Unassigned — edit to add your action
+
+  placeholder_p:
+    action_id: 0x50          # P key
+    type: unconfigured
+    key: p
+    description: Unassigned — edit to add your action
+
+  placeholder_q:
+    action_id: 0x51          # Q key
+    type: unconfigured
+    key: q
+    description: Unassigned — edit to add your action
+
+  placeholder_u:
+    action_id: 0x55          # U key
+    type: unconfigured
+    key: u
+    description: Unassigned — edit to add your action
+
+  placeholder_v:
+    action_id: 0x56          # V key
+    type: unconfigured
+    key: v
+    description: Unassigned — edit to add your action
+
+  placeholder_w:
+    action_id: 0x57          # W key
+    type: unconfigured
+    key: w
+    description: Unassigned — edit to add your action
+
+  placeholder_x:
+    action_id: 0x58          # X key
+    type: unconfigured
+    key: x
+    description: Unassigned — edit to add your action
+
+  placeholder_y:
+    action_id: 0x59          # Y key
+    type: unconfigured
+    key: y
+    description: Unassigned — edit to add your action
+
+  placeholder_z:
+    action_id: 0x5A          # Z key
+    type: unconfigured
+    key: z
+    description: Unassigned — edit to add your action

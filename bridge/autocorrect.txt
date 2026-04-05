@@ -1,0 +1,75 @@
+# KLOR Autocorrect Dictionary
+# Format: misspelling -> correction
+# One entry per line. Lines starting with # are comments.
+# These will be compiled into a QMK autocorrect trie.
+#
+# NOTE: Entries should be 5+ chars to avoid false triggers on substrings.
+# Short contractions (don't, can't, etc.) are omitted because QMK autocorrect
+# fires on substrings — "cant" triggers inside "significant" etc.
+#
+# ── Text expansion (double-letter prefix to avoid false matches) ──
+# QMK autocorrect triggers are alpha-only (a-z). No @, :, or digits allowed.
+# Usage: type the shortcut followed by a space/punctuation and it expands.
+# Add your own below using double-letter prefixes (e.g., kkXX).
+kkbee -> kb@zynexgroup.com
+kkabb -> kab264z@gmail.com
+kkeyw -> keyclaw6@gmail.com
+#
+# ── Zynex corrections ──
+# NOTE: "zynxe" omitted because it's a substring of "zynxegroup" and would
+# prevent the longer correction from triggering. If you type "zynxe " (with
+# space) autocorrect won't fire, but that's a rare standalone misspelling.
+zyenx -> Zynex
+zynec -> Zynex
+zynexgruop -> ZynexGroup
+zynxegroup -> ZynexGroup
+zynexgrop -> ZynexGroup
+#
+# ── Common English typos (5+ chars only) ──
+recieve -> receive
+occured -> occurred
+seperate -> separate
+definately -> definitely
+accomodate -> accommodate
+occurence -> occurrence
+neccessary -> necessary
+wierd -> weird
+untill -> until
+acheive -> achieve
+beleive -> believe
+calender -> calendar
+collegue -> colleague
+commitee -> committee
+concious -> conscious
+enviroment -> environment
+foriegn -> foreign
+goverment -> government
+immedietly -> immediately
+independant -> independent
+knowlege -> knowledge
+maintainance -> maintenance
+millenium -> millennium
+noticable -> noticeable
+persistant -> persistent
+posession -> possession
+publically -> publicly
+refered -> referred
+relevent -> relevant
+restaraunt -> restaurant
+succesful -> successful
+tommorow -> tomorrow
+wouldnt -> wouldn't
+shouldnt -> shouldn't
+couldnt -> couldn't
+doesnt -> doesn't
+havent -> haven't
+didnt -> didn't
+wasnt -> wasn't
+hasnt -> hasn't
+# ── Programming terms ──
+fucntion -> function
+reutrn -> return
+pritn -> print
+lenght -> length
+widht -> width
+heigth -> height

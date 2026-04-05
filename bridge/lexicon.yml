@@ -1,0 +1,58 @@
+# KLOR Bridge Domain Lexicon
+# ──────────────────────────
+# Terms for STT Layer 2 domain corrector.
+# Used for Levenshtein fuzzy matching against raw transcriptions.
+# Also used as ElevenLabs Scribe v2 keyterms for vocabulary biasing.
+#
+# Format: list of terms (case-sensitive where it matters)
+
+technical:
+  - KLOR
+  - QMK
+  - Vial
+  - RP2040
+  - Raspberry Pi Pico
+  - Hyprland
+  - Waybar
+  - Wayland
+  - Alacritty
+  - Kitty
+  - Ghostty
+  - Omarchy
+  - OpenCode
+  - OpenRouter
+  - ElevenLabs
+  - Scribe
+  - wtype
+  - wl-clipboard
+  - PipeWire
+  - systemd
+  - asyncio
+  - keyring
+  - OLED
+  - HID
+  - USB
+  - firmware
+  - keymap
+  - home row mods
+  - tap dance
+  - one-shot shift
+  - Unicode Map
+
+energy:
+  - BESS
+  - aFRR
+
+business:
+  - ZynexGroup
+  - Zynex
+
+danish:
+  - København
+  - Aarhus
+  - Odense
+  - Aalborg
+  - Frederiksberg
+
+personal: []
+  # Add your own frequently-used terms here
