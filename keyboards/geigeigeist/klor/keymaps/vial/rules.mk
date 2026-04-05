@@ -11,6 +11,9 @@ OLED_ENABLE = no
 ENCODER_ENABLE = yes
 EXTRAKEY_ENABLE = yes
 DYNAMIC_MACRO_ENABLE = no
+# COMBO_ENABLE and KEY_OVERRIDE_ENABLE must be YES for Vial.
+# vial.h auto-defines VIAL_COMBO_ENABLE / VIAL_KEY_OVERRIDE_ENABLE,
+# which tells keymap_introspection.c to skip static array checks.
 COMBO_ENABLE = yes
 KEY_OVERRIDE_ENABLE = yes
 TAP_DANCE_ENABLE = yes

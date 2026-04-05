@@ -10,7 +10,9 @@ Usage:
     python klor-bridge.py              # run in foreground
     python klor-bridge.py --verbose    # debug logging
 
-Dependencies:
+Dependencies (Arch):
+    pacman -S python-hid python-openai python-yaml python-keyring python-sounddevice python-numpy python-aiohttp
+Dependencies (pip):
     pip install hidapi openai pyyaml keyring sounddevice numpy aiohttp
 
 System deps:
@@ -193,6 +195,31 @@ class Platform:
             stderr=asyncio.subprocess.DEVNULL,
         )
         await proc.communicate(input=text.encode("utf-8"))
+
+    async def notify(self, title: str, body: str = "", urgent: bool = False,
+                     timeout: int = 3000, tag: str = "") -> None:
+        """Send a desktop notification via notify-send.
+
+        If tag is set, subsequent notifications with the same tag replace
+        the previous one (uses dunst/mako-compatible hint).
+        """
+        try:
+            cmd = ["notify-send"]
+            if urgent:
+                cmd += ["-t", "0", "-u", "critical"]
+            else:
+                cmd += ["-t", str(timeout)]
+            if tag:
+                cmd += ["-h", f"string:x-dunst-stack-tag:{tag}"]
+            cmd += ["--", title, body]
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await proc.wait()
+        except Exception as e:
+            log.debug("Notification failed: %s", e)
 
 
 # ─── LLM Client (OpenRouter) ──────────────────────────────────────────────────
@@ -384,12 +411,16 @@ class STTPipeline:
         if not self.el_cfg.get("tag_audio_events", False):
             data.add_field("tag_audio_events", "false")
 
-        # Add keyterms for vocabulary biasing
+        # Tell ElevenLabs the audio format (raw PCM int16, 16kHz, mono)
+        data.add_field("file_format", "pcm_s16le_16")
+
+        # Add keyterms for vocabulary biasing — each term as a separate field
         if self.lexicon:
-            # Scribe v2 accepts keyterms as JSON array string
             import json
             keyterms = self.lexicon[:1000]  # max 1000
-            data.add_field("keyterms", json.dumps(keyterms))
+            # Send each keyterm as a repeated form field (not a JSON string)
+            for term in keyterms:
+                data.add_field("keyterms[]", term)
 
         async with aiohttp.ClientSession() as session:
             async with session.post(url, headers=headers, data=data) as resp:
@@ -505,13 +536,28 @@ class HIDConnection:
         try:
             import hid
 
+            # Support both hidapi (hid.device) and python-hid (hid.Device)
+            if hasattr(hid, "device"):
+                Device = hid.device
+                has_open_path = True
+            elif hasattr(hid, "Device"):
+                Device = hid.Device
+                has_open_path = False
+            else:
+                log.error("No hid.device or hid.Device found")
+                return False
+
             # Enumerate to find the Raw HID interface (usage_page 0xFF60)
             for dev_info in hid.enumerate(self.vid, self.pid):
                 if dev_info.get("usage_page") == self.usage_page and \
                    dev_info.get("usage") == self.usage_id:
-                    self._device = hid.device()
-                    self._device.open_path(dev_info["path"])
-                    self._device.set_nonblocking(True)
+                    if has_open_path:
+                        self._device = Device()
+                        self._device.open_path(dev_info["path"])
+                        self._device.set_nonblocking(True)
+                    else:
+                        self._device = Device(path=dev_info["path"])
+                        self._device.nonblocking = True
                     log.info(
                         "Connected to KLOR: %s (VID=%04x PID=%04x)",
                         dev_info.get("product_string", "unknown"),
@@ -521,9 +567,13 @@ class HIDConnection:
                     return True
 
             # Fallback: try opening by VID/PID directly
-            self._device = hid.device()
-            self._device.open(self.vid, self.pid)
-            self._device.set_nonblocking(True)
+            if has_open_path:
+                self._device = Device()
+                self._device.open(self.vid, self.pid)
+                self._device.set_nonblocking(True)
+            else:
+                self._device = Device(self.vid, self.pid)
+                self._device.nonblocking = True
             log.info("Connected to KLOR via VID/PID (no usage page filter)")
             return True
 
@@ -559,11 +609,11 @@ class HIDConnection:
             return None
 
     def send(self, data: bytes) -> bool:
-        """Send a 32-byte packet. Prepends 0x00 report ID for hidapi."""
+        """Send a 32-byte packet. Prepends 0x00 report ID as required by HID protocol."""
         if not self._device:
             return False
         try:
-            # hidapi requires report ID as first byte (0x00 for default)
+            # HID protocol requires report ID as first byte (0x00 for default)
             packet = b"\x00" + data.ljust(PACKET_SIZE, b"\x00")[:PACKET_SIZE]
             self._device.write(packet)
             return True
@@ -603,6 +653,16 @@ class KlorBridge:
         log.info("Config dir: %s", CONFIG_DIR)
         log.info("Actions loaded: %d", len(self.actions))
 
+        # Start the test socket server for injecting simulated HID packets
+        test_port = self.config.get("bridge", {}).get("test_port", 19378)
+        try:
+            test_server = await asyncio.start_server(
+                self._handle_test_connection, "127.0.0.1", test_port)
+            log.info("Test socket listening on 127.0.0.1:%d", test_port)
+        except OSError as e:
+            log.warning("Test socket unavailable (port %d): %s", test_port, e)
+            test_server = None
+
         while True:
             # Connect (with retry)
             if not self.hid.is_connected:
@@ -619,6 +679,27 @@ class KlorBridge:
                 log.error("Processing error: %s", e, exc_info=True)
                 self.hid.disconnect()
                 await asyncio.sleep(1)
+
+    async def _handle_test_connection(self, reader: asyncio.StreamReader,
+                                       writer: asyncio.StreamWriter) -> None:
+        """Handle a test socket connection: read 32-byte packets and dispatch."""
+        addr = writer.get_extra_info("peername")
+        log.info("Test connection from %s", addr)
+        try:
+            while True:
+                data = await reader.read(PACKET_SIZE)
+                if not data:
+                    break
+                # Pad to 32 bytes if short
+                packet = data.ljust(PACKET_SIZE, b"\x00")[:PACKET_SIZE]
+                log.info("Test packet: %s", packet[:4].hex())
+                await self._handle_packet(packet)
+                writer.write(b"OK\n")
+                await writer.drain()
+        except Exception as e:
+            log.debug("Test connection error: %s", e)
+        finally:
+            writer.close()
 
     async def _process_loop(self) -> None:
         """Read HID packets and dispatch actions."""
@@ -647,6 +728,7 @@ class KlorBridge:
             return
 
         cmd_id = packet[0]
+        log.debug("RX packet: cmd=%02x payload=%s", cmd_id, packet[1:4].hex())
 
         if cmd_id == CMD_BRIDGE_ACTION:
             action_id = packet[1] if len(packet) > 1 else 0
@@ -684,14 +766,12 @@ class KlorBridge:
             log.error("Action %s failed: %s", name, e, exc_info=True)
 
     async def _handle_llm_text(self, action: dict) -> None:
-        """Copy selection → LLM transform → paste result → restore clipboard."""
-        # Save original clipboard
-        old_clip = await self.platform._read_clipboard()
-
+        """Copy selection → LLM transform → write result to clipboard (no auto-paste)."""
         # Copy selected text
         text = await self.platform.copy_selection()
         if not text:
             log.warning("No text selected (clipboard empty)")
+            await self.platform.notify("No text selected", "Select some text and try again", tag="klor-llm")
             return
 
         # Look up prompt template
@@ -699,27 +779,23 @@ class KlorBridge:
         template = self.prompts.get(prompt_key)
         if not template:
             log.error("Prompt template not found: %s", prompt_key)
-            # Restore clipboard before returning
-            if old_clip:
-                await self.platform._write_clipboard(old_clip)
             return
 
         # Process through LLM
         result = await self.llm.process_text(text, template)
         if not result:
             log.warning("LLM returned empty result")
-            if old_clip:
-                await self.platform._write_clipboard(old_clip)
+            await self.platform.notify("LLM returned empty", "Try again or select different text", tag="klor-llm")
             return
 
-        # Paste result (replaces selection)
-        await self.platform.paste_text(result)
-        log.info("Text injected: %d chars → %d chars", len(text), len(result))
-
-        # Restore original clipboard after a brief delay for paste to complete
-        await asyncio.sleep(0.1)
-        if old_clip:
-            await self.platform._write_clipboard(old_clip)
+        # Write result to clipboard (no paste)
+        await self.platform._write_clipboard(result)
+        log.info("LLM result copied to clipboard: %d chars → %d chars", len(text), len(result))
+        await self.platform.notify(
+            f"{action.get('key', '').upper()} — LLM result copied",
+            f"{len(result)} chars ready to paste",
+            tag="klor-llm"
+        )
 
     async def _handle_stt_toggle(self, depth: int) -> None:
         """Toggle speech-to-text recording."""
@@ -728,16 +804,35 @@ class KlorBridge:
         if self.stt.is_recording:
             # Use the depth stored at recording start (not the stop packet's param)
             log.info("STT stop → processing with depth=%d", self._stt_depth)
+            await self.platform.notify(
+                "Processing transcription...", "Please wait",
+                tag="klor-stt"
+            )
             result = await self.stt.toggle_recording(self._stt_depth)
             if result:
-                await self.platform.type_text(result)
-                log.info("STT injected: %d chars", len(result))
+                await self.platform._write_clipboard(result)
+                log.info("STT copied to clipboard: %d chars", len(result))
+                await self.platform.notify(
+                    "Transcription complete",
+                    f"{len(result)} chars copied to clipboard (depth={self._stt_depth})",
+                    tag="klor-stt"
+                )
             else:
                 log.warning("STT produced no text")
+                await self.platform.notify(
+                    "No speech detected", "Try again and speak clearly",
+                    tag="klor-stt"
+                )
         else:
             self._stt_depth = depth
             await self.stt.toggle_recording(depth)
             log.info("STT recording started (depth=%d)", depth)
+            await self.platform.notify(
+                "Recording...",
+                f"Speak now. Depth {depth}/3. Press RALT or T to stop.",
+                urgent=True,
+                tag="klor-stt"
+            )
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────

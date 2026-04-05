@@ -236,7 +236,7 @@ The bridge protocol hooks into `raw_hid_receive_kb()`, which vial-qmk's `via.c` 
 
 ```
 KlorBridge (main daemon)
-├── HIDConnection     — USB Raw HID read/write via hidapi
+├── HIDConnection     — USB Raw HID read/write via hid module (python-hid or hidapi)
 ├── LLMClient         — OpenRouter API via openai SDK (AsyncOpenAI)
 ├── STTPipeline       — ElevenLabs Scribe v2 + 3-layer correction
 └── Platform          — Clipboard + key simulation (wtype/wl-clipboard)

@@ -48,6 +48,11 @@
 #define VIAL_TAP_DANCE_ENTRIES 8
 #define VIAL_KEY_OVERRIDE_ENTRIES 4
 
+/* ── Vial manages combos/key overrides dynamically ── */
+/* VIAL_COMBO_ENABLE and VIAL_KEY_OVERRIDE_ENABLE are auto-defined
+   by vial.h when COMBO_ENABLE / KEY_OVERRIDE_ENABLE are set in rules.mk.
+   No manual defines needed here. */
+
 /* ── Pointing device (not installed) ── */
 #ifdef POINTING_DEVICE_ENABLE
 #    define SPLIT_POINTING_ENABLE

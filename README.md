@@ -55,7 +55,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for full technical details.
 - Python 3.10+
 - QMK build environment (for firmware compilation only)
 - System packages: `wtype`, `wl-clipboard`
-- Python packages: `hidapi`, `openai`, `pyyaml`, `keyring`, `sounddevice`, `numpy`, `aiohttp`
+- Python packages: `hid` (or `hidapi` via pip), `openai`, `pyyaml`, `keyring`, `sounddevice`, `numpy`, `aiohttp`
 
 **Software (Windows):**
 - Python 3.10+

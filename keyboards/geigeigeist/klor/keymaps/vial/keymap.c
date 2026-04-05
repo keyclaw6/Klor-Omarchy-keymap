@@ -20,6 +20,7 @@
 #include QMK_KEYBOARD_H
 #include "klor.h"
 #include "raw_hid.h"
+#include "host.h"
 
 // ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 // │ D E F I N I T I O N S                                                                                                                      │
@@ -203,7 +204,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
               KC_F15,   KC_F16,   KC_F17,   KC_F18,   KC_F19,                        XXXXXXX,  KC_F7,    KC_F8,    KC_F9,    KC_F14,
     KC_F20,   KC_F21,   KC_F22,   KC_F23,   KC_F24,   KC_APP,                        XXXXXXX,  KC_F4,    KC_F5,    KC_F6,    KC_F12,   KC_F13,
-    QK_BOOT,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_MUTE,   KC_MPLY,  XXXXXXX,  KC_F1,    KC_F2,    KC_F3,    KC_F10,   KC_F11,
+    QK_BOOT,  AC_TOGG,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_MUTE,   KC_MPLY,  XXXXXXX,  KC_F1,    KC_F2,    KC_F3,    KC_F10,   KC_F11,
                                   _______,  _______,  _______,  _______,   _______,  _______,  _______,  KC_BSPC
  ),
 
@@ -346,12 +347,13 @@ static void dk_hold_tick(void) {
 }
 
 // ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-// │ C O M M A N D   M O D E   ( t r i p l e - t a p   A L T )                                                                                  │
+// │ C O M M A N D   M O D E   ( d o u b l e - t a p   A L T )                                                                                  │
 // └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
 // State machine for the AI bridge command mode.
-// Triple-tap right ALT enters command mode. Next keypress dispatches an action
+// Double-tap right ALT enters command mode. Next keypress dispatches an action
 // via Raw HID to the Python bridge daemon.
+// While STT is recording, a single press of RALT or T stops it.
 
 #define COMMAND_MODE_TIMEOUT 3000  // Exit command mode after 3s of no input
 #define STT_TAP_WINDOW       300  // Window for counting T-key taps for STT depth
@@ -364,22 +366,39 @@ static bool     stt_counting    = false;
 static uint8_t  stt_tap_count   = 0;
 static uint16_t stt_tap_timer   = 0;
 
+// STT session state: true while we believe the bridge is recording.
+// While active, a single RALT press or T press stops recording.
+static bool     stt_session_active = false;
+
 // Send a bridge action packet via Raw HID (32 bytes, zero-padded)
 static void bridge_send_action(uint8_t action_id, uint8_t param) {
     uint8_t data[32] = {0};
     data[0] = CMD_BRIDGE_ACTION;
     data[1] = action_id;
     data[2] = param;
-    raw_hid_send(data, sizeof(data));
+    host_raw_hid_send(data, sizeof(data));
 }
 
-// Finalize and send the STT action with accumulated tap count
+// Finalize and send the STT action with accumulated tap count.
+// Toggles stt_session_active: first call = start (keep cmd_mode),
+// second call = stop (exit cmd_mode).
 static void stt_finalize(void) {
     if (stt_counting) {
         bridge_send_action(ACTION_STT, stt_tap_count);
         stt_counting  = false;
         stt_tap_count = 0;
-        cmd_mode_active = false;
+
+        // Toggle session: start → keep cmd_mode alive, stop → exit
+        stt_session_active = !stt_session_active;
+        if (stt_session_active) {
+            // Recording started — keep command mode alive for the stop press.
+            // Reset timer (timeout is suppressed while stt_session_active, but
+            // this keeps the timer fresh in case the flag is cleared externally).
+            cmd_mode_timer = timer_read();
+        } else {
+            // Recording stopped — exit command mode
+            cmd_mode_active = false;
+        }
     }
 }
 
@@ -457,8 +476,13 @@ static bool process_command_mode(uint16_t keycode, keyrecord_t *record) {
         }
     }
 
-    // ESC cancels command mode
+    // ESC cancels command mode (and stops STT if recording)
     if (keycode == KC_ESC) {
+        if (stt_session_active) {
+            // Send a stop command to the bridge before exiting
+            bridge_send_action(ACTION_STT, 0);
+            stt_session_active = false;
+        }
         cmd_mode_active = false;
         return false;
     }
@@ -474,25 +498,36 @@ static bool process_command_mode(uint16_t keycode, keyrecord_t *record) {
     }
 
     if (action > 0) {
+        // If STT is recording and user presses a different command key,
+        // stop STT first before dispatching the new action.
+        if (stt_session_active) {
+            bridge_send_action(ACTION_STT, 0);
+            stt_session_active = false;
+        }
         bridge_send_action(action, 0);
         cmd_mode_active = false;
         return false;
     }
 
-    // Unmapped key: exit command mode, pass keypress through
+    // Unmapped key: exit command mode (and stop STT if active)
+    if (stt_session_active) {
+        bridge_send_action(ACTION_STT, 0);
+        stt_session_active = false;
+    }
     cmd_mode_active = false;
     return true;
 }
 
 // ┌───────────────────────────────────────────────────────────┐
-// │ t r i p l e - t a p   R A L T   s t a t e   m a c h i n e │
+// │ d o u b l e - t a p   R A L T   s t a t e   m a c h i n e │
 // └───────────────────────────────────────────────────────────┘
 
-// Manual triple-tap detection for KC_RALT → enter Command Mode.
+// Manual double-tap detection for KC_RALT → enter Command Mode.
 // Can't use QMK tap_dance_actions[] because Vial owns that array.
-// Single/double tap = normal RALT.  Triple tap within window = Command Mode.
+// Single tap = normal RALT.  Double tap within window = Command Mode.
+// While STT is recording, a single RALT press stops recording immediately.
 
-#define RALT_TAP_WINDOW  250  // ms window for triple-tap detection
+#define RALT_TAP_WINDOW  250  // ms window for double-tap detection
 
 static uint8_t  ralt_tap_count = 0;
 static uint16_t ralt_tap_timer = 0;
@@ -500,9 +535,19 @@ static bool     ralt_held      = false;
 
 // Called from process_record_user on KC_RALT press/release.
 // Returns false to consume the event, true to pass through.
-static bool process_ralt_triple_tap(keyrecord_t *record) {
+static bool process_ralt_tap(keyrecord_t *record) {
     if (record->event.pressed) {
         ralt_held = true;
+
+        // While STT is recording, a single RALT press stops it immediately
+        if (stt_session_active) {
+            bridge_send_action(ACTION_STT, 0);
+            stt_session_active = false;
+            cmd_mode_active = false;
+            ralt_tap_count = 0;
+            return false;
+        }
+
         if (ralt_tap_count > 0 && timer_elapsed(ralt_tap_timer) > RALT_TAP_WINDOW) {
             // Window expired — reset count
             ralt_tap_count = 0;
@@ -510,12 +555,12 @@ static bool process_ralt_triple_tap(keyrecord_t *record) {
         ralt_tap_count++;
         ralt_tap_timer = timer_read();
 
-        if (ralt_tap_count >= 3) {
-            // Triple tap achieved — enter command mode
+        if (ralt_tap_count >= 2) {
+            // Double tap achieved — enter command mode
             ralt_tap_count  = 0;
             cmd_mode_active = true;
             cmd_mode_timer  = timer_read();
-            // Don't register ALT for the third tap
+            // Don't register ALT for the second tap
             return false;
         }
 
@@ -575,6 +620,13 @@ void raw_hid_receive_kb(uint8_t *data, uint8_t length) {
 // │ M A C R O S                                                                                                                                │
 // └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
+// Enable autocorrect by default on startup.
+// QMK ships autocorrect OFF by default — it must be toggled on via AC_TOGG.
+// This ensures it's always active without needing a manual toggle.
+void keyboard_post_init_user(void) {
+    autocorrect_enable();
+}
+
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     // ── Command Mode interception (highest priority) ──
     // When active, intercept the next keypress as an action command.
@@ -584,9 +636,9 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         // If pass_through is true, command mode exited and key should be processed normally
     }
 
-    // ── Triple-tap RALT → Command Mode ──
+    // ── Double-tap RALT → Command Mode / single RALT stops STT ──
     if (keycode == KC_RALT) {
-        return process_ralt_triple_tap(record);
+        return process_ralt_tap(record);
     }
     // Any other key pressed resets the RALT tap count
     if (record->event.pressed && ralt_tap_count > 0 && !ralt_held) {
@@ -723,8 +775,8 @@ void matrix_scan_user(void) {
     // Danish hold-to-activate tick
     dk_hold_tick();
 
-    // Command mode timeout (3 seconds)
-    if (cmd_mode_active && !stt_counting &&
+    // Command mode timeout (3 seconds, suppressed during active STT session)
+    if (cmd_mode_active && !stt_counting && !stt_session_active &&
         timer_elapsed(cmd_mode_timer) > COMMAND_MODE_TIMEOUT) {
         cmd_mode_active = false;
     }

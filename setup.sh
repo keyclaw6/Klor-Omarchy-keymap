@@ -47,6 +47,8 @@ install_packages() {
     case "$distro" in
         arch)
             info "Installing Arch packages..."
+            # python-hid provides the 'hid' module (NOT python-hidapi, which
+            # conflicts with python-hid required by qmk). The bridge supports both.
             sudo pacman -S --needed --noconfirm \
                 python python-yaml python-openai python-keyring \
                 python-numpy python-aiohttp python-hid \
@@ -87,7 +89,7 @@ install_packages() {
 
         *)
             error "Unknown distro. Install these manually:"
-            echo "  Python 3.10+, pip, pyyaml, openai, keyring, sounddevice, numpy, aiohttp, hidapi"
+            echo "  Python 3.10+, pip, pyyaml, openai, keyring, sounddevice, numpy, aiohttp, hid (or hidapi)"
             echo "  System: wtype, wl-clipboard"
             return 1
             ;;
