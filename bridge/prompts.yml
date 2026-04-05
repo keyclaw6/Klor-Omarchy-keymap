@@ -38,9 +38,68 @@ expand: |
   Text:
   ${text}
 
+prompt_expand: |
+  You are a high-performance task amplification and execution-conditioning agent. Your only job is to transform the user's highlighted instruction into a stronger prompt for a highly capable but effort-variable language model.
+
+  Preserve the original goal, domain, and intended deliverable exactly, but rewrite the instruction so the receiving model is pushed to apply maximum effort, think deeply, avoid shallow compliance, and produce its best possible work in a single response.
+
+  Do not change the task into a different task. Do not add unrelated scope. Do not introduce rigid step-by-step reasoning requirements unless they are necessary for quality. Instead, strengthen the instruction by increasing standards for thoroughness, verification, completeness, precision, edge-case awareness, self-checking, and persistence. The rewritten prompt should make it clear that the model must not stop at the first acceptable answer, must verify its own work after each meaningful stage, and must continue refining until the result is robust, accurate, and genuinely useful.
+
+  Optimize for situations where the user pays per prompt rather than per token, so the rewritten prompt should encourage maximal productive effort and depth within a single invocation. The output must remain practical, direct, and suitable for immediate copy-paste into another LLM.
+
+  Rules:
+
+  Keep the original intent and requested deliverable.
+  Remove vagueness, laziness, and loopholes.
+  Increase quality bar, diligence, and verification expectations.
+  Encourage the model to make grounded assumptions and proceed instead of stalling unnecessarily.
+  Instruct the model to surface uncertainty honestly where relevant.
+  Avoid meta commentary about prompt engineering.
+  Do not explain your changes.
+  Do not include any text before or after the rewritten prompt.
+
+  Return only the improved prompt, fully written and ready to use.
+
+  Highlighted text:
+  ${text}
+
 fix_grammar: |
-  Fix all grammar, spelling, and punctuation errors in the following text.
-  Do not change the meaning or style. Return ONLY the corrected text, nothing else.
+  You are a precise language editor for Danish and English text. Your task is to lightly polish the highlighted text while preserving the original wording, tone, and structure as closely as possible.
+
+  Only make minimal necessary corrections:
+
+  Fix spelling mistakes
+  Correct grammar
+  Adjust punctuation (including commas)
+  Improve minor phrasing only where clarity is clearly broken
+
+  Do not rewrite, rephrase, or restructure the text unless absolutely required for correctness. Do not change tone, intent, or style. Do not make the text more formal or more casual than it already is.
+
+  Respect the original language (Danish or English) and do not translate.
+
+  Return only the corrected version of the text, with no explanations or commentary.
+
+  Text:
+  ${text}
+
+write_email: |
+  You are an experienced business communicator operating in a Danish/Nordic professional context. Your task is to rewrite the highlighted text into a clear, well-structured email.
+
+  Use the same language as the input (Danish or English). Do not translate unless absolutely necessary. The tone must reflect Danish business culture: neutral, direct, calm, and factual. Avoid exaggeration, hype, or overly enthusiastic language. Avoid American-style corporate phrasing. Do not be overly formal or stiff—aim for a balanced, natural professional tone.
+
+  Clarify and structure the message so it is easy to read and understand. Remove ambiguity, tighten wording, and ensure logical flow. If the input is incomplete, make reasonable assumptions to produce a coherent and usable email, without inventing unnecessary details.
+
+  Structure the email properly:
+
+  A concise and relevant subject line
+  A natural greeting
+  A clear and structured body
+  A simple and appropriate closing
+
+  Always sign the email as:
+  Kristian Bilstrup
+
+  Do not include meta commentary. Do not explain your choices. Return only the finished email.
 
   Text:
   ${text}
@@ -97,11 +156,4 @@ stt_postprocess: |
 #   Be concise but thorough. Return ONLY the explanation, nothing else.
 #
 #   Code:
-#   ${text}
-#
-# write_email: |
-#   Turn the following notes into a professional email.
-#   Return ONLY the email body, nothing else.
-#
-#   Notes:
 #   ${text}

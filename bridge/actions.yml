@@ -28,26 +28,26 @@ actions:
     prompt_key: improve_writing
     description: Improve writing quality of selected text
 
-  rewrite:
+  write_email:
     action_id: 0x52          # R key
     type: llm_text
     key: r
-    prompt_key: rewrite
-    description: Rewrite selected text with different phrasing
+    prompt_key: write_email
+    description: Rewrite selected text as a Danish/Nordic professional email
 
-  expand:
+  prompt_expand:
     action_id: 0x45          # E key
     type: llm_text
     key: e
-    prompt_key: expand
-    description: Expand selected text with more detail
+    prompt_key: prompt_expand
+    description: Amplify highlighted text into a stronger LLM prompt
 
   grammar:
     action_id: 0x47          # G key
     type: llm_text
     key: g
     prompt_key: fix_grammar
-    description: Fix grammar and spelling errors
+    description: Light polish — fix spelling, grammar, and punctuation only
 
   summarize:
     action_id: 0x53          # S key
