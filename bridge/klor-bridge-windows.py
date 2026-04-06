@@ -24,8 +24,6 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import Any
-
 import yaml
 
 # ─── Constants ────────────────────────────────────────────────────────────────
@@ -127,8 +125,8 @@ class Platform:
             self._pyautogui = pyautogui
             self._pyperclip = pyperclip
 
-            # Disable pyautogui's failsafe (move mouse to corner to abort)
-            # Set to True if you want the safety net during development
+            # Enable pyautogui's failsafe (move mouse to top-left corner to abort)
+            # Set to False if the safety net interferes with your workflow
             pyautogui.FAILSAFE = True
             pyautogui.PAUSE = 0.02  # Small pause between pyautogui actions
         except ImportError as e:
@@ -187,15 +185,28 @@ class Platform:
         try:
             from subprocess import CREATE_NO_WINDOW
 
-            # Use PowerShell to show a Windows toast notification
+            # Use PowerShell to show a Windows toast notification.
+            # Sanitize title/body: replace single quotes with unicode right single
+            # quote mark and escape any other PS-special characters to prevent
+            # script injection from untrusted notification content.
+            def _ps_escape(s: str) -> str:
+                # Replace single quotes with unicode right single quote mark
+                s = s.replace(chr(39), chr(8217))
+                # Remove backticks and dollar signs that could inject PS vars
+                s = s.replace("`", "").replace("$", "")
+                return s
+
+            safe_title = _ps_escape(title)
+            safe_body = _ps_escape(body)
+
             ps_script = (
                 "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, "
                 "ContentType = WindowsRuntime] > $null; "
                 "$template = [Windows.UI.Notifications.ToastNotificationManager]::"
                 "GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); "
                 "$textNodes = $template.GetElementsByTagName('text'); "
-                f"$textNodes.Item(0).AppendChild($template.CreateTextNode('{title.replace(chr(39), chr(8217))}')) > $null; "
-                f"$textNodes.Item(1).AppendChild($template.CreateTextNode('{body.replace(chr(39), chr(8217))}')) > $null; "
+                f"$textNodes.Item(0).AppendChild($template.CreateTextNode('{safe_title}')) > $null; "
+                f"$textNodes.Item(1).AppendChild($template.CreateTextNode('{safe_body}')) > $null; "
                 "$toast = [Windows.UI.Notifications.ToastNotification]::new($template); "
                 "$notifier = [Windows.UI.Notifications.ToastNotificationManager]::"
                 "CreateToastNotifier('KLOR Bridge'); "
@@ -205,7 +216,7 @@ class Platform:
                 "powershell", "-WindowStyle", "Hidden", "-Command", ps_script,
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.DEVNULL,
-                creationflags=CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+                creationflags=CREATE_NO_WINDOW,
             )
             await proc.wait()
         except Exception as e:
@@ -406,7 +417,6 @@ class STTPipeline:
 
         # Add keyterms for vocabulary biasing — each term as a separate field
         if self.lexicon:
-            import json
             keyterms = self.lexicon[:1000]  # max 1000
             # Send each keyterm as a repeated form field (not a JSON string)
             for term in keyterms:

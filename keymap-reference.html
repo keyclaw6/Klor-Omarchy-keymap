@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>KLOR AI Writing Workstation — Keymap Reference</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --sf: #181c28;
+    --sf2: #242938;
+    --bd: #303650;
+    --tx: #c0caf5;
+    --txd: #7882a4;
+    --txb: #eaedff;
+    --ac: #7aa2f7;
+    --pr: #bb9af7;
+    --gn: #9ece6a;
+    --or: #e0af68;
+    --rd: #f7768e;
+    --cy: #7dcfff;
+    --tl: #2ac3de;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--tx);
+    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', Consolas, monospace;
+    width: 3840px; height: 2160px; overflow: hidden;
+    display: flex; flex-direction: column;
+    padding: 36px 52px 28px;
+  }
+
+  /* ── Header ── */
+  .hd { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; flex-shrink: 0; }
+  .hd h1 { font-size: 28px; font-weight: 700; color: var(--txb); letter-spacing: .3px; }
+  .hd .sub { font-size: 14px; color: var(--txd); }
+
+  /* ── Main grid ── */
+  .mg { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto auto; gap: 14px 18px; flex: 1; align-content: stretch; }
+  .s2 { grid-column: 1 / -1; }
+
+  /* ── Layer card ── */
+  .lc {
+    background: var(--sf); border: 1px solid var(--bd); border-radius: 10px;
+    padding: 12px 20px 16px; display: flex; flex-direction: column;
+    justify-content: center;
+  }
+  .lh { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+  .ln { font-size: 17px; font-weight: 700; white-space: nowrap; }
+  .ln-q { color: var(--ac); } .ln-l { color: var(--gn); } .ln-r { color: var(--pr); }
+  .ln-a { color: var(--or); } .ln-n { color: var(--cy); } .ln-c { color: var(--rd); }
+  .la { font-size: 13px; color: var(--txd); font-style: italic; }
+
+  /* ── Keyboard container ── */
+  .kb { display: flex; flex-direction: column; gap: 5px; align-items: center; }
+  .kr { display: flex; gap: 5px; align-items: flex-start; }
+
+  /* Spacers */
+  .hg { width: 54px; flex-shrink: 0; }           /* center gap */
+  .eg { width: 10px; flex-shrink: 0; }            /* encoder side gap */
+  .tg { width: 14px; flex-shrink: 0; }            /* thumb center gap */
+
+  /* ── Keys (primary) ── */
+  .k {
+    width: 126px; height: 80px;
+    background: var(--sf2); border: 1px solid var(--bd); border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 4px 5px; gap: 2px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.25);
+  }
+  .k .m { font-size: 18px; font-weight: 600; color: var(--txb); line-height: 1.15; text-align: center; }
+  .k .s { font-size: 11px; color: var(--txd); line-height: 1.15; text-align: center; }
+  .k .h { font-size: 11px; color: var(--pr); line-height: 1.15; text-align: center; font-style: italic; }
+  .k .a { font-size: 11px; color: var(--tl); line-height: 1.15; text-align: center; }
+
+  /* ── Keys (secondary layers) ── */
+  .sc .k { width: 104px; height: 66px; }
+  .sc .k .m { font-size: 15px; }
+  .sc .k .s { font-size: 10px; }
+  .sc .k .h { font-size: 9.5px; }
+  .sc .k .a { font-size: 9.5px; }
+  .sc .hg { width: 44px; }
+  .sc .eg { width: 8px; }
+  .sc .tg { width: 12px; }
+
+  /* ── Key type accents (bottom bar) ── */
+  .k.hrm { border-bottom: 3px solid var(--tl); }
+  .k.dk  { border-bottom: 3px solid var(--pr); }
+  .k.th  { border-bottom: 3px solid var(--ac); height: 68px; }
+  .sc .k.th { height: 56px; }
+  .k.ly  { border-bottom: 3px solid var(--gn); }
+  .k.sp  { border-bottom: 3px solid var(--or); }
+  .k.nv  { border-bottom: 3px solid var(--cy); }
+  .k.dg  { border-bottom: 3px solid var(--rd); }
+  .k.bl  { opacity: .18; border-style: dashed; }
+  .k.tr  { background: rgba(24,28,40,.6); border-color: var(--bd); }
+  .k.tr .m { color: var(--txd); font-size: 13px; }
+  .sc .k.tr .m { font-size: 11px; }
+
+  /* Encoder */
+  .k.enc {
+    width: 56px; height: 56px; border-radius: 50%;
+    border: 2px solid var(--bd); background: var(--sf);
+    box-shadow: 0 1px 3px rgba(0,0,0,.3);
+  }
+  .sc .k.enc { width: 46px; height: 46px; }
+
+  /* ── Thumb row indent ── */
+  .ti { width: 330px; flex-shrink: 0; }
+  .sc .ti { width: 272px; }
+
+  /* ── Row-0 indent (no outer column) ── */
+  .r0pad { flex-shrink: 0; }
+
+  /* ── Command mode key variants ── */
+  .k.ca { border: 1.5px solid rgba(247,118,142,.2); background: rgba(247,118,142,.03); }
+  .k.cx { border: 1.5px solid var(--rd); background: rgba(247,118,142,.08); box-shadow: 0 0 8px rgba(247,118,142,.1); }
+  .k.ct { border: 1.5px solid var(--or); background: rgba(224,175,104,.08); box-shadow: 0 0 8px rgba(224,175,104,.1); }
+
+  /* ── Command mode section ── */
+  .cmd-grid { display: flex; gap: 32px; align-items: flex-start; justify-content: center; }
+  .cmd-kb { display: flex; flex-direction: column; gap: 5px; }
+  .cmd-kb .k { width: 110px; height: 68px; }
+  .cmd-kb .k .m { font-size: 17px; }
+  .cmd-kb .k .s { font-size: 10.5px; }
+
+  /* ── Bottom panels ── */
+  .bt {
+    flex-shrink: 0; display: grid;
+    grid-template-columns: 380px 1fr 1fr; gap: 18px;
+    margin-top: 14px; min-height: 300px;
+  }
+  .bp {
+    background: var(--sf); border: 1px solid var(--bd); border-radius: 10px;
+    padding: 18px 22px;
+  }
+  .bp h3 { font-size: 16px; font-weight: 700; color: var(--txb); margin-bottom: 12px; }
+
+  /* Legend */
+  .leg { display: flex; flex-direction: column; gap: 5px; }
+  .li { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--tx); line-height: 1.3; }
+  .ls { width: 26px; height: 4px; border-radius: 2px; flex-shrink: 0; }
+  .ls-h { background: var(--tl); } .ls-d { background: var(--pr); } .ls-t { background: var(--ac); }
+  .ls-l { background: var(--gn); } .ls-s { background: var(--or); } .ls-n { background: var(--cy); }
+  .ls-x { background: var(--rd); }
+
+  /* Action table */
+  .ct { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .ct th { text-align: left; padding: 3px 8px; color: var(--txd); font-weight: 600; font-size: 11.5px; border-bottom: 1px solid var(--bd); }
+  .ct td { padding: 3px 8px; color: var(--tx); }
+  .kb2 {
+    display: inline-block; background: rgba(247,118,142,.1); border: 1px solid var(--rd);
+    border-radius: 5px; padding: 0 7px; font-weight: 600; font-size: 12px; color: var(--rd);
+    min-width: 22px; text-align: center;
+  }
+  .kb3 { background: rgba(224,175,104,.1); border-color: var(--or); color: var(--or); }
+
+  /* Quick ref */
+  .qr { font-size: 13.5px; line-height: 1.75; }
+  .qr li { list-style: none; }
+  .qr strong { color: var(--txb); }
+</style>
+</head>
+<body>
+
+<!-- ════ HEADER ════ -->
+<div class="hd">
+  <h1>KLOR AI Writing Workstation &mdash; Keymap Reference</h1>
+  <span class="sub">KLOR Polydactyl &middot; 42-key split &middot; RP2040 &middot; QMK / Vial &middot; Double-tap RALT &rarr; Command Mode &middot; All results &rarr; clipboard</span>
+</div>
+
+<div class="mg">
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     LAYER 0 — QWERTY
+     ════════════════════════════════════════════════════════════════════════ -->
+<div class="lc s2">
+  <div class="lh">
+    <span class="ln ln-q">Layer 0 &mdash; QWERTY</span>
+    <span class="la">Default base layer &middot; Home Row Mods (GACS) &middot; Danish Hold Keys &middot; One-Shot Shift</span>
+  </div>
+  <div class="kb">
+    <!-- Row 0: 5 + 5 -->
+    <div class="kr">
+      <div class="r0pad" style="width:131px"></div>
+      <div class="k"><span class="m">Q</span></div>
+      <div class="k"><span class="m">W</span></div>
+      <div class="k"><span class="m">E</span></div>
+      <div class="k"><span class="m">R</span></div>
+      <div class="k"><span class="m">T</span></div>
+      <div class="hg"></div>
+      <div class="k"><span class="m">Y</span></div>
+      <div class="k"><span class="m">U</span></div>
+      <div class="k"><span class="m">I</span></div>
+      <div class="k"><span class="m">O</span></div>
+      <div class="k dk"><span class="m">P</span><span class="h">hold &rarr; &aring;/&Aring;</span></div>
+    </div>
+    <!-- Row 1: 6 + 6 -->
+    <div class="kr">
+      <div class="k sp"><span class="m">TAB</span></div>
+      <div class="k hrm"><span class="m">A</span><span class="a">GUI</span></div>
+      <div class="k hrm"><span class="m">S</span><span class="a">ALT</span></div>
+      <div class="k hrm"><span class="m">D</span><span class="a">CTL</span></div>
+      <div class="k hrm"><span class="m">F</span><span class="a">SFT</span></div>
+      <div class="k"><span class="m">G</span></div>
+      <div class="hg"></div>
+      <div class="k"><span class="m">H</span></div>
+      <div class="k hrm"><span class="m">J</span><span class="a">SFT</span></div>
+      <div class="k hrm"><span class="m">K</span><span class="a">CTL</span></div>
+      <div class="k hrm"><span class="m">L</span><span class="a">ALT</span></div>
+      <div class="k dk"><span class="m">;</span><span class="h">&aelig; / &AElig;</span><span class="a">+ L-hand = GUI</span></div>
+      <div class="k dk"><span class="m">&apos;</span><span class="h">hold &rarr; &oslash;/&Oslash;</span></div>
+    </div>
+    <!-- Row 2: 6 + enc + enc + 6 -->
+    <div class="kr">
+      <div class="k"><span class="m">GUI</span><span class="s">Super/Win</span></div>
+      <div class="k"><span class="m">Z</span></div>
+      <div class="k"><span class="m">X</span></div>
+      <div class="k"><span class="m">C</span></div>
+      <div class="k"><span class="m">V</span></div>
+      <div class="k"><span class="m">B</span></div>
+      <div class="eg"></div>
+      <div class="k enc"><span class="m" style="font-size:11px">MUTE</span><span class="s">Vol &plusmn;</span></div>
+      <div class="eg"></div>
+      <div class="k enc"><span class="m" style="font-size:11px">PLAY</span><span class="s">Vol &plusmn;</span></div>
+      <div class="eg"></div>
+      <div class="k"><span class="m">N</span></div>
+      <div class="k"><span class="m">M</span></div>
+      <div class="k"><span class="m">,</span></div>
+      <div class="k"><span class="m">.</span></div>
+      <div class="k"><span class="m">/</span></div>
+      <div class="k ly"><span class="m">NAV</span><span class="s">hold &rarr; L4</span></div>
+    </div>
+    <!-- Thumb row -->
+    <div class="kr">
+      <div class="ti"></div>
+      <div class="k th"><span class="m">CTRL</span></div>
+      <div class="k th ly"><span class="m">LOWER</span><span class="s">hold &rarr; L1</span></div>
+      <div class="k th"><span class="m">SPACE</span></div>
+      <div class="k th sp"><span class="m">OSM &uArr;</span><span class="s">One-Shot Shift</span></div>
+      <div class="tg"></div>
+      <div class="k th sp"><span class="m">RALT</span><span class="s">2&times; &rarr; CMD mode</span></div>
+      <div class="k th"><span class="m">ENTER</span></div>
+      <div class="k th ly"><span class="m">RAISE</span><span class="s">hold &rarr; L2</span></div>
+      <div class="k th"><span class="m">BKSP</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     LAYER 1 — LOWER
+     ════════════════════════════════════════════════════════════════════════ -->
+<div class="lc sc">
+  <div class="lh">
+    <span class="ln ln-l">Layer 1 &mdash; LOWER</span>
+    <span class="la">Hold left thumb &middot; Numbers (numpad), navigation, brackets</span>
+  </div>
+  <div class="kb">
+    <div class="kr">
+      <div class="r0pad" style="width:108px"></div>
+      <div class="k"><span class="m">CAPS</span></div>
+      <div class="k"><span class="m">HOME</span></div>
+      <div class="k nv"><span class="m">&uarr;</span></div>
+      <div class="k"><span class="m">=</span></div>
+      <div class="k"><span class="m">{</span></div>
+      <div class="hg"></div>
+      <div class="k"><span class="m">}</span></div>
+      <div class="k"><span class="m">7</span></div>
+      <div class="k"><span class="m">8</span></div>
+      <div class="k"><span class="m">9</span></div>
+      <div class="k"><span class="m">+</span></div>
+    </div>
+    <div class="kr">
+      <div class="k"><span class="m">ESC</span></div>
+      <div class="k"><span class="m">DEL</span></div>
+      <div class="k nv"><span class="m">&larr;</span></div>
+      <div class="k nv"><span class="m">&darr;</span></div>
+      <div class="k nv"><span class="m">&rarr;</span></div>
+      <div class="k"><span class="m">[</span></div>
+      <div class="hg"></div>
+      <div class="k"><span class="m">]</span></div>
+      <div class="k"><span class="m">4</span></div>
+      <div class="k"><span class="m">5</span></div>
+      <div class="k"><span class="m">6</span></div>
+      <div class="k"><span class="m">-</span></div>
+      <div class="k"><span class="m">_</span></div>
+    </div>
+    <div class="kr">
+      <div class="k sp"><span class="m">SNAP</span><span class="s">&#8679;Gui+S</span></div>
+      <div class="k"><span class="m">END</span></div>
+      <div class="k"><span class="m">PgUp</span></div>
+      <div class="k sp"><span class="m">SAVE</span><span class="s">Ctrl+S</span></div>
+      <div class="k"><span class="m">PgDn</span></div>
+      <div class="k"><span class="m">(</span></div>
+      <div class="eg"></div>
+      <div class="k enc"><span class="m" style="font-size:10px">VOL</span></div>
+      <div class="eg"></div>
+      <div class="k enc"><span class="m" style="font-size:10px">VOL</span></div>
+      <div class="eg"></div>
+      <div class="k"><span class="m">)</span></div>
+      <div class="k"><span class="m">1</span></div>
+      <div class="k"><span class="m">2</span></div>
+      <div class="k"><span class="m">3</span></div>
+      <div class="k"><span class="m">*</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+    </div>
+    <div class="kr">
+      <div class="ti"></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="tg"></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th"><span class="m">0</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     LAYER 2 — RAISE
+     ════════════════════════════════════════════════════════════════════════ -->
+<div class="lc sc">
+  <div class="lh">
+    <span class="ln ln-r">Layer 2 &mdash; RAISE</span>
+    <span class="la">Hold right thumb &middot; Symbols, currency, Danish, Omarchy F-keys</span>
+  </div>
+  <div class="kb">
+    <div class="kr">
+      <div class="r0pad" style="width:108px"></div>
+      <div class="k"><span class="m">!</span></div>
+      <div class="k"><span class="m">@</span></div>
+      <div class="k"><span class="m">#</span></div>
+      <div class="k"><span class="m">$</span></div>
+      <div class="k"><span class="m">%</span></div>
+      <div class="hg"></div>
+      <div class="k"><span class="m">^</span></div>
+      <div class="k"><span class="m">&amp;</span></div>
+      <div class="k"><span class="m">\</span></div>
+      <div class="k"><span class="m">&deg;</span></div>
+      <div class="k dk"><span class="m">&aring;/&Aring;</span></div>
+    </div>
+    <div class="kr">
+      <div class="k sp"><span class="m" style="font-size:11px">AF13</span></div>
+      <div class="k sp"><span class="m" style="font-size:11px">AF14</span></div>
+      <div class="k sp"><span class="m" style="font-size:11px">AF15</span></div>
+      <div class="k sp"><span class="m" style="font-size:11px">AF16</span></div>
+      <div class="k sp"><span class="m" style="font-size:11px">AF17</span></div>
+      <div class="k"><span class="m">&szlig;</span></div>
+      <div class="hg"></div>
+      <div class="k"><span class="m">&yen;</span></div>
+      <div class="k"><span class="m">&euro;</span></div>
+      <div class="k"><span class="m">&pound;</span></div>
+      <div class="k"><span class="m">&asymp;</span></div>
+      <div class="k dk"><span class="m">&aelig;/&AElig;</span></div>
+      <div class="k dk"><span class="m">&oslash;/&Oslash;</span></div>
+    </div>
+    <div class="kr">
+      <div class="k sp"><span class="m" style="font-size:11px">AF18</span></div>
+      <div class="k sp"><span class="m" style="font-size:11px">AF19</span></div>
+      <div class="k sp"><span class="m" style="font-size:11px">AF20</span></div>
+      <div class="k sp"><span class="m" style="font-size:11px">AF21</span></div>
+      <div class="k sp"><span class="m" style="font-size:11px">AF22</span></div>
+      <div class="k sp"><span class="m" style="font-size:11px">AF23</span></div>
+      <div class="eg"></div>
+      <div class="k enc"><span class="m" style="font-size:10px">VOL</span></div>
+      <div class="eg"></div>
+      <div class="k enc"><span class="m" style="font-size:10px">VOL</span></div>
+      <div class="eg"></div>
+      <div class="k"><span class="m">&le;</span></div>
+      <div class="k"><span class="m">&ge;</span></div>
+      <div class="k"><span class="m">&ccedil;</span></div>
+      <div class="k"><span class="m">~</span></div>
+      <div class="k"><span class="m">`</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+    </div>
+    <div class="kr">
+      <div class="ti"></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="tg"></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     LAYER 3 — ADJUST
+     ════════════════════════════════════════════════════════════════════════ -->
+<div class="lc sc">
+  <div class="lh">
+    <span class="ln ln-a">Layer 3 &mdash; ADJUST</span>
+    <span class="la">Hold LOWER + RAISE (tri-layer) &middot; F-keys, bootloader, autocorrect toggle</span>
+  </div>
+  <div class="kb">
+    <div class="kr">
+      <div class="r0pad" style="width:108px"></div>
+      <div class="k"><span class="m">F15</span></div>
+      <div class="k"><span class="m">F16</span></div>
+      <div class="k"><span class="m">F17</span></div>
+      <div class="k"><span class="m">F18</span></div>
+      <div class="k"><span class="m">F19</span></div>
+      <div class="hg"></div>
+      <div class="k bl"></div>
+      <div class="k"><span class="m">F7</span></div>
+      <div class="k"><span class="m">F8</span></div>
+      <div class="k"><span class="m">F9</span></div>
+      <div class="k"><span class="m">F14</span></div>
+    </div>
+    <div class="kr">
+      <div class="k"><span class="m">F20</span></div>
+      <div class="k"><span class="m">F21</span></div>
+      <div class="k"><span class="m">F22</span></div>
+      <div class="k"><span class="m">F23</span></div>
+      <div class="k"><span class="m">F24</span></div>
+      <div class="k"><span class="m">APP</span></div>
+      <div class="hg"></div>
+      <div class="k bl"></div>
+      <div class="k"><span class="m">F4</span></div>
+      <div class="k"><span class="m">F5</span></div>
+      <div class="k"><span class="m">F6</span></div>
+      <div class="k"><span class="m">F12</span></div>
+      <div class="k"><span class="m">F13</span></div>
+    </div>
+    <div class="kr">
+      <div class="k dg"><span class="m">BOOT</span><span class="s">Bootloader</span></div>
+      <div class="k sp"><span class="m">AC</span><span class="s">Autocorrect</span></div>
+      <div class="k bl"></div>
+      <div class="k bl"></div>
+      <div class="k bl"></div>
+      <div class="k bl"></div>
+      <div class="eg"></div>
+      <div class="k enc"><span class="m" style="font-size:10px">VOL</span></div>
+      <div class="eg"></div>
+      <div class="k enc"><span class="m" style="font-size:10px">VOL</span></div>
+      <div class="eg"></div>
+      <div class="k bl"></div>
+      <div class="k"><span class="m">F1</span></div>
+      <div class="k"><span class="m">F2</span></div>
+      <div class="k"><span class="m">F3</span></div>
+      <div class="k"><span class="m">F10</span></div>
+      <div class="k"><span class="m">F11</span></div>
+    </div>
+    <div class="kr">
+      <div class="ti"></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="tg"></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th"><span class="m">BKSP</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     LAYER 4 — NAV
+     ════════════════════════════════════════════════════════════════════════ -->
+<div class="lc sc">
+  <div class="lh">
+    <span class="ln ln-n">Layer 4 &mdash; NAV</span>
+    <span class="la">Hold bottom-right key &middot; Hyprland workspaces (GUI+0&ndash;9) &middot; Window nav</span>
+  </div>
+  <div class="kb">
+    <div class="kr">
+      <div class="r0pad" style="width:108px"></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="k nv"><span class="m">&uarr;</span><span class="s">GUI+&uarr;</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="hg"></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="k nv"><span class="m">7</span><span class="s">GUI+7</span></div>
+      <div class="k nv"><span class="m">8</span><span class="s">GUI+8</span></div>
+      <div class="k nv"><span class="m">9</span><span class="s">GUI+9</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+    </div>
+    <div class="kr">
+      <div class="k nv"><span class="m" style="font-size:11px">G+TAB</span><span class="s">Switcher</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="k nv"><span class="m">&larr;</span><span class="s">GUI+&larr;</span></div>
+      <div class="k nv"><span class="m">&darr;</span><span class="s">GUI+&darr;</span></div>
+      <div class="k nv"><span class="m">&rarr;</span><span class="s">GUI+&rarr;</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="hg"></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="k nv"><span class="m">4</span><span class="s">GUI+4</span></div>
+      <div class="k nv"><span class="m">5</span><span class="s">GUI+5</span></div>
+      <div class="k nv"><span class="m">6</span><span class="s">GUI+6</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+    </div>
+    <div class="kr">
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="eg"></div>
+      <div class="k enc" style="opacity:.22"></div>
+      <div class="eg"></div>
+      <div class="k enc" style="opacity:.22"></div>
+      <div class="eg"></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="k nv"><span class="m">1</span><span class="s">GUI+1</span></div>
+      <div class="k nv"><span class="m">2</span><span class="s">GUI+2</span></div>
+      <div class="k nv"><span class="m">3</span><span class="s">GUI+3</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+      <div class="k tr"><span class="m">&darr;</span></div>
+    </div>
+    <div class="kr">
+      <div class="ti"></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="tg"></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th tr"><span class="m">&darr;</span></div>
+      <div class="k th nv"><span class="m">0</span><span class="s">GUI+0</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════════════
+     COMMAND MODE — AI BRIDGE
+     ════════════════════════════════════════════════════════════════════════ -->
+<div class="lc s2">
+  <div class="lh">
+    <span class="ln ln-c">Command Mode &mdash; AI Bridge</span>
+    <span class="la">Double-tap RALT &rarr; press a letter key &middot; 3s timeout &middot; ESC cancels &middot; RALT or T stops STT &middot; Results &rarr; clipboard, paste with Ctrl+V</span>
+  </div>
+  <div class="cmd-grid">
+    <!-- Compact letter grid -->
+    <div class="cmd-kb">
+      <div class="kr">
+        <div class="k ca"><span class="m">Q</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k ca"><span class="m">W</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k cx"><span class="m">E</span><span class="s" style="color:var(--rd)">Prompt</span></div>
+        <div class="k cx"><span class="m">R</span><span class="s" style="color:var(--rd)">Email</span></div>
+        <div class="k ct"><span class="m">T</span><span class="s" style="color:var(--or)">STT 1-3&times;</span></div>
+        <div style="width:28px"></div>
+        <div class="k ca"><span class="m">Y</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k ca"><span class="m">U</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k cx"><span class="m">I</span><span class="s" style="color:var(--rd)">Improve</span></div>
+        <div class="k ca"><span class="m">O</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k ca"><span class="m">P</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+      </div>
+      <div class="kr">
+        <div class="k ca"><span class="m">A</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k cx"><span class="m">S</span><span class="s" style="color:var(--rd)">Summarize</span></div>
+        <div class="k cx"><span class="m">D</span><span class="s" style="color:var(--rd)">DA&rarr;EN</span></div>
+        <div class="k ca"><span class="m">F</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k cx"><span class="m">G</span><span class="s" style="color:var(--rd)">Grammar</span></div>
+        <div style="width:28px"></div>
+        <div class="k ca"><span class="m">H</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k ca"><span class="m">J</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k ca"><span class="m">K</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k ca"><span class="m">L</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+      </div>
+      <div class="kr">
+        <div class="k ca"><span class="m">Z</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k ca"><span class="m">X</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k ca"><span class="m">C</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k ca"><span class="m">V</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k ca"><span class="m">B</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div style="width:28px"></div>
+        <div class="k cx"><span class="m">N</span><span class="s" style="color:var(--rd)">EN&rarr;DA</span></div>
+        <div class="k ca"><span class="m">M</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+      </div>
+    </div>
+    <!-- Action table -->
+    <div style="min-width:540px">
+      <table class="ct">
+        <tr><th>Key</th><th>Action</th><th>Description</th></tr>
+        <tr><td><span class="kb2">E</span></td><td>Prompt Expand</td><td>Amplify text into a stronger LLM prompt</td></tr>
+        <tr><td><span class="kb2">G</span></td><td>Grammar</td><td>Fix spelling, grammar, punctuation only</td></tr>
+        <tr><td><span class="kb2">I</span></td><td>Improve</td><td>Improve writing quality and clarity</td></tr>
+        <tr><td><span class="kb2">R</span></td><td>Email Writer</td><td>Rewrite as Danish/Nordic professional email</td></tr>
+        <tr><td><span class="kb2">S</span></td><td>Summarize</td><td>Condense to key points</td></tr>
+        <tr><td><span class="kb2">D</span></td><td>DA &rarr; EN</td><td>Translate Danish to English</td></tr>
+        <tr><td><span class="kb2">N</span></td><td>EN &rarr; DA</td><td>Translate English to Danish</td></tr>
+        <tr><td><span class="kb2 kb3">T &times;1-3</span></td><td>Speech-to-Text</td><td>Tap count = correction depth (1=raw, 2=+domain, 3=+LLM)</td></tr>
+        <tr><td><span class="kb2" style="background:transparent;border-color:var(--txd);color:var(--txd)">ESC</span></td><td>Cancel</td><td>Exit command mode &middot; stops STT if active</td></tr>
+      </table>
+    </div>
+    <!-- STT depth guide -->
+    <div style="min-width:320px">
+      <div style="font-size:14px;font-weight:700;color:var(--txb);margin-bottom:8px">STT Correction Depth</div>
+      <table class="ct" style="font-size:12.5px">
+        <tr><th>Taps</th><th>Pipeline</th><th>Description</th></tr>
+        <tr><td><span class="kb2 kb3">T&times;1</span></td><td>Layer 1</td><td>Raw ElevenLabs Scribe v2 transcription</td></tr>
+        <tr><td><span class="kb2 kb3">T&times;2</span></td><td>L1 + L2</td><td>+ domain corrections (regex + fuzzy lexicon)</td></tr>
+        <tr><td><span class="kb2 kb3">T&times;3</span></td><td>L1+L2+L3</td><td>+ LLM post-processing for grammar cleanup</td></tr>
+      </table>
+      <div style="font-size:11.5px;color:var(--txd);margin-top:10px;line-height:1.5">
+        Recording starts automatically after tap count resolves (300ms window).<br>
+        Press <strong style="color:var(--txb)">RALT</strong> or <strong style="color:var(--txb)">T</strong> again to stop recording.
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /mg -->
+
+<!-- ════ BOTTOM PANELS ════ -->
+<div class="bt">
+  <div class="bp">
+    <h3>Legend</h3>
+    <div class="leg">
+      <div class="li"><div class="ls ls-h"></div>Home Row Mod &mdash; tap = letter, cross-hand = mod</div>
+      <div class="li"><div class="ls ls-d"></div>Danish Hold Key &mdash; tap = key, hold 200ms = char</div>
+      <div class="li"><div class="ls ls-t"></div>Thumb Cluster Key</div>
+      <div class="li"><div class="ls ls-l"></div>Layer Activation Key (hold to activate)</div>
+      <div class="li"><div class="ls ls-s"></div>Special Function (AF keys, screenshot)</div>
+      <div class="li"><div class="ls ls-n"></div>Navigation / Hyprland Workspace</div>
+      <div class="li"><div class="ls ls-x"></div>Danger (bootloader reset)</div>
+      <div class="li" style="margin-top:4px;color:var(--txd);font-size:11px">&darr; = transparent &middot; &mdash; = unassigned &middot; dashed = no function</div>
+    </div>
+  </div>
+  <div class="bp">
+    <h3>Features &amp; Behavior</h3>
+    <ul class="qr">
+      <li><strong>Home Row Mods:</strong> GACS order (GUI, ALT, CTL, SFT). Chordal hold &mdash; mod activates only on cross-hand chords.</li>
+      <li><strong>Danish chars:</strong> Hold P/;/&apos; for &aring;/&aelig;/&oslash;. Also on RAISE layer via Unicode Map.</li>
+      <li><strong>DK_SC_AE chord:</strong> Hold ; + any left-hand key = RGUI modifier (for Hyprland shortcuts).</li>
+      <li><strong>One-shot shift:</strong> Tap OSM thumb &rarr; next key is shifted. Double-tap &rarr; caps lock. 3s timeout.</li>
+      <li><strong>Autocorrect:</strong> 4,200+ entries, active by default. Toggle: ADJUST layer &rarr; AC key.</li>
+      <li><strong>Encoders:</strong> Rotation = Volume &plusmn; on all layers. Button = MUTE (left), PLAY/PAUSE (right). Vial-remappable.</li>
+      <li><strong>AF keys:</strong> LALT+F13&ndash;F23 on RAISE layer &mdash; bind to Hyprland/Omarchy actions.</li>
+    </ul>
+  </div>
+  <div class="bp">
+    <h3>Quick Reference</h3>
+    <ul class="qr">
+      <li><strong>Enter command mode:</strong> Double-tap Right Alt (250ms window)</li>
+      <li><strong>Stop STT recording:</strong> Press RALT or T again</li>
+      <li><strong>All results:</strong> Copied to clipboard &rarr; paste with Ctrl+V</li>
+      <li><strong>Caps lock:</strong> Double-tap OSM shift thumb</li>
+      <li><strong>Bootloader (combo):</strong> 5&times; all 4 thumbs on one half (&lt;3s)</li>
+      <li><strong>Bootloader (key):</strong> LOWER+RAISE &rarr; bottom-left (BOOT)</li>
+      <li><strong>Vial unlock:</strong> Hold Q + P simultaneously</li>
+      <li><strong>Build:</strong> <code style="font-size:11px;color:var(--cy)">make -C ~/vial-qmk geigeigeist/klor/2040:vial</code></li>
+    </ul>
+  </div>
+</div>
+
+</body>
+</html>

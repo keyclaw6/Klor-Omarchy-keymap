@@ -23,7 +23,7 @@
 #    define FLOW_TAP_TERM 150
 #endif
 
-/* ── Auto Shift (configured but not enabled in rules.mk) ── */
+/* ── Auto Shift (not enabled in rules.mk — retained for future use) ── */
 #define NO_AUTO_SHIFT_ALPHA
 #define AUTO_SHIFT_TIMEOUT TAPPING_TERM
 #ifndef AUTO_SHIFT_NO_SETUP
@@ -53,7 +53,7 @@
    by vial.h when COMBO_ENABLE / KEY_OVERRIDE_ENABLE are set in rules.mk.
    No manual defines needed here. */
 
-/* ── Pointing device (not installed) ── */
+/* ── Pointing device (not installed — guarded so it compiles cleanly) ── */
 #ifdef POINTING_DEVICE_ENABLE
 #    define SPLIT_POINTING_ENABLE
 #    define POINTING_DEVICE_RIGHT
