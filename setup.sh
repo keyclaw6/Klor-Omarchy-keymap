@@ -231,11 +231,19 @@ main() {
     echo "╚══════════════════════════════════════════╝"
     echo ""
 
-    install_packages
+    # Package installation requires sudo. If it fails (no TTY, missing sudo, etc.)
+    # we warn and continue — the remaining steps (config deploy, service install)
+    # don't need root and should always run.
+    local packages_ok=true
+    install_packages || {
+        packages_ok=false
+        warn "Package installation failed (sudo unavailable or distro unknown)."
+        warn "Install manually before starting the bridge, then re-run setup.sh."
+    }
     echo ""
     deploy_configs
     echo ""
-    install_udev
+    install_udev || warn "udev rule installation failed — run with sudo or install manually."
     echo ""
     install_service
     echo ""
@@ -244,7 +252,11 @@ main() {
     setup_keys "${1:-}"
 
     echo ""
-    info "Setup complete!"
+    if $packages_ok; then
+        info "Setup complete!"
+    else
+        warn "Setup complete (with warnings — see above)."
+    fi
     echo ""
     echo "  Next steps:"
     echo "    1. Flash firmware: cp geigeigeist_klor_2040_vial.uf2 /run/media/$USER/RPI-RP2/"
