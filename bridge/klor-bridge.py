@@ -29,8 +29,6 @@ import re
 import sys
 import time
 from pathlib import Path
-from typing import Any
-
 import yaml
 
 # ─── Constants ────────────────────────────────────────────────────────────────
@@ -416,7 +414,6 @@ class STTPipeline:
 
         # Add keyterms for vocabulary biasing — each term as a separate field
         if self.lexicon:
-            import json
             keyterms = self.lexicon[:1000]  # max 1000
             # Send each keyterm as a repeated form field (not a JSON string)
             for term in keyterms:

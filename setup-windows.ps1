@@ -49,7 +49,7 @@ if (-not (Test-Path $configDir)) {
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $bridgeDir = Join-Path $scriptDir "bridge"
 
-$configFiles = @("config.yml", "actions.yml", "prompts.yml", "lexicon.yml", "corrections.yml", "autocorrect.txt")
+$configFiles = @("config.yml", "actions.yml", "prompts.yml", "lexicon.yml", "corrections.yml")
 
 Write-Host ""
 Write-Host "Copying config files..." -ForegroundColor Yellow

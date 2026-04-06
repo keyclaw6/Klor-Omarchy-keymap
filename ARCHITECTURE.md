@@ -8,7 +8,7 @@ The system has two halves that communicate over USB Raw HID:
 
 1. **Firmware** (RP2040, QMK/Vial) — Handles typing, layers, home row mods, Danish characters, autocorrect, and command mode detection. When a command action is triggered, it sends a 32-byte HID packet to the host.
 
-2. **Bridge daemon** (Python, asyncio) — Listens for HID packets, dispatches to OpenRouter LLM or ElevenLabs STT, and injects results at the cursor via platform tools (wtype/wl-clipboard on Linux, pyautogui/pyperclip on Windows).
+2. **Bridge daemon** (Python, asyncio) — Listens for HID packets, dispatches to OpenRouter LLM or ElevenLabs STT, and writes results to the clipboard via platform tools (wl-clipboard on Linux, pyperclip on Windows). Results are never auto-pasted — the user pastes manually with Ctrl+V.
 
 ```
 ┌─────────────────────────────────────────┐
@@ -20,9 +20,9 @@ The system has two halves that communicate over USB Raw HID:
 │  └──────────┘  └───────────┘  └───────┘ │
 │  ┌──────────────────────────────────────┐│
 │  │ Command Mode State Machine           ││
-│  │ (triple-tap RALT → action dispatch)  ││
+│  │ (double-tap RALT → action dispatch)  ││
 │  └──────────────────────────────────────┘│
-│         │ raw_hid_send()                 │
+│         │ host_raw_hid_send()            │
 └─────────┼────────────────────────────────┘
           │ USB Raw HID (32-byte packets)
           │ VID=0x3A3C  PID=0x0001
@@ -38,7 +38,7 @@ The system has two halves that communicate over USB Raw HID:
 │  │  │(OpenRouter)  │(ElevenLabs)│       ││
 │  │  └──────────┘  └──────────┘         ││
 │  │  ┌──────────────────────────┐       ││
-│  │  │ Platform (wtype/clipboard)│       ││
+│  │  │ Platform (clipboard)     │       ││
 │  │  └──────────────────────────┘       ││
 │  └──────────────────────────────────────┘│
 │            Host Computer                 │
@@ -47,7 +47,7 @@ The system has two halves that communicate over USB Raw HID:
 
 ## Firmware Architecture
 
-**Source:** `keyboards/geigeigeist/klor/keymaps/vial/`
+**Source:** `keyboards/geigeigeist/klor/keymaps/vial/keymap.c` (~800 lines)
 
 ### Layers
 
@@ -56,8 +56,8 @@ The system has two halves that communicate over USB Raw HID:
 | 0 | `_QWERTY` | Base layer. Home row mods (GACS), Danish hold keys on P/;/', one-shot shift |
 | 1 | `_LOWER` | Left thumb hold. Numbers, navigation, brackets |
 | 2 | `_RAISE` | Right thumb hold. Symbols, Unicode Danish (æ/ø/å via Unicode Map), currency |
-| 3 | `_ADJUST` | LOWER+RAISE (tri-layer). F-keys, QK_BOOT |
-| 4 | `_NAV` | Bottom-right key hold. Hyprland workspace switching (GUI+1 through GUI+9) |
+| 3 | `_ADJUST` | LOWER+RAISE (tri-layer). F-keys (F1-F24), QK_BOOT, AC_TOGG |
+| 4 | `_NAV` | Bottom-right key hold. Hyprland workspace switching (GUI+0 through GUI+9) |
 
 ### Home Row Mods
 
@@ -103,33 +103,51 @@ State machine detects rising edges (all 4 pressed where they weren't before), co
 
 ### Autocorrect
 
-QMK's built-in autocorrect feature with a trie-based dictionary.
+QMK's built-in autocorrect feature with a trie-based dictionary (~4,200 entries, 65 KB).
 
-- Source dictionary: `bridge/autocorrect.txt`
-- Generated trie: `autocorrect_data.h`
-- Triggers are alpha-only (a-z), minimum 5 characters to avoid false positives
+- Source dictionary: `keyboards/geigeigeist/klor/keymaps/vial/autocorrect.txt`
+- Generated trie: `keyboards/geigeigeist/klor/keymaps/vial/autocorrect_data.h`
+- Triggers are alpha-only (a-z) and apostrophe, minimum 5 characters to avoid false positives
 - Corrections can contain any character (uses `send_string`)
+- `:` prefix in the source file marks word-boundary-only matches
 
-**Constraints:** Triggers must not be substrings of each other (shorter match prevents longer from firing). This is a QMK trie limitation.
+Sources merged into the dictionary:
+- Custom email shortcuts (`:'kb`, `:'kab`, `:'key`)
+- Zynex brand corrections
+- Common contractions
+- Getreuer's curated QMK dictionary (~400 entries)
+- AutoHotkey AutoCorrect classic script (~2,500 entries)
+- AutoCorrect2 HotstringLib by kunkel321 (~4,000 entries)
+- Wikipedia common misspellings list (~3,000 entries)
+- After deduplication and conflict removal: ~4,200 unique entries
+
+**Constraints:**
+- Trie uses 16-bit byte offsets → max 65,535 bytes (~4,200 entries at ~15 bytes/entry average)
+- Triggers must not be substrings of each other (shorter match prevents longer from firing)
+- If the typo is a prefix of the correction, the backspace formula goes negative — these entries are filtered out during generation
+- The `@` character is not trackable by the autocorrect engine
 
 Regenerate after editing:
 ```bash
-qmk generate-autocorrect-data ~/.config/klor-bridge/autocorrect.txt \
+cd ~/vial-qmk
+qmk generate-autocorrect-data \
+    keyboards/geigeigeist/klor/keymaps/vial/autocorrect.txt \
     -kb geigeigeist/klor/2040 -km vial
-qmk compile -kb geigeigeist/klor/2040 -km vial
+make -C ~/vial-qmk geigeigeist/klor/2040:vial
 ```
 
 ## Command Mode & HID Protocol
 
 ### Entering Command Mode
 
-Triple-tap right ALT within 250ms (`RALT_TAP_WINDOW`). Manual state machine in `process_ralt_triple_tap()` — QMK's `tap_dance_actions[]` cannot be used because Vial owns that array.
+Double-tap right ALT within 250ms (`RALT_TAP_WINDOW`). Manual state machine in `process_ralt_tap()` — QMK's `tap_dance_actions[]` cannot be used because Vial owns that array.
 
-- 1 tap: normal RALT
-- 2 taps: normal RALT (both registered/unregistered)
-- 3 taps: enter command mode (third tap is consumed, RALT not registered)
+- 1 tap: normal RALT (registered on press, unregistered on release)
+- 2 taps: enter command mode (second tap is consumed, RALT not registered)
 - Window expiry: tap count resets
 - Any non-RALT keypress: tap count resets
+
+While STT is recording, a single RALT press stops recording immediately (bypasses the double-tap detection).
 
 ### Command Mode Dispatch
 
@@ -141,7 +159,7 @@ Once active, the next letter keypress is intercepted by `process_command_mode()`
 4. `DK_SC_AE` and `DK_QT_OE` return 0 (semicolon/quote aren't letter keys)
 5. All 26 letters return their ASCII uppercase code (0x41-0x5A)
 6. T (KC_T) returns 0xFF sentinel → enters STT tap-counting path
-7. ESC cancels command mode
+7. ESC cancels command mode (also stops STT if recording)
 8. Any unmapped key exits command mode and passes through
 
 Command mode times out after 3 seconds (`COMMAND_MODE_TIMEOUT`).
@@ -149,16 +167,16 @@ Command mode times out after 3 seconds (`COMMAND_MODE_TIMEOUT`).
 ### Action ID Scheme
 
 ```
-Letter  Hex   Status
+Letter  Hex   Action
 A       0x41  unconfigured
 B       0x42  unconfigured
 C       0x43  unconfigured
 D       0x44  translate_da_en
-E       0x45  expand
+E       0x45  prompt_expand
 F       0x46  unconfigured
-G       0x47  grammar
+G       0x47  fix_grammar
 H       0x48  unconfigured
-I       0x49  improve
+I       0x49  improve_writing
 J       0x4A  unconfigured
 K       0x4B  unconfigured
 L       0x4C  unconfigured
@@ -167,7 +185,7 @@ N       0x4E  translate_en_da
 O       0x4F  unconfigured
 P       0x50  unconfigured
 Q       0x51  unconfigured
-R       0x52  rewrite
+R       0x52  write_email
 S       0x53  summarize
 T       0xFF  → ACTION_STT (0x10) with depth param
 U       0x55  unconfigured
@@ -225,12 +243,13 @@ The bridge protocol hooks into `raw_hid_receive_kb()`, which vial-qmk's `via.c` 
 
 - Do NOT call `raw_hid_send()` inside `raw_hid_receive_kb()` — `via.c` calls it automatically after the hook returns
 - Modify `data[]` in-place to set the response
+- Use `host_raw_hid_send()` (from `host.h`) for firmware-initiated packets — `raw_hid_send()` is not visible when `keymap_introspection.c` includes `keymap.c`
 - Command IDs 0x20-0x3F are ours; VIA uses 0x01-0x0F
 - Unrecognized IDs set `data[0] = id_unhandled`
 
 ## Bridge Daemon Architecture
 
-**Source:** `bridge/klor-bridge.py` (Linux/Wayland, ~762 lines), `bridge/klor-bridge-windows.py` (Windows, ~550 lines)
+**Source:** `bridge/klor-bridge.py` (Linux/Wayland, ~865 lines), `bridge/klor-bridge-windows.py` (Windows, ~850 lines)
 
 ### Components
 
@@ -239,7 +258,7 @@ KlorBridge (main daemon)
 ├── HIDConnection     — USB Raw HID read/write via hid module (python-hid or hidapi)
 ├── LLMClient         — OpenRouter API via openai SDK (AsyncOpenAI)
 ├── STTPipeline       — ElevenLabs Scribe v2 + 3-layer correction
-└── Platform          — Clipboard + key simulation (wtype/wl-clipboard)
+└── Platform          — Clipboard (wl-clipboard / pyperclip), key simulation (wtype / pyautogui)
 ```
 
 ### Event Loop
@@ -259,48 +278,52 @@ while True:
         sleep(5ms)                   # 200 polls/sec
 ```
 
+A test socket on `127.0.0.1:19378` accepts TCP connections for injecting simulated HID packets without a physical keyboard. Useful for development and testing.
+
 ### Action Dispatch Flow
 
 **LLM text transformation (`llm_text` type):**
 
 ```
-1. Save current clipboard contents
-2. Simulate Ctrl+C → copy selected text
-3. Wait copy_delay_ms (150ms)
-4. Read clipboard → selected text
-5. Look up prompt template from prompts.yml
-6. Send to OpenRouter: prompt.replace("${text}", selected_text)
-7. Write LLM result to clipboard
-8. Simulate Ctrl+V → paste (replaces selection)
-9. Wait 100ms
-10. Restore original clipboard contents
+1. Simulate Ctrl+C → copy selected text to clipboard
+2. Wait copy_delay_ms (150ms)
+3. Read clipboard → selected text
+4. Look up prompt template from prompts.yml
+5. Send to OpenRouter: prompt.replace("${text}", selected_text)
+6. Write LLM result to clipboard (replaces copied text)
+7. Show desktop notification with result length
+8. User pastes manually with Ctrl+V when ready
 ```
+
+Note: The bridge does NOT auto-paste results. This is intentional — it gives the user control over when and where to paste, and avoids focus-stealing issues.
 
 **STT toggle (`stt_toggle` type):**
 
 ```
 First trigger (start recording):
-1. Store depth parameter
+1. Store depth parameter (1-3)
 2. Open sounddevice InputStream (16kHz, mono, float32)
 3. Buffer audio chunks in callback
+4. Show "Recording..." notification
 
 Second trigger (stop + process):
 1. Stop and close audio stream
 2. Concatenate audio buffer → numpy array
-3. Layer 1: Convert to raw PCM → POST to ElevenLabs Scribe v2
+3. Layer 1: Convert to raw PCM int16 → POST to ElevenLabs Scribe v2
 4. Layer 2 (if depth >= 2): regex corrections + fuzzy lexicon matching
 5. Layer 3 (if depth >= 3): LLM post-processing via stt_postprocess prompt
-6. Type result at cursor via wtype
+6. Write result to clipboard
+7. Show "Transcription complete" notification
 ```
 
 ### STT Correction Pipeline
 
 **Layer 1 — Transcription:**
-POST audio as raw PCM (int16, 16kHz, mono) to `https://api.elevenlabs.io/v1/speech-to-text`. Parameters: `model_id=scribe_v2`, auto language detection (no hardcoded language), `no_verbatim=true`, `diarize=false`, `timestamps_granularity=none`, plus lexicon terms as `keyterms` for vocabulary biasing. Raw PCM avoids WAV container overhead for faster turnaround on short dictation clips.
+POST audio as raw PCM (int16, 16kHz, mono, no WAV header) to `https://api.elevenlabs.io/v1/speech-to-text`. Parameters: `model_id=scribe_v2`, auto language detection (no hardcoded language), `no_verbatim=true`, `diarize=false`, `timestamps_granularity=none`, `file_format=pcm_s16le_16`, plus lexicon terms as individual `keyterms[]` form fields for vocabulary biasing. Raw PCM avoids WAV container overhead for faster turnaround on short dictation clips.
 
 **Layer 2 — Domain Corrector:**
 Two-pass correction on the transcript:
-1. Regex substitutions from `corrections.yml` (exact pattern matches)
+1. Regex substitutions from `corrections.yml` (exact pattern matches, applied in order)
 2. Fuzzy matching against `lexicon.yml` terms using Levenshtein distance (threshold=2, min word length=4)
 
 **Layer 3 — LLM Post-processing:**
@@ -317,7 +340,6 @@ All config is in `~/.config/klor-bridge/`:
 | `prompts.yml` | LLM prompt templates referenced by `prompt_key` in actions |
 | `lexicon.yml` | Domain vocabulary for STT Layer 2 fuzzy matching + ElevenLabs keyterms |
 | `corrections.yml` | Regex substitution rules for STT Layer 2 |
-| `autocorrect.txt` | Source dictionary for QMK autocorrect trie generation |
 
 ### Secrets
 
@@ -328,20 +350,30 @@ API keys are stored in the OS keyring (`gnome-keyring` on Linux, Windows Credent
 | `klor-bridge/openrouter_key` | `KLOR_OPENROUTER_KEY` | OpenRouter LLM |
 | `klor-bridge/elevenlabs_key` | `KLOR_ELEVENLABS_KEY` | ElevenLabs STT |
 
+### HID Library Compatibility
+
+Arch Linux ships `python-hid` (required by QMK) which provides `hid.Device`. Most other platforms use `hidapi` (pip) which provides `hid.device`. The bridge detects which API is available at runtime and adapts:
+
+| Library | Class | Open method |
+|---------|-------|-------------|
+| `hidapi` (pip) | `hid.device()` | `open_path()` / `set_nonblocking(True)` |
+| `python-hid` (Arch) | `hid.Device()` | `Device(path=...)` / `.nonblocking = True` |
+
 ### Windows Variant
 
 `klor-bridge-windows.py` replaces platform-specific tools:
-- `wtype` → `pyautogui` (keyboard simulation)
 - `wl-clipboard` → `pyperclip` (clipboard access)
+- `wtype` → `pyautogui` (keyboard simulation for Ctrl+C copy)
+- `notify-send` → PowerShell toast notifications
 - All other logic (HID, LLM, STT pipeline) is identical
 
 ## Build System
 
 ### Prerequisites
 
-- `vial-qmk` fork cloned to `~/vial-qmk` (NOT `~/qmk_firmware`)
+- `vial-qmk` fork cloned to `~/vial-qmk` (NOT `~/qmk_firmware` — the vanilla QMK tree lacks Vial declarations)
 - QMK CLI tools installed
-- Build target: `geigeigeist/klor/2040` (NOT `geigeigeist/klor`)
+- Build target: `geigeigeist/klor/2040` with keymap `vial`
 
 ### Build Commands
 
@@ -350,15 +382,22 @@ API keys are stored in the OS keyring (`gnome-keyring` on Linux, Windows Credent
 cp -r keyboards/geigeigeist ~/vial-qmk/keyboards/
 
 # Regenerate autocorrect trie (if dictionary changed)
-qmk generate-autocorrect-data bridge/autocorrect.txt \
+qmk generate-autocorrect-data \
+    keyboards/geigeigeist/klor/keymaps/vial/autocorrect.txt \
     -kb geigeigeist/klor/2040 -km vial
 
-# Compile
-qmk compile -kb geigeigeist/klor/2040 -km vial
+# Compile (use make, not qmk compile — avoids ~/qmk_firmware resolution)
+make -C ~/vial-qmk geigeigeist/klor/2040:vial
 
 # Copy UF2 to firmware/
-cp ~/vial-qmk/geigeigeist_klor_2040_vial.uf2 firmware/
+cp ~/vial-qmk/.build/geigeigeist_klor_2040_vial.uf2 firmware/
 ```
+
+### Build Rules
+
+- `COMBO_ENABLE = yes` and `KEY_OVERRIDE_ENABLE = yes` are **required** in `rules.mk`. Setting them to `no` causes `unknown type name 'vial_combo_entry_t'` build errors because Vial's `keymap_introspection.c` depends on these being enabled.
+- `RAW_ENABLE = yes` is explicitly set for clarity, though VIA already implies it.
+- `PIN_COMPATIBLE = promicro` is a board-level directive inherited from the KLOR PCB config.
 
 ### Known Build Warnings
 
@@ -367,13 +406,13 @@ cp ~/vial-qmk/geigeigeist_klor_2040_vial.uf2 firmware/
 
 ### Firmware Size
 
-The compiled UF2 is ~123 KB. The RP2040 has 2 MB flash, so there is ample room.
+The compiled UF2 is ~252 KB. The RP2040 has 2 MB flash, so there is ample room. The autocorrect trie accounts for ~65 KB of this.
 
 ## System Integration
 
 ### Linux (systemd)
 
-`systemd/klor-bridge.service` runs the bridge as a user service, bound to `graphical-session.target`. Security hardening: `NoNewPrivileges`, `ProtectHome=read-only`, `ProtectSystem=strict`, `PrivateTmp`, CPU/memory limits.
+`systemd/klor-bridge.service` runs the bridge as a user service, bound to `graphical-session.target`. Security hardening: `NoNewPrivileges`, `ProtectHome=read-only`, `ProtectSystem=strict`, `PrivateTmp`, CPU/memory limits (512 MB, 50% CPU).
 
 `systemd/99-klor-hid.rules` grants the user read/write access to the KLOR's HID device via uaccess:
 ```
@@ -407,10 +446,12 @@ If you need behavior beyond `llm_text` and `stt_toggle`:
 
 ### Adding Autocorrect Entries
 
-Edit `bridge/autocorrect.txt`, regenerate the trie, and reflash. Rules:
-- Triggers: alpha only (a-z), 5+ characters
+Edit `keyboards/geigeigeist/klor/keymaps/vial/autocorrect.txt`, regenerate the trie, and reflash. Rules:
+- Triggers: alpha only (a-z) and apostrophe, 5+ characters recommended
+- `:` prefix for word-boundary-only matches
 - No substring conflicts between triggers
 - Corrections can contain any character
+- Max trie size: 65,535 bytes (~4,200 entries)
 
 ### Changing STT Language
 
