@@ -66,6 +66,13 @@ enum custom_keycodes {
     BRIGHT_DOWN,// Brightness decrease (sent to bridge daemon)
 };
 
+enum internal_nav_keycodes {
+    NAV_LEFT = SAFE_RANGE,
+    NAV_DOWN,
+    NAV_UP,
+    NAV_RIGHT,
+};
+
 // ┌───────────────────────────────────────────────────────────┐
 // │ b r i d g e   p r o t o c o l   ( R a w   H I D )         │
 // └───────────────────────────────────────────────────────────┘
@@ -250,8 +257,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
    [_NAV] = LAYOUT_polydactyl(
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
-              XXXXXXX, LCTL(LGUI(KC_LEFT)), LGUI(KC_UP),  LCTL(LGUI(KC_RGHT)), XXXXXXX,   XXXXXXX,      LGUI(KC_7), LGUI(KC_8), LGUI(KC_9), XXXXXXX,
-   LGUI(KC_TAB), XXXXXXX,           LGUI(KC_LEFT), LGUI(KC_DOWN), LGUI(KC_RGHT), LGUI(KC_G), XXXXXXX,   LGUI(KC_4), LGUI(KC_5), LGUI(KC_6), XXXXXXX, XXXXXXX,
+              XXXXXXX, LCTL(LGUI(KC_LEFT)), NAV_UP,        LCTL(LGUI(KC_RGHT)), XXXXXXX,   XXXXXXX,      LGUI(KC_7), LGUI(KC_8), LGUI(KC_9), XXXXXXX,
+   LGUI(KC_TAB), XXXXXXX,           NAV_LEFT,      NAV_DOWN,      NAV_RIGHT,      LGUI(KC_G), XXXXXXX,   LGUI(KC_4), LGUI(KC_5), LGUI(KC_6), XXXXXXX, XXXXXXX,
    XXXXXXX,      XXXXXXX,           XXXXXXX,       XXXXXXX,       XXXXXXX,        XXXXXXX,    KC_MUTE, KC_MPLY, XXXXXXX,      LGUI(KC_1), LGUI(KC_2), LGUI(KC_3), XXXXXXX, _______,
                                    KC_LCTL, XXXXXXX, XXXXXXX, KC_LSFT,   KC_LALT, XXXXXXX, XXXXXXX, LGUI(KC_0)
   ),
@@ -618,6 +625,61 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
     // ── Existing macros ──
     switch (keycode) {
+        case NAV_LEFT:
+        case NAV_DOWN:
+        case NAV_UP:
+        case NAV_RIGHT: {
+            if (!record->event.pressed) {
+                return false;
+            }
+
+            uint8_t mods = get_mods() | get_oneshot_mods();
+            bool shift = mods & MOD_MASK_SHIFT;
+            bool ctrl  = mods & MOD_MASK_CTRL;
+            bool alt   = mods & MOD_MASK_ALT;
+
+            uint16_t key = KC_NO;
+            switch (keycode) {
+                case NAV_LEFT:  key = KC_LEFT; break;
+                case NAV_DOWN:  key = KC_DOWN; break;
+                case NAV_UP:    key = KC_UP;   break;
+                case NAV_RIGHT: key = KC_RGHT; break;
+            }
+
+            if (ctrl && alt && !shift && (key == KC_LEFT || key == KC_RGHT)) {
+                tap_code16(LCTL(LGUI(key)));
+                return false;
+            }
+
+            if (ctrl && !shift && !alt) {
+                switch (key) {
+                    case KC_LEFT: tap_code16(LGUI(KC_MINS)); break;
+                    case KC_RGHT: tap_code16(LGUI(KC_EQL)); break;
+                    case KC_UP:   tap_code16(LSG(KC_MINS));  break;
+                    case KC_DOWN: tap_code16(LSG(KC_EQL));   break;
+                }
+                return false;
+            }
+
+            if (shift && alt) {
+                tap_code16(SA(LGUI(key)));
+                return false;
+            }
+
+            if (shift) {
+                tap_code16(S(LGUI(key)));
+                return false;
+            }
+
+            if (alt) {
+                tap_code16(A(LGUI(key)));
+                return false;
+            }
+
+            tap_code16(LGUI(key));
+            return false;
+        }
+
         case PRINT_SCR:
             if (record->event.pressed) register_code(KC_PSCR);
             else                       unregister_code(KC_PSCR);

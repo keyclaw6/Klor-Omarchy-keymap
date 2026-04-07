@@ -32,9 +32,9 @@ Layer 4 (`_NAV`), activated by holding the bottom-right key, is a navigation-onl
 
 ```
               ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
-              │         │ GUI+CTL←│  GUI+↑  │ GUI+CTL→│         │                    │         │  GUI+7  │  GUI+8  │  GUI+9  │         │
+               │         │ GUI+CTL←│    ↑    │ GUI+CTL→│         │                    │         │  GUI+7  │  GUI+8  │  GUI+9  │         │
     ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤                    ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
-    │ GUI+TAB │         │  GUI+←  │  GUI+↓  │  GUI+→  │ GUI+G ⊞ │                    │         │  GUI+4  │  GUI+5  │  GUI+6  │         │         │
+     │ GUI+TAB │         │    ←    │    ↓    │    →    │ GUI+G ⊞ │                    │         │  GUI+4  │  GUI+5  │  GUI+6  │         │         │
     ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
     │         │         │         │         │         │         ││  MUTE  ││PLY/PSE ││         │  GUI+1  │  GUI+2  │  GUI+3  │         │ [held]  │
     └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
@@ -68,7 +68,9 @@ The thumb keys (CTRL, SHIFT, ALT) combine with the dedicated navigation keys to 
 | TAB | `SUPER+TAB` | Next workspace (+SHIFT = previous, +CTRL = former, +ALT = next in group, +SHIFT+ALT = previous in group) |
 | Top inner left | `SUPER+CTRL+LEFT` | Group focus backward |
 | Top inner right | `SUPER+CTRL+RIGHT` | Group focus forward |
-| CTRL + arrows | resize | Use the arrow cluster for resize instead of dedicated `-` / `=` keys |
+| CTRL + Left/Right | `SUPER+-` / `SUPER+=` | Horizontal resize on the arrow cluster |
+| CTRL + Up/Down | `SUPER+SHIFT+-` / `SUPER+SHIFT+=` | Vertical resize on the arrow cluster |
+| CTRL + ALT + Left/Right | `SUPER+CTRL+LEFT/RIGHT` | Alternate path to group focus on the arrow cluster |
 
 **Right hand — Workspaces & Navigation:**
 
@@ -96,6 +98,7 @@ The thumb keys (CTRL, SHIFT, ALT) combine with the dedicated navigation keys to 
 **Move into group left:** NAV + ALT + S
 **Move workspace to left monitor:** NAV + SHIFT + ALT + S
 **Resize left/right/up/down:** NAV + CTRL + arrow cluster
+**Group focus backward/forward from arrows:** NAV + CTRL + ALT + Left/Right
 **Group focus backward/forward:** NAV + top-row group keys
 
 ## RAISE Layer — Omarchy Shortcuts
