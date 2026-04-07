@@ -142,7 +142,7 @@ class Platform:
         self.clip_write = plat.get("clipboard_write", "wl-copy")
         self.key_sim = plat.get("key_simulator", "wtype")
         self.copy_delay = plat.get("copy_delay_ms", 150) / 1000.0
-        # Maps tag -> notification ID for tag-based replacement/dismissal
+        # Maps tag -> notification ID for tag-based replacement
         self._notif_ids: dict = {}
 
     async def copy_selection(self) -> str:
@@ -1064,6 +1064,8 @@ class KlorBridge:
             if desc:
                 label += f" — {desc}"
             lines.append(label)
+            # Keep a direct lookup by the exact displayed row so names may
+            # safely contain delimiter-like text.
             line_to_snippet.setdefault(label, s)
         menu_input = "\n".join(lines)
 
