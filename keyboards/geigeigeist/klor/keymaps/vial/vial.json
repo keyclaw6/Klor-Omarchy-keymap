@@ -8,7 +8,7 @@
         "cols": 6
     },
     "customKeycodes": [
-        {"name": "Screenshot", "title": "Shift+Win+S screenshot", "shortName": "SNAP2"}
+        {"name": "Print Screen", "title": "Standard Print Screen key", "shortName": "PRTSC"}
     ],
     "layouts": {
         "keymap": [

@@ -1080,12 +1080,14 @@ class KlorBridge:
 
         # Build list for dmenu: "name — category"
         lines = []
-        for i, s in enumerate(self.snippets):
+        line_to_snippet = {}
+        for s in self.snippets:
             desc = s.get("category", "")
             label = s["name"]
             if desc:
                 label += f" — {desc}"
             lines.append(label)
+            line_to_snippet.setdefault(label, s)
         menu_input = "\n".join(lines)
 
         # Find a dmenu-compatible launcher
@@ -1140,19 +1142,13 @@ class KlorBridge:
             log.info("Prompt picker cancelled by user")
             return
 
-        # Match selected line to a snippet
+        # Match the exact displayed row back to the snippet so names may
+        # safely contain the delimiter and duplicate names across categories.
         selected = stdout.decode("utf-8").strip()
-        # Extract name (everything before " — ")
-        selected_name = selected.split(" — ")[0].strip()
-
-        snippet = None
-        for s in self.snippets:
-            if s["name"] == selected_name:
-                snippet = s
-                break
+        snippet = line_to_snippet.get(selected)
 
         if not snippet:
-            log.warning("Selected snippet not found: %s", selected_name)
+            log.warning("Selected snippet not found: %s", selected)
             return
 
         # Copy snippet text to clipboard

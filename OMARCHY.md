@@ -141,15 +141,17 @@ This means you can chord the semicolon key with any left-hand key to trigger `GU
 
 This replaces a traditional RGUI home row mod on the right pinky, which was removed to make room for the Danish æ character.
 
-## Screenshot Shortcut (SNAP2)
+## Screenshot Shortcut (Print Screen)
 
-The LOWER layer's bottom-left key sends `Shift+GUI+S` — the standard Windows/KDE screenshot shortcut. On Omarchy/Hyprland, this needs a matching bind:
+The LOWER layer's bottom-left key sends a standard `Print Screen` keypress.
+
+On Omarchy/Hyprland, `PRINT` is already bound by default:
 
 ```
-bind = $mod SHIFT, S, exec, grimblast copy area
+bindd = , PRINT, Screenshot, exec, omarchy-cmd-screenshot
 ```
 
-This is handled by Omarchy's default screenshot configuration.
+This makes the key platform-neutral while still using Omarchy's default screenshot flow.
 
 ## Unicode Input Method
 

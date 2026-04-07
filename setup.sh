@@ -52,7 +52,7 @@ install_packages() {
             sudo pacman -S --needed --noconfirm \
                 python python-yaml python-openai python-keyring \
                 python-numpy python-aiohttp python-hid \
-                wtype wl-clipboard
+                wtype wl-clipboard brightnessctl ddcutil
 
             # python-sounddevice is AUR-only
             if ! pacman -Qi python-sounddevice &>/dev/null; then
@@ -75,7 +75,7 @@ install_packages() {
             sudo apt update
             sudo apt install -y \
                 python3 python3-pip python3-yaml python3-numpy python3-aiohttp \
-                wtype wl-clipboard libhidapi-hidraw0
+                wtype wl-clipboard libhidapi-hidraw0 brightnessctl ddcutil
             pip3 install --user openai keyring sounddevice hidapi
             ;;
 
@@ -83,14 +83,14 @@ install_packages() {
             info "Installing Fedora packages..."
             sudo dnf install -y \
                 python3 python3-pip python3-pyyaml python3-numpy python3-aiohttp \
-                wtype wl-clipboard hidapi
+                wtype wl-clipboard hidapi brightnessctl ddcutil
             pip3 install --user openai keyring sounddevice hid
             ;;
 
         *)
             error "Unknown distro. Install these manually:"
             echo "  Python 3.10+, pip, pyyaml, openai, keyring, sounddevice, numpy, aiohttp, hid (or hidapi)"
-            echo "  System: wtype, wl-clipboard"
+            echo "  System: wtype, wl-clipboard, brightnessctl, ddcutil"
             return 1
             ;;
     esac

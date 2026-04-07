@@ -8,7 +8,7 @@
  *
  * Changes from zynex keymap:
  *   - LOWER/RAISE custom keycodes → MO() + TRI_LAYER_ENABLE
- *   - SNAP2 custom keycode → QK_KB_0 (visible in Vial as "SNAP2")
+ *   - PRINT_SCR custom keycode → QK_KB_0 (visible in Vial as "PRTSC")
  *   - COMBO_COUNT removed (Vial manages combos dynamically)
  *   - encoder_update_user → encoder_map (Vial-remappable)
  *   - OLED code removed (not installed on this board)
@@ -61,7 +61,7 @@ enum klor_layers {
 
 // Use QK_KB_0 instead of SAFE_RANGE so Vial can see/assign these keycodes
 enum custom_keycodes {
-    SNAP2 = QK_KB_0,
+    PRINT_SCR = QK_KB_0,
     DK_P_AA,    // Tap = P,    Hold = å/Å
     DK_SC_AE,   // Tap = ;,    Hold = æ/Æ  (replaces HRM_SCLN / RGUI)
     DK_QT_OE,   // Tap = ',    Hold = ø/Ø
@@ -159,7 +159,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
               KC_CAPS,  KC_HOME,  KC_UP,    KC_EQL,   KC_LCBR,                       KC_RCBR,  KC_7,    KC_8,    KC_9,    KC_PPLS,
     KC_ESC,   KC_DEL,   KC_LEFT,  KC_DOWN,  KC_RGHT,  KC_LBRC,                       KC_RBRC,  KC_4,    KC_5,    KC_6,    KC_MINS,  KC_UNDS,
-    KC_PSCR,   KC_END,   KC_PGUP,  C(KC_S),  KC_PGDN,  KC_LPRN,  KC_MUTE,   KC_MPLY,  KC_RPRN,  KC_1,    KC_2,    KC_3,    KC_PAST,  _______,
+    PRINT_SCR, KC_END,   KC_PGUP,  C(KC_S),  KC_PGDN,  KC_LPRN,  KC_MUTE,   KC_MPLY,  KC_RPRN,  KC_1,    KC_2,    KC_3,    KC_PAST,  _______,
                                   _______,  _______,  _______,  _______,   _______,  _______,  _______,  KC_0
  ),
 
@@ -729,9 +729,9 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
     // ── Existing macros ──
     switch (keycode) {
-        case SNAP2:
+        case PRINT_SCR:
             if (record->event.pressed) {
-                SEND_STRING(SS_LSFT(SS_LWIN("S")));
+                tap_code(KC_PSCR);
             }
             break;
 
