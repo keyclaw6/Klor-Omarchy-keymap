@@ -8,7 +8,8 @@
         "cols": 6
     },
     "customKeycodes": [
-        {"name": "Print Screen", "title": "Standard Print Screen key", "shortName": "PRTSC"}
+        {"name": "Brightness Up", "title": "Bridge brightness increase action", "shortName": "BRI+"},
+        {"name": "Brightness Down", "title": "Bridge brightness decrease action", "shortName": "BRI-"}
     ],
     "layouts": {
         "keymap": [

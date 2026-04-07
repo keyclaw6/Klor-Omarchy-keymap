@@ -8,7 +8,7 @@
  *
  * Changes from zynex keymap:
  *   - LOWER/RAISE custom keycodes → MO() + TRI_LAYER_ENABLE
- *   - PRINT_SCR custom keycode → QK_KB_0 (visible in Vial as "PRTSC")
+ *   - Screenshot key on LOWER uses plain KC_PSCR for host-native Print Screen
  *   - COMBO_COUNT removed (Vial manages combos dynamically)
  *   - encoder_update_user → encoder_map (Vial-remappable)
  *   - OLED code removed (not installed on this board)
@@ -59,11 +59,11 @@ enum klor_layers {
 // │ c u s t o m   k e y c o d e s   ( V i a l - v i s i b l e ) │
 // └───────────────────────────────────────────────────────────┘
 
-// Use QK_KB_0 instead of SAFE_RANGE so Vial can see/assign these keycodes
+// Use QK_KB_0 instead of SAFE_RANGE so Vial can see/assign these keycodes.
+// Keep screenshot on plain KC_PSCR to avoid depending on dynamic custom-keycode state.
 enum custom_keycodes {
-    PRINT_SCR = QK_KB_0,
-    BRIGHT_UP,  // Brightness increase (sent to bridge daemon)
-    BRIGHT_DOWN,// Brightness decrease (sent to bridge daemon)
+    BRIGHT_UP = QK_KB_0,  // Brightness increase (sent to bridge daemon)
+    BRIGHT_DOWN,          // Brightness decrease (sent to bridge daemon)
 };
 
 enum internal_nav_keycodes {
@@ -163,7 +163,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
               KC_CAPS,  KC_HOME,  KC_UP,    KC_EQL,   KC_LCBR,                       KC_RCBR,  KC_7,    KC_8,    KC_9,    KC_PPLS,
     KC_ESC,   KC_DEL,   KC_LEFT,  KC_DOWN,  KC_RGHT,  KC_LBRC,                       KC_RBRC,  KC_4,    KC_5,    KC_6,    KC_MINS,  KC_UNDS,
-    PRINT_SCR, KC_END,   KC_PGUP,  C(KC_S),  KC_PGDN,  KC_LPRN,  KC_MUTE,   KC_MPLY,  KC_RPRN,  KC_1,    KC_2,    KC_3,    KC_PAST,  _______,
+    KC_PSCR,   KC_END,   KC_PGUP,  C(KC_S),  KC_PGDN,  KC_LPRN,  KC_MUTE,   KC_MPLY,  KC_RPRN,  KC_1,    KC_2,    KC_3,    KC_PAST,  _______,
                                   _______,  _______,  _______,  _______,   _______,  _______,  _______,  KC_0
  ),
 
@@ -662,7 +662,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             }
 
             if (shift && alt) {
-                tap_code16(SA(LGUI(key)));
+                tap_code16(S(A(LGUI(key))));
                 return false;
             }
 
@@ -679,11 +679,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             tap_code16(LGUI(key));
             return false;
         }
-
-        case PRINT_SCR:
-            if (record->event.pressed) register_code(KC_PSCR);
-            else                       unregister_code(KC_PSCR);
-            return false;
 
         // ── Brightness encoder → bridge HID packets ──
         case BRIGHT_UP:
