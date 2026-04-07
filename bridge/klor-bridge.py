@@ -274,29 +274,6 @@ class Platform:
         except Exception as e:
             log.debug("Notification failed: %s", e)
 
-    async def _dismiss_notification(self, tag: str) -> None:
-        """Dismiss a specific tagged notification by replacing it with a
-        1 ms invisible placeholder, then clearing the stored ID.
-
-        Only affects the notification that this bridge previously sent with
-        the given tag — unrelated notifications from other applications are
-        never touched.  Silently ignored if the tag has no stored ID.
-        """
-        notif_id = self._notif_ids.pop(tag, None)
-        if notif_id is None:
-            return
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                "notify-send", "--print-id", f"--replace-id={notif_id}",
-                "-t", "1", "--", " ", " ",
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL,
-            )
-            await asyncio.wait_for(proc.wait(), timeout=1.0)
-        except Exception:
-            pass
-
-
 # ─── LLM Client (OpenRouter) ──────────────────────────────────────────────────
 
 
