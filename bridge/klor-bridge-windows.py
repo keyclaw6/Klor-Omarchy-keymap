@@ -39,6 +39,8 @@ CMD_BRIDGE_CONFIG = 0x23
 
 # Action IDs (must match firmware defines)
 ACTION_STT = 0x10
+ACTION_BRIGHTNESS_UP = 0x11
+ACTION_BRIGHTNESS_DOWN = 0x12
 
 log = logging.getLogger("klor-bridge")
 
@@ -89,6 +91,20 @@ def load_lexicon() -> list[str]:
 def load_corrections() -> list[dict]:
     raw = load_yaml(CONFIG_DIR / "corrections.yml")
     return raw.get("corrections", [])
+
+
+def load_snippets() -> list[dict]:
+    """Load prompt snippets for the prompt picker.
+
+    Returns a list of dicts: [{name, description, text}, ...]
+    """
+    raw = load_yaml(CONFIG_DIR / "snippets.yml")
+    snippets = raw.get("snippets", [])
+    valid = []
+    for s in snippets:
+        if isinstance(s, dict) and s.get("name") and s.get("text"):
+            valid.append(s)
+    return valid
 
 
 # ─── Secrets ──────────────────────────────────────────────────────────────────
@@ -175,24 +191,19 @@ class Platform:
         self._pyperclip.copy(text)
 
     async def notify(self, title: str, body: str = "", urgent: bool = False,
-                     timeout: int = 3000, tag: str = "") -> None:
+                     timeout: int = 5000, tag: str = "",
+                     category: str = "device") -> None:
         """Send a desktop notification via Windows toast.
 
         The tag parameter is accepted for API compatibility with the Linux
-        version but has no effect — Windows toast notifications replace by
-        default based on app name.
+        version.  Windows toast notifications auto-replace by app name.
         """
         try:
             from subprocess import CREATE_NO_WINDOW
 
-            # Use PowerShell to show a Windows toast notification.
-            # Sanitize title/body: replace single quotes with unicode right single
-            # quote mark and escape any other PS-special characters to prevent
-            # script injection from untrusted notification content.
+            # Sanitize title/body for PowerShell
             def _ps_escape(s: str) -> str:
-                # Replace single quotes with unicode right single quote mark
                 s = s.replace(chr(39), chr(8217))
-                # Remove backticks and dollar signs that could inject PS vars
                 s = s.replace("`", "").replace("$", "")
                 return s
 
@@ -636,6 +647,7 @@ class KlorBridge:
         self.config = load_config()
         self.actions = load_actions()
         self.prompts = load_prompts()
+        self.snippets = load_snippets()
 
         self.hid = HIDConnection(self.config)
         self.platform = Platform(self.config)
@@ -644,6 +656,10 @@ class KlorBridge:
 
         # STT state
         self._stt_depth = 1
+
+        # Brightness config
+        bright_cfg = self.config.get("brightness", {})
+        self._brightness_step = bright_cfg.get("step_percent", 5)
 
     async def run(self) -> None:
         """Main event loop."""
@@ -738,6 +754,14 @@ class KlorBridge:
 
     async def _dispatch_action(self, action_id: int, param: int) -> None:
         """Execute an action based on its ID."""
+        # ── Brightness (direct action IDs, not in actions.yml) ──
+        if action_id == ACTION_BRIGHTNESS_UP:
+            await self._handle_brightness(+1)
+            return
+        if action_id == ACTION_BRIGHTNESS_DOWN:
+            await self._handle_brightness(-1)
+            return
+
         action = self.actions.get(action_id)
 
         if not action:
@@ -753,80 +777,328 @@ class KlorBridge:
                 await self._handle_llm_text(action)
             elif action_type == "stt_toggle":
                 await self._handle_stt_toggle(param)
+            elif action_type == "prompt_picker":
+                await self._handle_prompt_picker(action)
             elif action_type == "unconfigured":
                 log.info("Action %s is unconfigured — assign it in actions.yml", name)
+                await self.platform.notify(
+                    f"Key {action.get('key', '?').upper()} — Not configured",
+                    "Assign an action in actions.yml",
+                    tag="klor-info",
+                    timeout=3000,
+                )
             else:
                 log.warning("Unknown action type: %s", action_type)
+                await self.platform.notify(
+                    "Unknown action type",
+                    f"Type '{action_type}' is not recognized",
+                    tag="klor-info",
+                    timeout=5000,
+                )
         except Exception as e:
             log.error("Action %s failed: %s", name, e, exc_info=True)
+            await self.platform.notify(
+                f"Action {name} failed",
+                str(e)[:200],
+                tag="klor-error",
+                timeout=8000,
+            )
 
     async def _handle_llm_text(self, action: dict) -> None:
-        """Copy selection → LLM transform → write result to clipboard (no auto-paste)."""
-        # Copy selected text
+        """Copy selection -> LLM transform -> write result to clipboard (no auto-paste).
+
+        Shows notifications at each stage so the user always knows what's
+        happening, even when the LLM call takes several seconds.
+        """
+        action_name = action.get("name", "LLM")
+        action_key = action.get("key", "?").upper()
+
+        await self.platform.notify(
+            f"{action_key} — Copying selection...",
+            f"Action: {action_name}",
+            tag="klor-llm",
+        )
+
+        # Copy selected text (with retry)
         text = await self.platform.copy_selection()
-        if not text:
-            log.warning("No text selected (clipboard empty)")
-            await self.platform.notify("No text selected", "Select some text and try again", tag="klor-llm")
+        if not text or text.isspace():
+            await asyncio.sleep(0.2)
+            text = await self.platform.copy_selection()
+
+        if not text or text.isspace():
+            log.warning("No text selected (clipboard empty after retry)")
+            await self.platform.notify(
+                f"{action_key} — No text selected",
+                "Select some text and try again",
+                tag="klor-llm",
+                timeout=5000,
+            )
             return
 
-        # Look up prompt template
         prompt_key = action.get("prompt_key", "")
         template = self.prompts.get(prompt_key)
         if not template:
             log.error("Prompt template not found: %s", prompt_key)
+            await self.platform.notify(
+                f"{action_key} — Config error",
+                f"Prompt template '{prompt_key}' not found in prompts.yml",
+                tag="klor-llm",
+                timeout=8000,
+            )
             return
 
-        # Process through LLM
-        result = await self.llm.process_text(text, template)
-        if not result:
+        await self.platform.notify(
+            f"{action_key} — Processing with LLM...",
+            f"{len(text)} chars selected. Please wait.",
+            tag="klor-llm",
+            urgent=True,
+        )
+
+        try:
+            result = await asyncio.wait_for(
+                self.llm.process_text(text, template),
+                timeout=120,
+            )
+        except asyncio.TimeoutError:
+            log.error("LLM request timed out after 120s")
+            await self.platform.notify(
+                f"{action_key} — LLM timeout",
+                "Request took too long. Try shorter text or check API.",
+                tag="klor-llm",
+                timeout=8000,
+            )
+            return
+        except Exception as e:
+            log.error("LLM request failed: %s", e, exc_info=True)
+            await self.platform.notify(
+                f"{action_key} — LLM error",
+                str(e)[:200],
+                tag="klor-llm",
+                timeout=8000,
+            )
+            return
+
+        if not result or result.isspace():
             log.warning("LLM returned empty result")
-            await self.platform.notify("LLM returned empty", "Try again or select different text", tag="klor-llm")
+            await self.platform.notify(
+                f"{action_key} — Empty result",
+                "LLM returned nothing. Try different text.",
+                tag="klor-llm",
+                timeout=5000,
+            )
             return
 
-        # Write result to clipboard (no paste)
         await self.platform._write_clipboard(result)
         log.info("LLM result copied to clipboard: %d chars → %d chars", len(text), len(result))
         await self.platform.notify(
-            f"{action.get('key', '').upper()} — LLM result copied",
-            f"{len(result)} chars ready to paste",
-            tag="klor-llm"
+            f"{action_key} — Result ready",
+            f"{len(result)} chars copied to clipboard. Paste with Ctrl+V.",
+            tag="klor-llm",
+            timeout=5000,
         )
 
     async def _handle_stt_toggle(self, depth: int) -> None:
-        """Toggle speech-to-text recording."""
+        """Toggle speech-to-text recording with full notification feedback."""
         depth = max(1, min(3, depth))
 
         if self.stt.is_recording:
             log.info("STT stop → processing with depth=%d", self._stt_depth)
             await self.platform.notify(
-                "Processing transcription...", "Please wait",
-                tag="klor-stt"
+                "Processing transcription...",
+                f"Depth {self._stt_depth}/3 — please wait",
+                tag="klor-stt",
+                timeout=30000,
             )
-            result = await self.stt.toggle_recording(self._stt_depth)
+
+            try:
+                result = await asyncio.wait_for(
+                    self.stt.toggle_recording(self._stt_depth),
+                    timeout=120,
+                )
+            except asyncio.TimeoutError:
+                log.error("STT processing timed out")
+                await self.platform.notify(
+                    "STT timeout",
+                    "Transcription took too long. Try a shorter recording.",
+                    tag="klor-stt",
+                    timeout=8000,
+                )
+                return
+            except Exception as e:
+                log.error("STT processing failed: %s", e, exc_info=True)
+                await self.platform.notify(
+                    "STT error",
+                    str(e)[:200],
+                    tag="klor-stt",
+                    timeout=8000,
+                )
+                return
+
             if result:
                 await self.platform._write_clipboard(result)
-                log.info("STT copied to clipboard: %d chars", len(result))
+                word_count = len(result.split())
+                log.info("STT copied to clipboard: %d chars, %d words", len(result), word_count)
                 await self.platform.notify(
                     "Transcription complete",
-                    f"{len(result)} chars copied to clipboard (depth={self._stt_depth})",
-                    tag="klor-stt"
+                    f"{word_count} words ({len(result)} chars) copied. Paste with Ctrl+V.",
+                    tag="klor-stt",
+                    timeout=5000,
                 )
             else:
                 log.warning("STT produced no text")
                 await self.platform.notify(
-                    "No speech detected", "Try again and speak clearly",
-                    tag="klor-stt"
+                    "No speech detected",
+                    "Try again and speak clearly",
+                    tag="klor-stt",
+                    timeout=5000,
                 )
         else:
             self._stt_depth = depth
-            await self.stt.toggle_recording(depth)
+            try:
+                await self.stt.toggle_recording(depth)
+            except Exception as e:
+                log.error("Failed to start recording: %s", e, exc_info=True)
+                await self.platform.notify(
+                    "Recording failed",
+                    str(e)[:200],
+                    tag="klor-stt",
+                    timeout=8000,
+                )
+                return
+
             log.info("STT recording started (depth=%d)", depth)
             await self.platform.notify(
                 "Recording...",
-                f"Speak now. Depth {depth}/3. Press RALT or T to stop.",
+                f"Depth {depth}/3. Press RALT or T to stop.",
+                tag="klor-stt",
                 urgent=True,
-                tag="klor-stt"
             )
+
+    # ── Prompt Picker ─────────────────────────────────────────────
+
+    async def _handle_prompt_picker(self, action: dict) -> None:
+        """Show a searchable prompt picker via PowerShell Out-GridView.
+
+        Loads snippets from snippets.yml, presents them in a selection UI,
+        and copies the selected snippet's text to the clipboard.
+        """
+        if not self.snippets:
+            self.snippets = load_snippets()
+
+        if not self.snippets:
+            await self.platform.notify(
+                "No snippets configured",
+                "Add prompts to ~/.config/klor-bridge/snippets.yml",
+                tag="klor-picker",
+                timeout=5000,
+            )
+            return
+
+        # Build PowerShell Out-GridView command.
+        # Include a numeric Index field so we can look up the snippet by
+        # position rather than by name — this avoids any round-trip issues
+        # with apostrophes or other characters that need escaping.
+        # Apostrophes inside PS single-quoted strings are escaped as ''.
+        entries = []
+        for i, s in enumerate(self.snippets):
+            name = s["name"].replace("'", "''")
+            cat = s.get("category", "").replace("'", "''")
+            entries.append(f"[PSCustomObject]@{{Index={i};Name='{name}';Category='{cat}'}}")
+
+        entries_str = ",".join(entries)
+        ps_script = (
+            f"$items = @({entries_str}); "
+            "$sel = $items | Out-GridView -Title 'KLOR Prompt Snippets' -PassThru; "
+            "if ($sel) { $sel.Index }"
+        )
+
+        try:
+            from subprocess import CREATE_NO_WINDOW
+
+            log.info("Opening prompt picker via Out-GridView (%d snippets)", len(self.snippets))
+            proc = await asyncio.create_subprocess_exec(
+                "powershell", "-Command", ps_script,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
+                creationflags=CREATE_NO_WINDOW,
+            )
+            stdout, _ = await asyncio.wait_for(
+                proc.communicate(),
+                timeout=120,
+            )
+        except asyncio.TimeoutError:
+            log.warning("Prompt picker timed out")
+            return
+        except Exception as e:
+            log.error("Prompt picker failed: %s", e)
+            await self.platform.notify(
+                "Prompt picker error",
+                str(e)[:200],
+                tag="klor-picker",
+                timeout=5000,
+            )
+            return
+
+        if proc.returncode != 0 or not stdout:
+            log.info("Prompt picker cancelled by user")
+            return
+
+        # PowerShell returns the Index field; use it to look up the snippet
+        # directly — no string matching, immune to any escaping edge cases.
+        selected_raw = stdout.decode("utf-8").strip()
+        try:
+            idx = int(selected_raw)
+            snippet = self.snippets[idx]
+        except (ValueError, IndexError):
+            log.warning("Invalid snippet index returned from picker: %r", selected_raw)
+            return
+
+        text = snippet["text"]
+        await self.platform._write_clipboard(text)
+        log.info("Prompt snippet copied: %s (%d chars)", snippet["name"], len(text))
+        await self.platform.notify(
+            f"Snippet: {snippet['name']}",
+            f"{len(text)} chars copied. Paste with Ctrl+V.",
+            tag="klor-picker",
+            timeout=3000,
+        )
+
+    # ── Brightness Control ────────────────────────────────────────
+
+    async def _handle_brightness(self, direction: int) -> None:
+        """Adjust monitor brightness via WMI (Windows).
+
+        direction: +1 = up, -1 = down.
+        """
+        step = self._brightness_step
+
+        try:
+            from subprocess import CREATE_NO_WINDOW
+
+            # PowerShell script to adjust brightness for all monitors
+            if direction > 0:
+                ps_script = (
+                    f"$cur = (Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness).CurrentBrightness; "
+                    f"$new = [Math]::Min(100, $cur + {step}); "
+                    f"(Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods).WmiSetBrightness(1, $new)"
+                )
+            else:
+                ps_script = (
+                    f"$cur = (Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness).CurrentBrightness; "
+                    f"$new = [Math]::Max(0, $cur - {step}); "
+                    f"(Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods).WmiSetBrightness(1, $new)"
+                )
+
+            proc = await asyncio.create_subprocess_exec(
+                "powershell", "-WindowStyle", "Hidden", "-Command", ps_script,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+                creationflags=CREATE_NO_WINDOW,
+            )
+            await proc.wait()
+            log.debug("Windows brightness adjusted: %s%d%%", "+" if direction > 0 else "-", step)
+        except Exception as e:
+            log.error("Windows brightness control failed: %s", e)
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────

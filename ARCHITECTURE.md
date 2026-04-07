@@ -53,18 +53,18 @@ The system has two halves that communicate over USB Raw HID:
 
 | # | Name | Purpose |
 |---|------|---------|
-| 0 | `_QWERTY` | Base layer. Home row mods (GACS), Danish hold keys on P/;/', one-shot shift |
+| 0 | `_QWERTY` | Base layer. Home row mods (GACS), one-shot shift |
 | 1 | `_LOWER` | Left thumb hold. Numbers, navigation, brackets |
 | 2 | `_RAISE` | Right thumb hold. Symbols, Unicode Danish (æ/ø/å via Unicode Map), currency |
 | 3 | `_ADJUST` | LOWER+RAISE (tri-layer). F-keys (F1-F24), QK_BOOT, AC_TOGG |
-| 4 | `_NAV` | Bottom-right key hold. Hyprland workspace switching (GUI+0 through GUI+9) |
+| 4 | `_NAV` | Bottom-right key hold. Full Omarchy/Hyprland window manager control — every key sends `LGUI(key)`, compose with thumb SHIFT/CTRL/ALT for all WM operations |
 
 ### Home Row Mods
 
 Left hand (pinky to index): GUI / ALT / CTL / SFT on A / S / D / F.
 Right hand (index to ring): SFT / CTL / ALT on J / K / L.
 
-The right pinky (semicolon position) is **not** an HRM — it's `DK_SC_AE` (Danish æ on hold, with cross-hand RGUI chord detection). HRM_L uses `LALT_T` (not RALT) to avoid AltGr conflicts on the RAISE layer.
+The right pinky (semicolon position) is restored as `RGUI_T(KC_SCLN)`. HRM_L uses `LALT_T` (not RALT) to avoid AltGr conflicts on the RAISE layer.
 
 Tuning:
 - `TAPPING_TERM 200` — hold duration before mod activates
@@ -73,19 +73,9 @@ Tuning:
 - `HOLD_ON_OTHER_KEY_PRESS` — resolves hold immediately when another key is pressed
 - `FLOW_TAP_TERM 150` — flow-tap threshold for rapid typing
 
-### Danish Hold-to-Activate
+### Danish Characters
 
-Three custom keycodes on the base layer:
-
-| Key | Tap | Hold (200ms) | Custom Keycode |
-|-----|-----|-------------|----------------|
-| P | P | å / Å | `DK_P_AA` |
-| ; | ; | æ / Æ | `DK_SC_AE` |
-| ' | ' | ø / Ø | `DK_QT_OE` |
-
-Implementation: Manual hold state machine in `process_danish_hold()` + `dk_hold_tick()`. Does NOT use QMK's built-in mod-tap because these need Unicode output on hold, not modifier registration.
-
-**DK_SC_AE special behavior:** When held and interrupted by a left-hand key (detected via `chordal_hold_layout`), it resolves as RGUI instead of æ. This provides a cross-hand GUI chord for Hyprland shortcuts. Same-hand interruption resolves as tap (semicolon).
+Danish characters are available on the RAISE layer via QMK Unicode Map. The base layer uses plain `P`, `;`, and `'` again.
 
 ### One-Shot Shift
 
@@ -155,12 +145,10 @@ Once active, the next letter keypress is intercepted by `process_command_mode()`
 
 1. `cmd_action_for_key(keycode)` maps the keycode to an action ID
 2. Mod-tap wrappers (`LGUI_T(KC_A)` etc.) are stripped to extract the base keycode
-3. `DK_P_AA` is explicitly mapped to 0x50 (P)
-4. `DK_SC_AE` and `DK_QT_OE` return 0 (semicolon/quote aren't letter keys)
-5. All 26 letters return their ASCII uppercase code (0x41-0x5A)
-6. T (KC_T) returns 0xFF sentinel → enters STT tap-counting path
-7. ESC cancels command mode (also stops STT if recording)
-8. Any unmapped key exits command mode and passes through
+3. All 26 letters return their ASCII uppercase code (0x41-0x5A)
+4. T (KC_T) returns 0xFF sentinel → enters STT tap-counting path
+5. ESC cancels command mode (also stops STT if recording)
+6. Any unmapped key exits command mode and passes through
 
 Command mode times out after 3 seconds (`COMMAND_MODE_TIMEOUT`).
 
@@ -183,7 +171,7 @@ L       0x4C  unconfigured
 M       0x4D  unconfigured
 N       0x4E  translate_en_da
 O       0x4F  unconfigured
-P       0x50  unconfigured
+P       0x50  prompt_picker
 Q       0x51  unconfigured
 R       0x52  write_email
 S       0x53  summarize
@@ -194,6 +182,11 @@ W       0x57  unconfigured
 X       0x58  unconfigured
 Y       0x59  unconfigured
 Z       0x5A  unconfigured
+
+Special (non-command-mode, sent directly by firmware):
+0x10    ACTION_STT             — Speech-to-text toggle (T key via command mode)
+0x11    ACTION_BRIGHTNESS_UP   — Right encoder clockwise
+0x12    ACTION_BRIGHTNESS_DOWN — Right encoder counter-clockwise
 ```
 
 Unconfigured IDs are valid in firmware — the bridge logs a notice and does nothing. To assign an action, edit `actions.yml` and `prompts.yml` only (no firmware reflash).
@@ -219,8 +212,8 @@ All packets are 32 bytes, zero-padded. Protocol uses command IDs 0x20-0x3F; VIA/
 **Firmware → Host (action dispatch):**
 ```
 byte[0] = 0x20 (CMD_BRIDGE_ACTION)
-byte[1] = action_id (0x41-0x5A for letters, 0x10 for STT)
-byte[2] = param (0 for letters, 1-3 for STT depth)
+byte[1] = action_id (0x41-0x5A for letters, 0x10 for STT, 0x11/0x12 for brightness)
+byte[2] = param (0 for letters/brightness, 1-3 for STT depth)
 byte[3..31] = 0x00
 ```
 
@@ -329,15 +322,59 @@ Two-pass correction on the transcript:
 **Layer 3 — LLM Post-processing:**
 Sends the corrected transcript through the `stt_postprocess` prompt template via OpenRouter.
 
+### Prompt Picker (`prompt_picker` type)
+
+Activated by double-tap RALT → P. Flow:
+
+```
+1. Load snippets from ~/.config/klor-bridge/snippets.yml
+2. Format as "category: name" lines
+3. Pipe to walker --dmenu (Linux) or Out-GridView (Windows)
+4. User selects a snippet from the searchable popup
+5. Copy snippet's full text to clipboard
+6. Show notification: "Prompt copied — X chars"
+```
+
+Snippets are YAML entries with `name`, `category`, and `text` fields. Ships with 28 defaults across 7 categories (Writing, Email, Code, Translation, Analysis, Creative, Prompting).
+
+**Linux launcher fallback chain:** `walker --dmenu` → `fuzzel --dmenu` → `wofi --dmenu` → `rofi -dmenu` → `bemenu`.
+
+### Brightness Control (encoder)
+
+The right rotary encoder sends `ACTION_BRIGHTNESS_UP` (0x11) / `ACTION_BRIGHTNESS_DOWN` (0x12) via Raw HID on every encoder tick. These are custom keycodes handled in `process_record_user` — they are NOT standard keycodes and are consumed before reaching the host OS.
+
+**Linux brightness chain:**
+1. `brightnessctl set {step}%+` / `{step}%-` — controls laptop backlight
+2. If `brightnessctl` fails and `ddcutil_fallback: true`: `ddcutil setvcp 10 + {step}` / `- {step}` — controls external monitors via DDC/CI
+
+**Windows:** PowerShell WMI call to `WmiMonitorBrightnessMethods.WmiSetBrightness()`.
+
+**Configuration** (`config.yml`):
+```yaml
+brightness:
+  step_percent: 5        # % per encoder tick
+  tool: brightnessctl    # or "ddcutil"
+  ddcutil_fallback: true # try ddcutil if brightnessctl fails
+  notify: false          # show notification on change
+```
+
+### Encoder Map
+
+```
+Encoder 0 (left):  Volume Down / Volume Up (all layers)
+Encoder 1 (right): Brightness Down / Brightness Up (all layers, via bridge)
+```
+
 ### Configuration Files
 
 All config is in `~/.config/klor-bridge/`:
 
 | File | Purpose |
 |------|---------|
-| `config.yml` | Bridge settings: USB IDs, LLM params, STT params, platform tools |
-| `actions.yml` | Action registry: maps action IDs (0x41-0x5A, 0x10) to behaviors |
+| `config.yml` | Bridge settings: USB IDs, LLM params, STT params, platform tools, brightness |
+| `actions.yml` | Action registry: maps action IDs (0x41-0x5A, 0x10-0x12) to behaviors |
 | `prompts.yml` | LLM prompt templates referenced by `prompt_key` in actions |
+| `snippets.yml` | Prompt snippet library for the Prompt Picker (P key) |
 | `lexicon.yml` | Domain vocabulary for STT Layer 2 fuzzy matching + ElevenLabs keyterms |
 | `corrections.yml` | Regex substitution rules for STT Layer 2 |
 
@@ -438,7 +475,7 @@ No firmware change required:
 
 ### Adding a New Action Type
 
-If you need behavior beyond `llm_text` and `stt_toggle`:
+If you need behavior beyond `llm_text`, `stt_toggle`, and `prompt_picker`:
 
 1. Add a handler method in `KlorBridge` (e.g., `_handle_my_type()`)
 2. Add the dispatch case in `_dispatch_action()`

@@ -1,4 +1,25 @@
+# Session / dev state tracking — these are ephemeral working notes
+STATE_TRACKER.md
+*_STATE_TRACKER.md
+
+# Python
 __pycache__/
-*.pyc
-*.setup-bak
-.build/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# Build artefacts (keep compiled .uf2 but ignore intermediate objects)
+*.o
+*.elf
+*.map
+*.lss
+*.sym
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/

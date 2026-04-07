@@ -8,13 +8,13 @@
  *
  * Changes from zynex keymap:
  *   - LOWER/RAISE custom keycodes → MO() + TRI_LAYER_ENABLE
- *   - SNAP2 custom keycode → QK_KB_0 (visible in Vial as "SNAP2")
+ *   - Screenshot key on LOWER uses plain KC_PSCR for host-native Print Screen
  *   - COMBO_COUNT removed (Vial manages combos dynamically)
  *   - encoder_update_user → encoder_map (Vial-remappable)
  *   - OLED code removed (not installed on this board)
- *   - Danish characters (æ ø å) via hold-to-activate on P/;/' and Unicode Map on RAISE
+ *   - Danish characters (æ ø å) only on the RAISE layer via Unicode Map
  *   - One-shot shift on left thumb (OSM(MOD_LSFT))
- *   - HRM_SCLN replaced with DK_SC_AE (æ on hold, RGUI via cross-hand chord)
+ *   - Restored RGUI home-row mod on semicolon
  */
 
 #include QMK_KEYBOARD_H
@@ -38,10 +38,10 @@
 
 // Right hand: SFT / CTL / ALT (index → ring)
 // NOTE: HRM_L uses LALT (not RALT) to avoid AltGr conflicts on the RAISE layer
-// NOTE: Pinky (;) is now DK_SC_AE (Danish æ on hold) — RGUI removed from home row
 #define HRM_J    RSFT_T(KC_J)
 #define HRM_K    RCTL_T(KC_K)
 #define HRM_L    LALT_T(KC_L)
+#define HRM_SCLN RGUI_T(KC_SCLN)
 
 // ┌───────────────────────────────────────────────────────────┐
 // │ d e f i n e   l a y e r s                                 │
@@ -59,12 +59,18 @@ enum klor_layers {
 // │ c u s t o m   k e y c o d e s   ( V i a l - v i s i b l e ) │
 // └───────────────────────────────────────────────────────────┘
 
-// Use QK_KB_0 instead of SAFE_RANGE so Vial can see/assign these keycodes
+// Use QK_KB_0 instead of SAFE_RANGE so Vial can see/assign these keycodes.
+// Keep screenshot on plain KC_PSCR to avoid depending on dynamic custom-keycode state.
 enum custom_keycodes {
-    SNAP2 = QK_KB_0,
-    DK_P_AA,    // Tap = P,    Hold = å/Å
-    DK_SC_AE,   // Tap = ;,    Hold = æ/Æ  (replaces HRM_SCLN / RGUI)
-    DK_QT_OE,   // Tap = ',    Hold = ø/Ø
+    BRIGHT_UP = QK_KB_0,  // Brightness increase (sent to bridge daemon)
+    BRIGHT_DOWN,          // Brightness decrease (sent to bridge daemon)
+};
+
+enum internal_nav_keycodes {
+    NAV_LEFT = SAFE_RANGE,
+    NAV_DOWN,
+    NAV_UP,
+    NAV_RIGHT,
 };
 
 // ┌───────────────────────────────────────────────────────────┐
@@ -81,7 +87,9 @@ enum custom_keycodes {
 // ASCII uppercase scheme: each letter A-Z maps to its ASCII code (0x41-0x5A).
 // The bridge daemon's actions.yml decides what each letter does.
 // To assign a new action, just add an entry in actions.yml — no firmware change needed.
-#define ACTION_STT          0x10  // Special: byte[2] = depth (1-3), triggered by T key
+#define ACTION_STT              0x10  // Special: byte[2] = depth (1-3), triggered by T key
+#define ACTION_BRIGHTNESS_UP    0x11  // Brightness increase (from right encoder)
+#define ACTION_BRIGHTNESS_DOWN  0x12  // Brightness decrease (from right encoder)
 
 // ┌───────────────────────────────────────────────────────────┐
 // │ u n i c o d e   m a p   ( D a n i s h   æ ø å )           │
@@ -129,8 +137,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
    [_QWERTY] = LAYOUT_polydactyl(
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
-              KC_Q,     KC_W,     KC_E,     KC_R,     KC_T,                          KC_Y,     KC_U,     KC_I,     KC_O,     DK_P_AA,
-    KC_TAB,   HRM_A,    HRM_S,    HRM_D,    HRM_F,    KC_G,                          KC_H,     HRM_J,    HRM_K,    HRM_L,    DK_SC_AE, DK_QT_OE,
+              KC_Q,     KC_W,     KC_E,     KC_R,     KC_T,                          KC_Y,     KC_U,     KC_I,     KC_O,     KC_P,
+    KC_TAB,   HRM_A,    HRM_S,    HRM_D,    HRM_F,    KC_G,                          KC_H,     HRM_J,    HRM_K,    HRM_L,    HRM_SCLN, KC_QUOT,
     KC_LGUI,  KC_Z,     KC_X,     KC_C,     KC_V,     KC_B,     KC_MUTE,   KC_MPLY,  KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,  MO(_NAV),
                                   KC_LCTL,  MO(_LOWER),KC_SPC,  OSM(MOD_LSFT), KC_RALT,  KC_ENT,   MO(_RAISE),KC_BSPC
  ),
@@ -146,7 +154,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
    │   ESC   │   DEL   │    ←    │    ↓    │    →    │    [    ├─╯                ╰─┤    ]    │    4    │    5    │    6    │    -    │    _    │
    ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
-   │ SCRNSHT │   END   │   PG↑   │  SAVE   │   PG↓   │    (    ││  MUTE  ││PLY/PSE ││    )    │    1    │    2    │    3    │    *    │    ▼    │
+   │  PRTSC  │   END   │   PG↑   │  SAVE   │   PG↓   │    (    ││  MUTE  ││PLY/PSE ││    )    │    1    │    2    │    3    │    *    │    ▼    │
    └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
                                  │    ▼    │    ▼    │    ▼    │    ▼    ││    ▼    │    ▼    │    ▼    │    0    │
                                  └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘ */
@@ -155,7 +163,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
               KC_CAPS,  KC_HOME,  KC_UP,    KC_EQL,   KC_LCBR,                       KC_RCBR,  KC_7,    KC_8,    KC_9,    KC_PPLS,
     KC_ESC,   KC_DEL,   KC_LEFT,  KC_DOWN,  KC_RGHT,  KC_LBRC,                       KC_RBRC,  KC_4,    KC_5,    KC_6,    KC_MINS,  KC_UNDS,
-    SNAP2,    KC_END,   KC_PGUP,  C(KC_S),  KC_PGDN,  KC_LPRN,  KC_MUTE,   KC_MPLY,  KC_RPRN,  KC_1,    KC_2,    KC_3,    KC_PAST,  _______,
+    KC_PSCR,   KC_END,   KC_PGUP,  C(KC_S),  KC_PGDN,  KC_LPRN,  KC_MUTE,   KC_MPLY,  KC_RPRN,  KC_1,    KC_2,    KC_3,    KC_PAST,  _______,
                                   _______,  _______,  _______,  _______,   _______,  _______,  _______,  KC_0
  ),
 
@@ -209,28 +217,50 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  ),
 
  /*
-    ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
+     ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
 
-    ┌───────────────────────────────────────────────────────────┐
-    │ n a v   ( H y p r l a n d   w i n d o w   m a n a g e r ) │
-    └───────────────────────────────────────────────────────────┘
-              ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
-              │         │         │  GUI+↑  │         │         │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │         │  GUI+7  │  GUI+8  │  GUI+9  │         │
-    ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
-    │ GUI+TAB │         │  GUI+←  │  GUI+↓  │  GUI+→  │         ├─╯                ╰─┤         │  GUI+4  │  GUI+5  │  GUI+6  │         │         │
-    ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
-    │         │         │         │         │         │         ││  MUTE  ││PLY/PSE ││         │  GUI+1  │  GUI+2  │  GUI+3  │         │         │
-    └─────────┴─────────┴─────────┴─────────┴─────────┴─────────┤│        ││        │├─────────┴─────────┴─────────┴─────────┴─────────┴─────────┘
-                                  │         │         │         │         ││         │         │         │  GUI+0  │
-                                  └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘
+     ┌───────────────────────────────────────────────────────────┐
+     │ n a v   ( O m a r c h y / H y p r l a n d   W M )         │
+     └───────────────────────────────────────────────────────────┘
+     Navigation-only Omarchy bindings. Keep only window/workspace navigation,
+     movement, grouping, and resize behavior on this layer.
+
+     Compose with thumb SHIFT / CTRL / ALT for the full navigation tree:
+       +Shift      = swap window / move-to-workspace / previous workspace
+       +Ctrl       = resize on arrows / former workspace on WS-TAB
+       +Alt        = move into group / group-window 1-5 / next group tab
+       +Shift+Alt  = move workspace to monitor / move window silently
+
+               ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
+               │         │ GUI+CTL←│  GUI+↑  │ GUI+CTL→│         │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │         │  GUI+7  │  GUI+8  │  GUI+9  │         │
+     ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
+     │ GUI+TAB │         │  GUI+←  │  GUI+↓  │  GUI+→  │ GUI+G ⊞ ├─╯                ╰─┤         │  GUI+4  │  GUI+5  │  GUI+6  │         │         │
+     ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
+     │         │         │         │         │         │         ││  MUTE  ││PLY/PSE ││         │  GUI+1  │  GUI+2  │  GUI+3  │         │   NAV   │
+     └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
+                                   │  CTRL   │         │         │  SHIFT  ││   ALT   │         │         │  GUI+0  │
+                                   └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘
+
+     Key reference (all with NAV held):
+       ↑←↓→       = focus window             +Shift = swap window
+       +Ctrl      = resize                   +Alt = move into group
+       +Shift+Alt = move workspace to monitor
+       1-9, 0     = workspace                +Shift = move win to ws
+                                             +Shift+Alt = move silently
+                                             +Alt + 1-5 = activate group window 1-5
+       G          = toggle group             +Alt+G = move out of group
+       WS-TAB     = next workspace           +Shift = previous workspace
+                                             +Ctrl = former workspace
+                                             +Alt = next in group
+                                             +Shift+Alt = previous in group
  */
 
    [_NAV] = LAYOUT_polydactyl(
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
-             _______,  _______,  LGUI(KC_UP), _______, _______,                      _______,  LGUI(KC_7), LGUI(KC_8), LGUI(KC_9), _______,
-   LGUI(KC_TAB), _______,  LGUI(KC_LEFT), LGUI(KC_DOWN), LGUI(KC_RGHT), _______,     _______,  LGUI(KC_4), LGUI(KC_5), LGUI(KC_6), _______,  _______,
-   _______,  _______,  _______,  _______,  _______,  _______,  _______,   _______,    _______,  LGUI(KC_1), LGUI(KC_2), LGUI(KC_3), _______,  _______,
-                                   _______,  _______,  _______,  _______,   _______,  _______,  _______,  LGUI(KC_0)
+              XXXXXXX, LCTL(LGUI(KC_LEFT)), NAV_UP,        LCTL(LGUI(KC_RGHT)), XXXXXXX,   XXXXXXX,      LGUI(KC_7), LGUI(KC_8), LGUI(KC_9), XXXXXXX,
+   LGUI(KC_TAB), XXXXXXX,           NAV_LEFT,      NAV_DOWN,      NAV_RIGHT,      LGUI(KC_G), XXXXXXX,   LGUI(KC_4), LGUI(KC_5), LGUI(KC_6), XXXXXXX, XXXXXXX,
+   XXXXXXX,      XXXXXXX,           XXXXXXX,       XXXXXXX,       XXXXXXX,        XXXXXXX,    KC_MUTE, KC_MPLY, XXXXXXX,      LGUI(KC_1), LGUI(KC_2), LGUI(KC_3), XXXXXXX, _______,
+                                   KC_LCTL, XXXXXXX, XXXXXXX, KC_LSFT,   KC_LALT, XXXXXXX, XXXXXXX, LGUI(KC_0)
   ),
 };
 
@@ -253,98 +283,44 @@ const char chordal_hold_layout[MATRIX_ROWS][MATRIX_COLS] PROGMEM =
 
 #if defined(ENCODER_MAP_ENABLE)
 const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
-    [_QWERTY] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_VOLD, KC_VOLU) },
-    [_LOWER]  = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_VOLD, KC_VOLU) },
-    [_RAISE]  = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_VOLD, KC_VOLU) },
-    [_ADJUST] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_VOLD, KC_VOLU) },
-    [_NAV]    = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_VOLD, KC_VOLU) },
+    //                Left encoder (volume)                Right encoder (brightness → bridge)
+    [_QWERTY] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
+    [_LOWER]  = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
+    [_RAISE]  = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
+    [_ADJUST] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
+    // NAV: both encoders scroll workspaces (CCW = prev ws, CW = next ws)
+    [_NAV]    = { ENCODER_CCW_CW(LSG(KC_TAB), LGUI(KC_TAB)), ENCODER_CCW_CW(LSG(KC_TAB), LGUI(KC_TAB)) },
 };
 #endif
 
 // ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-// │ D A N I S H   H O L D - T O - A C T I V A T E                                                                                              │
+// │ S T A T I C   C O M B O S                                                                                                                    │
 // └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
-// Hold P → å, Hold ; → æ, Hold ' → ø (same tapping term as HRM: 200ms)
-// Shift-aware: if shift is held when the hold threshold fires, output Å/Æ/Ø instead.
+// J+K → Escape  (universal vim muscle memory)
+// D+F → Tab     (same-hand reach alternative)
+// These use the HRM keycodes so the combo fires regardless of tap/hold resolution.
 
-typedef struct {
-    uint16_t timer;
-    bool     pressed;
-    bool     resolved;    // true once hold output has been sent
-    bool     used_as_mod; // true if DK_SC_AE was resolved as RGUI (cross-hand chord)
-} dk_hold_state_t;
+const uint16_t PROGMEM jk_combo[] = {HRM_J, HRM_K, COMBO_END};
+const uint16_t PROGMEM df_combo[] = {HRM_D, HRM_F, COMBO_END};
 
-static dk_hold_state_t dk_states[3] = {{0}};
-
-// Codepoints indexed by dk_states[] index: [lower, upper]
-static const uint32_t dk_codepoints[3][2] = {
-    {0x00E5, 0x00C5},  // å / Å  (P key, idx=0)
-    {0x00E6, 0x00C6},  // æ / Æ  (; key, idx=1)
-    {0x00F8, 0x00D8},  // ø / Ø  (' key, idx=2)
+combo_t key_combos[] = {
+    COMBO(jk_combo, KC_ESC),
+    COMBO(df_combo, KC_TAB),
 };
 
-// Tap keycodes indexed by dk_states[] index
-static const uint16_t dk_tap_kc[3] = {KC_P, KC_SCLN, KC_QUOT};
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ S T A T I C   K E Y   O V E R R I D E S                                                                                                     │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
-// Returns index 0-2 if keycode is a Danish hold key, or -1 otherwise.
-static int8_t dk_index(uint16_t keycode) {
-    switch (keycode) {
-        case DK_P_AA:  return 0;
-        case DK_SC_AE: return 1;
-        case DK_QT_OE: return 2;
-        default:       return -1;
-    }
-}
+// Shift+Backspace → Delete
+const key_override_t bspc_del_override = ko_make_basic(MOD_MASK_SHIFT, KC_BSPC, KC_DEL);
 
-static bool process_danish_hold(uint16_t keycode, keyrecord_t *record) {
-    int8_t idx = dk_index(keycode);
-    if (idx < 0) return true;  // not a Danish key
+const key_override_t *key_overrides[] = {
+    &bspc_del_override,
+    NULL,
+};
 
-    if (record->event.pressed) {
-        dk_states[idx].timer      = timer_read();
-        dk_states[idx].pressed    = true;
-        dk_states[idx].resolved   = false;
-        dk_states[idx].used_as_mod = false;
-        return false;  // defer output until release or hold threshold
-    } else {
-        dk_states[idx].pressed = false;
-        if (dk_states[idx].used_as_mod) {
-            // Was resolved as RGUI via cross-hand chord — unregister the modifier
-            unregister_code(KC_RGUI);
-            dk_states[idx].used_as_mod = false;
-        } else if (!dk_states[idx].resolved) {
-            // Released before tapping term — it's a tap: send the normal keycode.
-            // One-shot shift (if active) is consumed naturally by tap_code16.
-            tap_code16(dk_tap_kc[idx]);
-        }
-        return false;
-    }
-}
-
-// Resolve any pending holds that crossed the tapping term.
-// Called from matrix_scan_user() every matrix cycle (~1ms).
-static void dk_hold_tick(void) {
-    for (uint8_t i = 0; i < 3; i++) {
-        if (dk_states[i].pressed && !dk_states[i].resolved &&
-            timer_elapsed(dk_states[i].timer) > TAPPING_TERM) {
-            dk_states[i].resolved = true;
-            // Check shift state for upper/lower codepoint
-            uint8_t mods = get_mods() | get_oneshot_mods();
-            bool shifted = mods & MOD_MASK_SHIFT;
-            // Temporarily remove shift so register_unicode sends the correct char
-            if (shifted) {
-                del_mods(MOD_MASK_SHIFT);
-                del_oneshot_mods(MOD_MASK_SHIFT);
-            }
-            register_unicode(dk_codepoints[i][shifted ? 1 : 0]);
-            // Restore shift
-            if (shifted) {
-                set_mods(mods);
-            }
-        }
-    }
-}
 
 // ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 // │ C O M M A N D   M O D E   ( d o u b l e - t a p   A L T )                                                                                  │
@@ -412,14 +388,6 @@ static uint8_t cmd_action_for_key(uint16_t keycode) {
     if ((keycode >= QK_MOD_TAP && keycode <= QK_MOD_TAP_MAX) ||
         (keycode >= QK_LAYER_TAP && keycode <= QK_LAYER_TAP_MAX)) {
         keycode = keycode & 0xFF;
-    }
-
-    // Also handle Danish hold keys → base letter
-    switch (keycode) {
-        case DK_P_AA:  return 0x50;  // P
-        case DK_SC_AE: return 0;     // semicolon — not a letter, unmapped
-        case DK_QT_OE: return 0;     // quote — not a letter, unmapped
-        default: break;
     }
 
     switch (keycode) {
@@ -524,20 +492,25 @@ static bool process_command_mode(uint16_t keycode, keyrecord_t *record) {
 
 // Manual double-tap detection for KC_RALT → enter Command Mode.
 // Can't use QMK tap_dance_actions[] because Vial owns that array.
-// Single tap = normal RALT.  Double tap within window = Command Mode.
+// Two quick completed taps enter Command Mode, while normal hold behavior is
+// preserved so RALT still works as a regular modifier.
 // While STT is recording, a single RALT press stops recording immediately.
 
-#define RALT_TAP_WINDOW  250  // ms window for double-tap detection
+#define RALT_TAP_WINDOW  350  // ms window for double-tap detection
 
-static uint8_t  ralt_tap_count = 0;
-static uint16_t ralt_tap_timer = 0;
-static bool     ralt_held      = false;
+static uint8_t  ralt_tap_count  = 0;
+static uint16_t ralt_tap_timer  = 0;
+static uint16_t ralt_press_timer = 0;
+static bool     ralt_held       = false;
+static bool     ralt_interrupted = false;
 
 // Called from process_record_user on KC_RALT press/release.
 // Returns false to consume the event, true to pass through.
 static bool process_ralt_tap(keyrecord_t *record) {
     if (record->event.pressed) {
         ralt_held = true;
+        ralt_interrupted = false;
+        ralt_press_timer = timer_read();
 
         // While STT is recording, a single RALT press stops it immediately
         if (stt_session_active) {
@@ -548,29 +521,28 @@ static bool process_ralt_tap(keyrecord_t *record) {
             return false;
         }
 
-        if (ralt_tap_count > 0 && timer_elapsed(ralt_tap_timer) > RALT_TAP_WINDOW) {
-            // Window expired — reset count
-            ralt_tap_count = 0;
-        }
-        ralt_tap_count++;
-        ralt_tap_timer = timer_read();
-
-        if (ralt_tap_count >= 2) {
-            // Double tap achieved — enter command mode
-            ralt_tap_count  = 0;
-            cmd_mode_active = true;
-            cmd_mode_timer  = timer_read();
-            // Don't register ALT for the second tap
-            return false;
-        }
-
-        // Register ALT normally (will be unregistered on release)
         register_code(KC_RALT);
         return false;
     } else {
-        // Release
         ralt_held = false;
         unregister_code(KC_RALT);
+
+        if (ralt_interrupted || timer_elapsed(ralt_press_timer) > RALT_TAP_WINDOW) {
+            ralt_tap_count = 0;
+            return false;
+        }
+
+        if (ralt_tap_count > 0 && timer_elapsed(ralt_tap_timer) <= RALT_TAP_WINDOW) {
+            // Second quick tap achieved — enter command mode and swallow RALT.
+            ralt_tap_count  = 0;
+            cmd_mode_active = true;
+            cmd_mode_timer  = timer_read();
+            return false;
+        }
+
+        // First completed tap: start the double-tap window.
+        ralt_tap_count = 1;
+        ralt_tap_timer = timer_read();
         return false;
     }
 }
@@ -640,49 +612,86 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (keycode == KC_RALT) {
         return process_ralt_tap(record);
     }
-    // Any other key pressed resets the RALT tap count
-    if (record->event.pressed && ralt_tap_count > 0 && !ralt_held) {
+    // Any other key pressed while RALT is held means the key is being used as
+    // a real modifier, so it must not arm command mode on release.
+    if (record->event.pressed && keycode != KC_RALT && ralt_held) {
+        ralt_interrupted = true;
+    }
+
+    // Any other key pressed cancels a pending single-RALT tap window.
+    if (record->event.pressed && keycode != KC_RALT && ralt_tap_count > 0) {
         ralt_tap_count = 0;
-    }
-
-    // ── Danish hold-to-activate ──
-    if (dk_index(keycode) >= 0) {
-        return process_danish_hold(keycode, record);
-    }
-
-    // ── If another key is pressed while a Danish key is held (before hold threshold),
-    //    resolve pending Danish keys as taps immediately (same as flow-tap behavior).
-    //    Exception: DK_SC_AE (idx=1) acts as RGUI when the interrupting key is on the
-    //    opposite (left) hand — detected via chordal_hold_layout. ──
-    if (record->event.pressed) {
-        for (uint8_t i = 0; i < 3; i++) {
-            if (dk_states[i].pressed && !dk_states[i].resolved) {
-                if (i == 1) {
-                    // DK_SC_AE: check which hand the interrupting key is on
-                    char hand = pgm_read_byte(&chordal_hold_layout[record->event.key.row][record->event.key.col]);
-                    if (hand == 'L') {
-                        // Cross-hand chord: resolve as RGUI modifier
-                        dk_states[i].resolved   = true;
-                        dk_states[i].used_as_mod = true;
-                        register_code(KC_RGUI);
-                        // Let the interrupting key pass through — it will combine with RGUI
-                        continue;
-                    }
-                }
-                // Same-hand or non-DK_SC_AE: resolve as tap
-                dk_states[i].resolved = true;
-                tap_code16(dk_tap_kc[i]);
-            }
-        }
     }
 
     // ── Existing macros ──
     switch (keycode) {
-        case SNAP2:
-            if (record->event.pressed) {
-                SEND_STRING(SS_LSFT(SS_LWIN("S")));
+        case NAV_LEFT:
+        case NAV_DOWN:
+        case NAV_UP:
+        case NAV_RIGHT: {
+            if (!record->event.pressed) {
+                return false;
             }
-            break;
+
+            uint8_t mods = get_mods() | get_oneshot_mods();
+            bool shift = mods & MOD_MASK_SHIFT;
+            bool ctrl  = mods & MOD_MASK_CTRL;
+            bool alt   = mods & MOD_MASK_ALT;
+
+            uint16_t key = KC_NO;
+            switch (keycode) {
+                case NAV_LEFT:  key = KC_LEFT; break;
+                case NAV_DOWN:  key = KC_DOWN; break;
+                case NAV_UP:    key = KC_UP;   break;
+                case NAV_RIGHT: key = KC_RGHT; break;
+            }
+
+            if (ctrl && alt && !shift && (key == KC_LEFT || key == KC_RGHT)) {
+                tap_code16(LCTL(LGUI(key)));
+                return false;
+            }
+
+            if (ctrl && !shift && !alt) {
+                switch (key) {
+                    case KC_LEFT: tap_code16(LGUI(KC_MINS)); break;
+                    case KC_RGHT: tap_code16(LGUI(KC_EQL)); break;
+                    case KC_UP:   tap_code16(LSG(KC_MINS));  break;
+                    case KC_DOWN: tap_code16(LSG(KC_EQL));   break;
+                }
+                return false;
+            }
+
+            if (shift && alt) {
+                tap_code16(S(A(LGUI(key))));
+                return false;
+            }
+
+            if (shift) {
+                tap_code16(S(LGUI(key)));
+                return false;
+            }
+
+            if (alt) {
+                tap_code16(A(LGUI(key)));
+                return false;
+            }
+
+            tap_code16(LGUI(key));
+            return false;
+        }
+
+        // ── Brightness encoder → bridge HID packets ──
+        case BRIGHT_UP:
+            if (record->event.pressed) {
+                bridge_send_action(ACTION_BRIGHTNESS_UP, 0);
+            }
+            return false;  // fully handled — don't pass to host as keycode
+
+        case BRIGHT_DOWN:
+            if (record->event.pressed) {
+                bridge_send_action(ACTION_BRIGHTNESS_DOWN, 0);
+            }
+            return false;
     }
     return true;
 }
@@ -772,9 +781,6 @@ static void boot_combo_tick(void) {
 // └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
 void matrix_scan_user(void) {
-    // Danish hold-to-activate tick
-    dk_hold_tick();
-
     // Command mode timeout (3 seconds, suppressed during active STT session)
     if (cmd_mode_active && !stt_counting && !stt_session_active &&
         timer_elapsed(cmd_mode_timer) > COMMAND_MODE_TIMEOUT) {
