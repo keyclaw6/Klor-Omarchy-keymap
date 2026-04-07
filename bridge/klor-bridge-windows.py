@@ -21,7 +21,6 @@ import asyncio
 import logging
 import os
 import re
-import shutil
 import sys
 import time
 from pathlib import Path
