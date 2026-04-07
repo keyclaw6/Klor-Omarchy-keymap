@@ -56,3 +56,9 @@ platform:
   clipboard_write: wl-copy     # Command to write to clipboard
   key_simulator: wtype         # Command to simulate keypresses (Ctrl+C, Ctrl+V)
   copy_delay_ms: 150           # Delay (ms) after Ctrl+C before reading clipboard
+
+brightness:
+  step_percent: 5              # Brightness change per encoder tick (percent)
+  tool: brightnessctl          # Primary tool: "brightnessctl" (backlight) or "ddcutil" (external monitors)
+  ddcutil_fallback: true       # If brightnessctl fails, try ddcutil for external monitors
+  notify: false                # Show desktop notification on brightness change

@@ -65,6 +65,8 @@ enum custom_keycodes {
     DK_P_AA,    // Tap = P,    Hold = å/Å
     DK_SC_AE,   // Tap = ;,    Hold = æ/Æ  (replaces HRM_SCLN / RGUI)
     DK_QT_OE,   // Tap = ',    Hold = ø/Ø
+    BRIGHT_UP,  // Brightness increase (sent to bridge daemon)
+    BRIGHT_DOWN,// Brightness decrease (sent to bridge daemon)
 };
 
 // ┌───────────────────────────────────────────────────────────┐
@@ -81,7 +83,9 @@ enum custom_keycodes {
 // ASCII uppercase scheme: each letter A-Z maps to its ASCII code (0x41-0x5A).
 // The bridge daemon's actions.yml decides what each letter does.
 // To assign a new action, just add an entry in actions.yml — no firmware change needed.
-#define ACTION_STT          0x10  // Special: byte[2] = depth (1-3), triggered by T key
+#define ACTION_STT              0x10  // Special: byte[2] = depth (1-3), triggered by T key
+#define ACTION_BRIGHTNESS_UP    0x11  // Brightness increase (from right encoder)
+#define ACTION_BRIGHTNESS_DOWN  0x12  // Brightness decrease (from right encoder)
 
 // ┌───────────────────────────────────────────────────────────┐
 // │ u n i c o d e   m a p   ( D a n i s h   æ ø å )           │
@@ -209,28 +213,40 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  ),
 
  /*
-    ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
+     ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
 
-    ┌───────────────────────────────────────────────────────────┐
-    │ n a v   ( H y p r l a n d   w i n d o w   m a n a g e r ) │
-    └───────────────────────────────────────────────────────────┘
-              ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
-              │         │         │  GUI+↑  │         │         │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │         │  GUI+7  │  GUI+8  │  GUI+9  │         │
-    ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
-    │ GUI+TAB │         │  GUI+←  │  GUI+↓  │  GUI+→  │         ├─╯                ╰─┤         │  GUI+4  │  GUI+5  │  GUI+6  │         │         │
-    ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
-    │         │         │         │         │         │         ││  MUTE  ││PLY/PSE ││         │  GUI+1  │  GUI+2  │  GUI+3  │         │         │
-    └─────────┴─────────┴─────────┴─────────┴─────────┴─────────┤│        ││        │├─────────┴─────────┴─────────┴─────────┴─────────┴─────────┘
-                                  │         │         │         │         ││         │         │         │  GUI+0  │
-                                  └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘
+     ┌───────────────────────────────────────────────────────────┐
+     │ n a v   ( O m a r c h y / H y p r l a n d   W M )         │
+     └───────────────────────────────────────────────────────────┘
+     Every key sends SUPER+<key>.  Compose with thumb SHIFT/CTRL/ALT for:
+       +Shift = move-to-workspace / swap-window / app-launchers
+       +Ctrl  = system-panels / tiled-fullscreen / group-nav
+       +Alt   = move-into-group / special-workspace
+       +Shift+Alt = move-silently / move-workspace-to-monitor
+
+               ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
+               │  GUI+Q  │ GUI+W ✕ │  GUI+↑  │  GUI+R  │ GUI+T ⇅ │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │  GUI+Y  │  GUI+7  │  GUI+8  │  GUI+9  │ GUI+P ◫ │
+     ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
+     │ GUI+TAB │  GUI+A  │  GUI+←  │  GUI+↓  │  GUI+→  │ GUI+G ⊞ ├─╯                ╰─┤  GUI+H  │  GUI+4  │  GUI+5  │  GUI+6  │ GUI+K ⌨ │ GUI+L ⊟ │
+     ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
+     │ GUI+ESC │  GUI+Z  │  GUI+X  │  GUI+C  │  GUI+V  │  GUI+B  ││  MUTE  ││PLY/PSE ││  GUI+N  │  GUI+1  │  GUI+2  │  GUI+3  │ GUI+/ ⊕ │   NAV   │
+     └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
+                                   │  CTRL   │ GUI+SPC │ GUI+F ☐ │  SHIFT  ││   ALT   │ GUI+ENT │ GUI+, 🔕│  GUI+0  │
+                                   └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘
+
+     Quick reference (all with NAV held):
+       Arrows ESDF  = focus window   │ +Shift = swap window     │ +Alt = move into group │ +Shift+Alt = move workspace to monitor
+       1-9, 0       = workspace      │ +Shift = move win to ws  │ +Shift+Alt = move silently
+       W = close    F = fullscreen   │ T = float   G = group    │ P = pseudo   K = keys  │ L = layout
+       Space = launcher │ Enter = terminal │ , = dismiss notif  │ ESC = system menu       │ TAB = next ws (+Shift = prev)
  */
 
    [_NAV] = LAYOUT_polydactyl(
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
-             _______,  _______,  LGUI(KC_UP), _______, _______,                      _______,  LGUI(KC_7), LGUI(KC_8), LGUI(KC_9), _______,
-   LGUI(KC_TAB), _______,  LGUI(KC_LEFT), LGUI(KC_DOWN), LGUI(KC_RGHT), _______,     _______,  LGUI(KC_4), LGUI(KC_5), LGUI(KC_6), _______,  _______,
-   _______,  _______,  _______,  _______,  _______,  _______,  _______,   _______,    _______,  LGUI(KC_1), LGUI(KC_2), LGUI(KC_3), _______,  _______,
-                                   _______,  _______,  _______,  _______,   _______,  _______,  _______,  LGUI(KC_0)
+             LGUI(KC_Q), LGUI(KC_W), LGUI(KC_UP), LGUI(KC_R), LGUI(KC_T),             LGUI(KC_Y), LGUI(KC_7), LGUI(KC_8), LGUI(KC_9), LGUI(KC_P),
+   LGUI(KC_TAB), LGUI(KC_A), LGUI(KC_LEFT), LGUI(KC_DOWN), LGUI(KC_RGHT), LGUI(KC_G), LGUI(KC_H), LGUI(KC_4), LGUI(KC_5), LGUI(KC_6), LGUI(KC_K), LGUI(KC_L),
+   LGUI(KC_ESC), LGUI(KC_Z), LGUI(KC_X), LGUI(KC_C), LGUI(KC_V), LGUI(KC_B), KC_MUTE, KC_MPLY, LGUI(KC_N), LGUI(KC_1), LGUI(KC_2), LGUI(KC_3), LGUI(KC_SLSH), _______,
+                                   KC_LCTL, LGUI(KC_SPC), LGUI(KC_F), KC_LSFT,   KC_LALT, LGUI(KC_ENT), LGUI(KC_COMM), LGUI(KC_0)
   ),
 };
 
@@ -253,11 +269,12 @@ const char chordal_hold_layout[MATRIX_ROWS][MATRIX_COLS] PROGMEM =
 
 #if defined(ENCODER_MAP_ENABLE)
 const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
-    [_QWERTY] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_VOLD, KC_VOLU) },
-    [_LOWER]  = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_VOLD, KC_VOLU) },
-    [_RAISE]  = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_VOLD, KC_VOLU) },
-    [_ADJUST] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_VOLD, KC_VOLU) },
-    [_NAV]    = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_VOLD, KC_VOLU) },
+    //                Left encoder (volume)                Right encoder (brightness → bridge)
+    [_QWERTY] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
+    [_LOWER]  = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
+    [_RAISE]  = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
+    [_ADJUST] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
+    [_NAV]    = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
 };
 #endif
 
@@ -683,6 +700,19 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 SEND_STRING(SS_LSFT(SS_LWIN("S")));
             }
             break;
+
+        // ── Brightness encoder → bridge HID packets ──
+        case BRIGHT_UP:
+            if (record->event.pressed) {
+                bridge_send_action(ACTION_BRIGHTNESS_UP, 0);
+            }
+            return false;  // fully handled — don't pass to host as keycode
+
+        case BRIGHT_DOWN:
+            if (record->event.pressed) {
+                bridge_send_action(ACTION_BRIGHTNESS_DOWN, 0);
+            }
+            return false;
     }
     return true;
 }

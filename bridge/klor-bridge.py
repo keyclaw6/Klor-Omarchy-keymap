@@ -26,6 +26,7 @@ import asyncio
 import logging
 import os
 import re
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -44,6 +45,8 @@ CMD_BRIDGE_CONFIG = 0x23
 
 # Action IDs (must match firmware defines)
 ACTION_STT = 0x10
+ACTION_BRIGHTNESS_UP = 0x11
+ACTION_BRIGHTNESS_DOWN = 0x12
 
 log = logging.getLogger("klor-bridge")
 
@@ -94,6 +97,21 @@ def load_lexicon() -> list[str]:
 def load_corrections() -> list[dict]:
     raw = load_yaml(CONFIG_DIR / "corrections.yml")
     return raw.get("corrections", [])
+
+
+def load_snippets() -> list[dict]:
+    """Load prompt snippets for the prompt picker.
+
+    Returns a list of dicts: [{name, description, text}, ...]
+    """
+    raw = load_yaml(CONFIG_DIR / "snippets.yml")
+    snippets = raw.get("snippets", [])
+    # Validate entries
+    valid = []
+    for s in snippets:
+        if isinstance(s, dict) and s.get("name") and s.get("text"):
+            valid.append(s)
+    return valid
 
 
 # ─── Secrets ──────────────────────────────────────────────────────────────────
@@ -195,20 +213,43 @@ class Platform:
         await proc.communicate(input=text.encode("utf-8"))
 
     async def notify(self, title: str, body: str = "", urgent: bool = False,
-                     timeout: int = 3000, tag: str = "") -> None:
+                     timeout: int = 5000, tag: str = "",
+                     category: str = "device") -> None:
         """Send a desktop notification via notify-send.
 
-        If tag is set, subsequent notifications with the same tag replace
-        the previous one (uses dunst/mako-compatible hint).
+        Uses tag-based replacement so that sequential notifications with the
+        same tag replace each other (works on mako, dunst, and swaync).
+
+        IMPORTANT: Never uses -t 0 (infinite).  Even "persistent" notifications
+        get a generous timeout (30 s) so they don't stick forever if the
+        replacement notification is never sent (e.g. crash).
         """
         try:
-            cmd = ["notify-send"]
-            if urgent:
-                cmd += ["-t", "0", "-u", "critical"]
-            else:
-                cmd += ["-t", str(timeout)]
+            # Dismiss any previous notification with this tag first (mako)
             if tag:
+                await self._dismiss_notification(tag)
+
+            cmd = ["notify-send"]
+
+            # Timeout: cap "urgent" at 30 s instead of infinite
+            if urgent:
+                cmd += ["-t", "30000", "-u", "critical"]
+            else:
+                cmd += ["-t", str(max(timeout, 1000))]
+
+            if tag:
+                # Both hint styles for cross-compositor compatibility:
+                #  - x-dunst-stack-tag  (dunst, mako)
+                #  - x-canonical-private-synchronous (GNOME, mako)
                 cmd += ["-h", f"string:x-dunst-stack-tag:{tag}"]
+                cmd += ["-h", f"string:x-canonical-private-synchronous:{tag}"]
+
+            if category:
+                cmd += ["-c", category]
+
+            # App name for consistent grouping
+            cmd += ["-a", "KLOR Bridge"]
+
             cmd += ["--", title, body]
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
@@ -218,6 +259,26 @@ class Platform:
             await proc.wait()
         except Exception as e:
             log.debug("Notification failed: %s", e)
+
+    async def _dismiss_notification(self, tag: str) -> None:
+        """Dismiss a notification by tag via makoctl (if available).
+
+        This ensures that even persistent/critical notifications are
+        reliably replaced.  Silently ignored if makoctl is not installed
+        or the daemon is unreachable.
+        """
+        if not shutil.which("makoctl"):
+            return
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "makoctl", "dismiss", "-n", "0",
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            # Don't wait long — this is best-effort
+            await asyncio.wait_for(proc.wait(), timeout=1.0)
+        except Exception:
+            pass
 
 
 # ─── LLM Client (OpenRouter) ──────────────────────────────────────────────────
@@ -635,6 +696,7 @@ class KlorBridge:
         self.config = load_config()
         self.actions = load_actions()
         self.prompts = load_prompts()
+        self.snippets = load_snippets()
 
         self.hid = HIDConnection(self.config)
         self.platform = Platform(self.config)
@@ -643,6 +705,11 @@ class KlorBridge:
 
         # STT state
         self._stt_depth = 1
+
+        # Brightness config
+        bright_cfg = self.config.get("brightness", {})
+        self._brightness_step = bright_cfg.get("step_percent", 5)
+        self._brightness_tool = bright_cfg.get("tool", "brightnessctl")  # or "ddcutil"
 
     async def run(self) -> None:
         """Main event loop."""
@@ -740,6 +807,14 @@ class KlorBridge:
 
     async def _dispatch_action(self, action_id: int, param: int) -> None:
         """Execute an action based on its ID."""
+        # ── Brightness (direct action IDs, not in actions.yml) ──
+        if action_id == ACTION_BRIGHTNESS_UP:
+            await self._handle_brightness(+1)
+            return
+        if action_id == ACTION_BRIGHTNESS_DOWN:
+            await self._handle_brightness(-1)
+            return
+
         action = self.actions.get(action_id)
 
         if not action:
@@ -755,20 +830,64 @@ class KlorBridge:
                 await self._handle_llm_text(action)
             elif action_type == "stt_toggle":
                 await self._handle_stt_toggle(param)
+            elif action_type == "prompt_picker":
+                await self._handle_prompt_picker(action)
             elif action_type == "unconfigured":
                 log.info("Action %s is unconfigured — assign it in actions.yml", name)
+                await self.platform.notify(
+                    f"Key {action.get('key', '?').upper()} — Not configured",
+                    "Assign an action in actions.yml",
+                    tag="klor-info",
+                    timeout=3000,
+                )
             else:
                 log.warning("Unknown action type: %s", action_type)
+                await self.platform.notify(
+                    "Unknown action type",
+                    f"Type '{action_type}' is not recognized",
+                    tag="klor-info",
+                    timeout=5000,
+                )
         except Exception as e:
             log.error("Action %s failed: %s", name, e, exc_info=True)
+            await self.platform.notify(
+                f"Action {name} failed",
+                str(e)[:200],
+                tag="klor-error",
+                timeout=8000,
+            )
 
     async def _handle_llm_text(self, action: dict) -> None:
-        """Copy selection → LLM transform → write result to clipboard (no auto-paste)."""
-        # Copy selected text
+        """Copy selection → LLM transform → write result to clipboard (no auto-paste).
+
+        Shows notifications at each stage so the user always knows what's
+        happening, even when the LLM call takes several seconds.
+        """
+        action_name = action.get("name", "LLM")
+        action_key = action.get("key", "?").upper()
+
+        # Notify: starting
+        await self.platform.notify(
+            f"{action_key} — Copying selection...",
+            f"Action: {action_name}",
+            tag="klor-llm",
+        )
+
+        # Copy selected text (with retry for reliability)
         text = await self.platform.copy_selection()
-        if not text:
-            log.warning("No text selected (clipboard empty)")
-            await self.platform.notify("No text selected", "Select some text and try again", tag="klor-llm")
+        if not text or text.isspace():
+            # Retry once with a longer delay
+            await asyncio.sleep(0.2)
+            text = await self.platform.copy_selection()
+
+        if not text or text.isspace():
+            log.warning("No text selected (clipboard empty after retry)")
+            await self.platform.notify(
+                f"{action_key} — No text selected",
+                "Select some text and try again",
+                tag="klor-llm",
+                timeout=5000,
+            )
             return
 
         # Look up prompt template
@@ -776,60 +895,346 @@ class KlorBridge:
         template = self.prompts.get(prompt_key)
         if not template:
             log.error("Prompt template not found: %s", prompt_key)
+            await self.platform.notify(
+                f"{action_key} — Config error",
+                f"Prompt template '{prompt_key}' not found in prompts.yml",
+                tag="klor-llm",
+                timeout=8000,
+            )
             return
 
-        # Process through LLM
-        result = await self.llm.process_text(text, template)
-        if not result:
+        # Notify: processing with LLM
+        await self.platform.notify(
+            f"{action_key} — Processing with LLM...",
+            f"{len(text)} chars selected. Please wait.",
+            tag="klor-llm",
+            urgent=True,  # stays visible until replaced
+        )
+
+        # Process through LLM with timeout
+        try:
+            result = await asyncio.wait_for(
+                self.llm.process_text(text, template),
+                timeout=120,  # 2 minute max
+            )
+        except asyncio.TimeoutError:
+            log.error("LLM request timed out after 120s")
+            await self.platform.notify(
+                f"{action_key} — LLM timeout",
+                "Request took too long. Try shorter text or check API.",
+                tag="klor-llm",
+                timeout=8000,
+            )
+            return
+        except Exception as e:
+            log.error("LLM request failed: %s", e, exc_info=True)
+            err_msg = str(e)[:200]
+            await self.platform.notify(
+                f"{action_key} — LLM error",
+                err_msg,
+                tag="klor-llm",
+                timeout=8000,
+            )
+            return
+
+        if not result or result.isspace():
             log.warning("LLM returned empty result")
-            await self.platform.notify("LLM returned empty", "Try again or select different text", tag="klor-llm")
+            await self.platform.notify(
+                f"{action_key} — Empty result",
+                "LLM returned nothing. Try different text.",
+                tag="klor-llm",
+                timeout=5000,
+            )
             return
 
         # Write result to clipboard (no paste)
         await self.platform._write_clipboard(result)
         log.info("LLM result copied to clipboard: %d chars → %d chars", len(text), len(result))
         await self.platform.notify(
-            f"{action.get('key', '').upper()} — LLM result copied",
-            f"{len(result)} chars ready to paste",
-            tag="klor-llm"
+            f"{action_key} — Result ready",
+            f"{len(result)} chars copied to clipboard. Paste with Ctrl+V.",
+            tag="klor-llm",
+            timeout=5000,
         )
 
     async def _handle_stt_toggle(self, depth: int) -> None:
-        """Toggle speech-to-text recording."""
+        """Toggle speech-to-text recording.
+
+        Notifications are sent at every state change so the user always
+        knows whether recording is active, processing, or complete.
+        """
         depth = max(1, min(3, depth))  # clamp to 1-3
 
         if self.stt.is_recording:
-            # Use the depth stored at recording start (not the stop packet's param)
+            # ── Stop recording & process ──
             log.info("STT stop → processing with depth=%d", self._stt_depth)
             await self.platform.notify(
-                "Processing transcription...", "Please wait",
-                tag="klor-stt"
+                "Processing transcription...",
+                f"Depth {self._stt_depth}/3 — please wait",
+                tag="klor-stt",
+                timeout=30000,
             )
-            result = await self.stt.toggle_recording(self._stt_depth)
+
+            try:
+                result = await asyncio.wait_for(
+                    self.stt.toggle_recording(self._stt_depth),
+                    timeout=120,  # 2 minute max for transcription
+                )
+            except asyncio.TimeoutError:
+                log.error("STT processing timed out")
+                await self.platform.notify(
+                    "STT timeout",
+                    "Transcription took too long. Try a shorter recording.",
+                    tag="klor-stt",
+                    timeout=8000,
+                )
+                return
+            except Exception as e:
+                log.error("STT processing failed: %s", e, exc_info=True)
+                await self.platform.notify(
+                    "STT error",
+                    str(e)[:200],
+                    tag="klor-stt",
+                    timeout=8000,
+                )
+                return
+
             if result:
                 await self.platform._write_clipboard(result)
-                log.info("STT copied to clipboard: %d chars", len(result))
+                word_count = len(result.split())
+                log.info("STT copied to clipboard: %d chars, %d words", len(result), word_count)
                 await self.platform.notify(
                     "Transcription complete",
-                    f"{len(result)} chars copied to clipboard (depth={self._stt_depth})",
-                    tag="klor-stt"
+                    f"{word_count} words ({len(result)} chars) copied. Paste with Ctrl+V.",
+                    tag="klor-stt",
+                    timeout=5000,
                 )
             else:
                 log.warning("STT produced no text")
                 await self.platform.notify(
-                    "No speech detected", "Try again and speak clearly",
-                    tag="klor-stt"
+                    "No speech detected",
+                    "Try again and speak clearly",
+                    tag="klor-stt",
+                    timeout=5000,
                 )
         else:
+            # ── Start recording ──
             self._stt_depth = depth
-            await self.stt.toggle_recording(depth)
+            try:
+                await self.stt.toggle_recording(depth)
+            except Exception as e:
+                log.error("Failed to start recording: %s", e, exc_info=True)
+                await self.platform.notify(
+                    "Recording failed",
+                    str(e)[:200],
+                    tag="klor-stt",
+                    timeout=8000,
+                )
+                return
+
             log.info("STT recording started (depth=%d)", depth)
             await self.platform.notify(
                 "Recording...",
-                f"Speak now. Depth {depth}/3. Press RALT or T to stop.",
-                urgent=True,
-                tag="klor-stt"
+                f"Depth {depth}/3. Press RALT or T to stop.",
+                tag="klor-stt",
+                urgent=True,  # stays visible (30 s max) until replaced
             )
+
+    # ── Prompt Picker ─────────────────────────────────────────────
+
+    async def _handle_prompt_picker(self, action: dict) -> None:
+        """Show a searchable prompt picker via walker --dmenu.
+
+        Loads snippets from snippets.yml, presents them in walker,
+        and copies the selected snippet's text to the clipboard.
+        """
+        if not self.snippets:
+            # Reload in case snippets.yml was added/modified since startup
+            self.snippets = load_snippets()
+
+        if not self.snippets:
+            await self.platform.notify(
+                "No snippets configured",
+                "Add prompts to ~/.config/klor-bridge/snippets.yml",
+                tag="klor-picker",
+                timeout=5000,
+            )
+            return
+
+        # Build list for dmenu: "name — description"
+        lines = []
+        for i, s in enumerate(self.snippets):
+            desc = s.get("description", "")
+            label = s["name"]
+            if desc:
+                label += f" — {desc}"
+            lines.append(label)
+        menu_input = "\n".join(lines)
+
+        # Find a dmenu-compatible launcher
+        picker_cmd = None
+        if shutil.which("walker"):
+            picker_cmd = ["walker", "--dmenu", "-p", "Prompt snippets"]
+        elif shutil.which("fuzzel"):
+            picker_cmd = ["fuzzel", "--dmenu", "--prompt", "Prompt: "]
+        elif shutil.which("wofi"):
+            picker_cmd = ["wofi", "--dmenu", "--prompt", "Prompt snippets"]
+        elif shutil.which("rofi"):
+            picker_cmd = ["rofi", "-dmenu", "-p", "Prompt snippets"]
+        elif shutil.which("bemenu"):
+            picker_cmd = ["bemenu", "-p", "Prompt snippets"]
+
+        if not picker_cmd:
+            log.error("No dmenu-compatible launcher found (walker, fuzzel, wofi, rofi, bemenu)")
+            await self.platform.notify(
+                "Prompt picker unavailable",
+                "Install walker, fuzzel, wofi, rofi, or bemenu",
+                tag="klor-picker",
+                timeout=5000,
+            )
+            return
+
+        try:
+            log.info("Opening prompt picker with %s (%d snippets)", picker_cmd[0], len(self.snippets))
+            proc = await asyncio.create_subprocess_exec(
+                *picker_cmd,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            stdout, _ = await asyncio.wait_for(
+                proc.communicate(input=menu_input.encode("utf-8")),
+                timeout=60,  # 1 minute to pick
+            )
+        except asyncio.TimeoutError:
+            log.warning("Prompt picker timed out")
+            return
+        except Exception as e:
+            log.error("Prompt picker failed: %s", e)
+            await self.platform.notify(
+                "Prompt picker error",
+                str(e)[:200],
+                tag="klor-picker",
+                timeout=5000,
+            )
+            return
+
+        if proc.returncode != 0 or not stdout:
+            log.info("Prompt picker cancelled by user")
+            return
+
+        # Match selected line to a snippet
+        selected = stdout.decode("utf-8").strip()
+        # Extract name (everything before " — ")
+        selected_name = selected.split(" — ")[0].strip()
+
+        snippet = None
+        for s in self.snippets:
+            if s["name"] == selected_name:
+                snippet = s
+                break
+
+        if not snippet:
+            log.warning("Selected snippet not found: %s", selected_name)
+            return
+
+        # Copy snippet text to clipboard
+        text = snippet["text"]
+        await self.platform._write_clipboard(text)
+        log.info("Prompt snippet copied: %s (%d chars)", snippet["name"], len(text))
+        await self.platform.notify(
+            f"Snippet: {snippet['name']}",
+            f"{len(text)} chars copied. Paste with Ctrl+V.",
+            tag="klor-picker",
+            timeout=3000,
+        )
+
+    # ── Brightness Control ────────────────────────────────────────
+
+    async def _handle_brightness(self, direction: int) -> None:
+        """Adjust monitor brightness.
+
+        Uses brightnessctl for backlight devices and ddcutil for external
+        monitors via DDC/CI.  direction: +1 = up, -1 = down.
+        """
+        step = self._brightness_step
+        sign = "+" if direction > 0 else "-"
+
+        try:
+            if self._brightness_tool == "ddcutil":
+                await self._brightness_ddcutil(direction, step)
+            else:
+                await self._brightness_brightnessctl(direction, step)
+        except Exception as e:
+            log.error("Brightness control failed: %s", e)
+            # Silently fail for encoder — don't spam notifications
+
+    async def _brightness_brightnessctl(self, direction: int, step: int) -> None:
+        """Adjust brightness via brightnessctl (works for backlight + some DDC)."""
+        if not shutil.which("brightnessctl"):
+            log.warning("brightnessctl not found")
+            return
+
+        arg = f"{step}%+" if direction > 0 else f"{step}%-"
+        proc = await asyncio.create_subprocess_exec(
+            "brightnessctl", "set", arg,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode == 0:
+            # Parse current brightness from output for logging
+            output = stdout.decode("utf-8", errors="replace")
+            log.debug("brightnessctl: %s", output.strip().split("\n")[-1] if output else "ok")
+        else:
+            # brightnessctl failed — try ddcutil as fallback
+            log.debug("brightnessctl failed (rc=%d), trying ddcutil fallback", proc.returncode)
+            await self._brightness_ddcutil(direction, step)
+
+    async def _brightness_ddcutil(self, direction: int, step: int) -> None:
+        """Adjust brightness via ddcutil (DDC/CI for external monitors).
+
+        Adjusts ALL detected displays.  Feature code 0x10 = brightness.
+        """
+        if not shutil.which("ddcutil"):
+            log.warning("ddcutil not found — cannot control external monitors")
+            return
+
+        sign = "+" if direction > 0 else "-"
+        # Detect displays
+        detect_proc = await asyncio.create_subprocess_exec(
+            "ddcutil", "detect", "--brief",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        detect_out, _ = await detect_proc.communicate()
+
+        # Parse display numbers
+        displays = []
+        for line in detect_out.decode("utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if line.startswith("Display"):
+                parts = line.split()
+                if len(parts) >= 2:
+                    try:
+                        displays.append(int(parts[1]))
+                    except ValueError:
+                        pass
+
+        if not displays:
+            # Try display 1 as default
+            displays = [1]
+
+        # Adjust each display
+        for disp in displays:
+            proc = await asyncio.create_subprocess_exec(
+                "ddcutil", "setvcp", "10", f"{sign}", str(step),
+                "--display", str(disp), "--noverify",
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await proc.wait()
+            log.debug("ddcutil display %d: brightness %s%d%%", disp, sign, step)
 
 
 # ─── Entry point ──────────────────────────────────────────────────────────────

@@ -104,7 +104,7 @@ deploy_configs() {
     mkdir -p "$CONFIG_DIR"
 
     # Copy config files (don't overwrite existing)
-    for f in config.yml actions.yml prompts.yml lexicon.yml corrections.yml; do
+    for f in config.yml actions.yml prompts.yml lexicon.yml corrections.yml snippets.yml; do
         src="$SCRIPT_DIR/bridge/$f"
         dst="$CONFIG_DIR/$f"
         if [[ -f "$src" ]]; then

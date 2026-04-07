@@ -36,6 +36,7 @@ The system has two parts:
 | **E** | Prompt Expand | Amplifies highlighted text into a stronger LLM instruction |
 | **G** | Grammar | Fixes spelling, grammar, and punctuation (minimal changes) |
 | **I** | Improve | Improves writing quality — clearer, more concise |
+| **P** | Prompt Picker | Opens searchable popup to insert a text snippet from your library |
 | **R** | Email | Rewrites selected text as a Danish/Nordic professional email |
 | **S** | Summarize | Condenses selected text to key points |
 | **D** | DA → EN | Translates Danish to English |
@@ -43,7 +44,7 @@ The system has two parts:
 | **T** | Speech-to-text | Starts recording; tap 1-3 times for correction depth |
 | **ESC** | Cancel | Exits command mode (stops STT if recording) |
 
-All 26 letter keys are mapped in firmware. 19 are unconfigured placeholders — assign them to custom prompts by editing `actions.yml` and `prompts.yml`. No firmware reflash needed.
+All 26 letter keys are mapped in firmware. 18 are unconfigured placeholders — assign them to custom prompts by editing `actions.yml` and `prompts.yml`. No firmware reflash needed.
 
 **Output behavior:** Results are written to clipboard only. Paste manually with Ctrl+V. This is intentional — it avoids focus-stealing and gives you control over placement.
 
@@ -58,6 +59,27 @@ After entering command mode (double-tap RALT), tap **T** 1-3 times to select cor
 | T x3 | L1+L2+L3 | + LLM post-processing for grammar cleanup |
 
 Recording starts automatically. Press **RALT** or **T** again to stop. Result is copied to clipboard.
+
+## Prompt Picker
+
+Enter command mode (double-tap RALT), then press **P** to open a searchable popup with reusable text snippets. Select one and its text is copied to your clipboard for pasting.
+
+Snippets are organized by category (Writing, Email, Code, Translation, Analysis, Creative, Prompting) and stored in `~/.config/klor-bridge/snippets.yml`. Ships with 28 default snippets — add your own and restart the bridge.
+
+**Linux:** Uses `walker --dmenu` (or `fuzzel`/`wofi`/`rofi`/`bemenu` as fallbacks).
+**Windows:** Uses PowerShell `Out-GridView`.
+
+## Brightness Control
+
+The **right rotary encoder** controls monitor brightness:
+- **Clockwise** — brightness up (5% per tick, configurable)
+- **Counter-clockwise** — brightness down
+
+Works on both Linux and Windows:
+- **Linux:** `brightnessctl` for laptop backlight, with `ddcutil` fallback for external monitors
+- **Windows:** WMI/PowerShell brightness control
+
+Configure step size and tool preference in `~/.config/klor-bridge/config.yml` under the `brightness:` section. The left encoder remains volume control.
 
 ## Danish Characters
 
@@ -80,7 +102,7 @@ Three methods, depending on context:
 | 1 | LOWER | Hold left thumb | Numbers (numpad layout), arrow keys, brackets, navigation |
 | 2 | RAISE | Hold right thumb | Symbols, Unicode Danish, currency (€£¥), Omarchy F-keys |
 | 3 | ADJUST | LOWER+RAISE | F1-F24, QK_BOOT (bootloader), AC_TOGG (autocorrect toggle) |
-| 4 | NAV | Hold bottom-right | Hyprland workspace switching (GUI+0 through GUI+9) |
+| 4 | NAV | Hold bottom-right | Full Omarchy/Hyprland WM control — workspaces, focus, window management |
 
 See `keymap-reference.html` for a complete visual layout of every key on every layer.
 
@@ -262,11 +284,12 @@ The bridge daemon coexists with Vial's protocol through the `raw_hid_receive_kb(
 ```
 Klor-Omarchy-keymap/
 ├── bridge/                          # Python bridge daemon + config templates
-│   ├── klor-bridge.py               # Linux daemon (Wayland, ~865 lines)
-│   ├── klor-bridge-windows.py       # Windows daemon (~850 lines)
-│   ├── config.yml                   # Bridge settings (USB IDs, LLM, STT)
-│   ├── actions.yml                  # Action registry (26 letter keys + STT)
+│   ├── klor-bridge.py               # Linux daemon (Wayland)
+│   ├── klor-bridge-windows.py       # Windows daemon
+│   ├── config.yml                   # Bridge settings (USB IDs, LLM, STT, brightness)
+│   ├── actions.yml                  # Action registry (26 letter keys + STT + brightness)
 │   ├── prompts.yml                  # LLM prompt templates
+│   ├── snippets.yml                 # Prompt snippet library for Prompt Picker (P key)
 │   ├── lexicon.yml                  # Domain vocabulary for STT
 │   └── corrections.yml             # Regex corrections for STT
 ├── keyboards/                       # QMK firmware source
