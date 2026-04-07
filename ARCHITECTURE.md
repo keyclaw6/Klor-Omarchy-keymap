@@ -53,7 +53,7 @@ The system has two halves that communicate over USB Raw HID:
 
 | # | Name | Purpose |
 |---|------|---------|
-| 0 | `_QWERTY` | Base layer. Home row mods (GACS), Danish hold keys on P/;/', one-shot shift |
+| 0 | `_QWERTY` | Base layer. Home row mods (GACS), one-shot shift |
 | 1 | `_LOWER` | Left thumb hold. Numbers, navigation, brackets |
 | 2 | `_RAISE` | Right thumb hold. Symbols, Unicode Danish (æ/ø/å via Unicode Map), currency |
 | 3 | `_ADJUST` | LOWER+RAISE (tri-layer). F-keys (F1-F24), QK_BOOT, AC_TOGG |
@@ -64,7 +64,7 @@ The system has two halves that communicate over USB Raw HID:
 Left hand (pinky to index): GUI / ALT / CTL / SFT on A / S / D / F.
 Right hand (index to ring): SFT / CTL / ALT on J / K / L.
 
-The right pinky (semicolon position) is **not** an HRM — it's `DK_SC_AE` (Danish æ on hold, with cross-hand RGUI chord detection). HRM_L uses `LALT_T` (not RALT) to avoid AltGr conflicts on the RAISE layer.
+The right pinky (semicolon position) is restored as `RGUI_T(KC_SCLN)`. HRM_L uses `LALT_T` (not RALT) to avoid AltGr conflicts on the RAISE layer.
 
 Tuning:
 - `TAPPING_TERM 200` — hold duration before mod activates
@@ -73,19 +73,9 @@ Tuning:
 - `HOLD_ON_OTHER_KEY_PRESS` — resolves hold immediately when another key is pressed
 - `FLOW_TAP_TERM 150` — flow-tap threshold for rapid typing
 
-### Danish Hold-to-Activate
+### Danish Characters
 
-Three custom keycodes on the base layer:
-
-| Key | Tap | Hold (200ms) | Custom Keycode |
-|-----|-----|-------------|----------------|
-| P | P | å / Å | `DK_P_AA` |
-| ; | ; | æ / Æ | `DK_SC_AE` |
-| ' | ' | ø / Ø | `DK_QT_OE` |
-
-Implementation: Manual hold state machine in `process_danish_hold()` + `dk_hold_tick()`. Does NOT use QMK's built-in mod-tap because these need Unicode output on hold, not modifier registration.
-
-**DK_SC_AE special behavior:** When held and interrupted by a left-hand key (detected via `chordal_hold_layout`), it resolves as RGUI instead of æ. This provides a cross-hand GUI chord for Hyprland shortcuts. Same-hand interruption resolves as tap (semicolon).
+Danish characters are available on the RAISE layer via QMK Unicode Map. The base layer uses plain `P`, `;`, and `'` again.
 
 ### One-Shot Shift
 
@@ -155,12 +145,10 @@ Once active, the next letter keypress is intercepted by `process_command_mode()`
 
 1. `cmd_action_for_key(keycode)` maps the keycode to an action ID
 2. Mod-tap wrappers (`LGUI_T(KC_A)` etc.) are stripped to extract the base keycode
-3. `DK_P_AA` is explicitly mapped to 0x50 (P)
-4. `DK_SC_AE` and `DK_QT_OE` return 0 (semicolon/quote aren't letter keys)
-5. All 26 letters return their ASCII uppercase code (0x41-0x5A)
-6. T (KC_T) returns 0xFF sentinel → enters STT tap-counting path
-7. ESC cancels command mode (also stops STT if recording)
-8. Any unmapped key exits command mode and passes through
+3. All 26 letters return their ASCII uppercase code (0x41-0x5A)
+4. T (KC_T) returns 0xFF sentinel → enters STT tap-counting path
+5. ESC cancels command mode (also stops STT if recording)
+6. Any unmapped key exits command mode and passes through
 
 Command mode times out after 3 seconds (`COMMAND_MODE_TIMEOUT`).
 

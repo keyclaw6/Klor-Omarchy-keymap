@@ -32,11 +32,11 @@ Layer 4 (`_NAV`), activated by holding the bottom-right key, provides comprehens
 
 ```
               ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
-              │  GUI+Q  │ GUI+W ✕ │  GUI+↑  │  GUI+R  │ GUI+T ⇅ │                    │  GUI+Y  │  GUI+7  │  GUI+8  │  GUI+9  │ GUI+P ◫ │
+              │ GUI+O ↗ │ GUI+W ✕ │  GUI+↑  │ GUI+S ⬚ │ GUI+T ⇅ │                    │GUI+BSP⊙ │  GUI+7  │  GUI+8  │  GUI+9  │ GUI+P ◫ │
     ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤                    ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
-    │ GUI+TAB │  GUI+A  │  GUI+←  │  GUI+↓  │  GUI+→  │ GUI+G ⊞ │                    │  GUI+H  │  GUI+4  │  GUI+5  │  GUI+6  │ GUI+K ⌨ │ GUI+L ⊟ │
+    │ GUI+TAB │ GUI+J ⊟ │  GUI+←  │  GUI+↓  │  GUI+→  │ GUI+G ⊞ │                    │         │  GUI+4  │  GUI+5  │  GUI+6  │ GUI+K ⌨ │ GUI+L ⊞ │
     ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
-    │ GUI+ESC │  GUI+Z  │  GUI+X  │  GUI+C  │  GUI+V  │  GUI+B  ││  MUTE  ││PLY/PSE ││  GUI+N  │  GUI+1  │  GUI+2  │  GUI+3  │ GUI+/ ⊕ │ [held]  │
+    │ GUI+ESC │ GUI+- ↔ │ GUI+= ↕ │         │         │         ││  MUTE  ││PLY/PSE ││         │  GUI+1  │  GUI+2  │  GUI+3  │         │ [held]  │
     └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
                                   │  CTRL   │ GUI+SPC │ GUI+F ☐ │  SHIFT  ││   ALT   │ GUI+ENT │ GUI+, 🔕│  GUI+0  │
                                   └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘
@@ -49,9 +49,9 @@ The magic of this layer: thumb keys (CTRL, SHIFT, ALT) combine with the SUPER-em
 | Thumb modifier | + Arrow keys (ESDF) | + Number keys (1-0) | + Letter keys |
 |----------------|--------------------|--------------------|---------------|
 | None | Focus window | Switch workspace | Window commands (W=close, T=float, G=group, etc.) |
-| +SHIFT | Swap window position | Move window to workspace (follow) | App launchers (B=browser, N=editor, etc.) |
-| +ALT | Move into group | Group window 1-5 | Special commands (S=scratchpad via base layer) |
-| +CTRL | Group tab navigate | — | System panels (A=audio, B=bluetooth, etc.) |
+| +SHIFT | Swap window position | Move window to workspace (follow) | Window-management variants |
+| +ALT | Move into group | Group window 1-5 | Special workspace / grouping variants |
+| +CTRL | Group tab navigate | Former workspace | Window-management variants |
 | +SHIFT+ALT | Move workspace to monitor | Move window silently (stay) | — |
 
 ### Key Reference
@@ -69,9 +69,11 @@ The magic of this layer: thumb keys (CTRL, SHIFT, ALT) combine with the SUPER-em
 | G | `SUPER+G` | Toggle group |
 | TAB | `SUPER+TAB` | Next workspace (+SHIFT = previous) |
 | ESC | `SUPER+ESC` | System menu (logout/reboot/shutdown) |
-| C | `SUPER+C` | Universal copy |
-| V | `SUPER+V` | Universal paste (+CTRL = clipboard manager) |
-| X | `SUPER+X` | Universal cut |
+| O | `SUPER+O` | Pop window out (float + pin) |
+| S | `SUPER+S` | Toggle scratchpad |
+| J | `SUPER+J` | Toggle split |
+| - | `SUPER+-` | Resize active window horizontally |
+| = | `SUPER+=` | Resize active window vertically |
 
 **Right hand — Workspaces & Navigation:**
 
@@ -81,7 +83,7 @@ The magic of this layer: thumb keys (CTRL, SHIFT, ALT) combine with the SUPER-em
 | K | `SUPER+K` | Show all keybindings |
 | L | `SUPER+L` | Toggle workspace layout |
 | P | `SUPER+P` | Pseudo-tile window |
-| / | `SUPER+/` | Cycle monitor scaling |
+| Backspace | `SUPER+Backspace` | Toggle active-window transparency |
 
 **Thumb keys:**
 
@@ -129,17 +131,12 @@ bind = ALT, F13, exec, walker
 
 These are intentionally left unbound in the default Hyprland config so you can assign them freely.
 
-## DK_SC_AE Cross-Hand RGUI Chord
+## Semicolon Home-Row Mod
 
-The semicolon key (`DK_SC_AE`) has special behavior relevant to Hyprland shortcuts:
+The semicolon key is restored as a normal `RGUI_T(KC_SCLN)` home-row mod.
 
 - **Tap:** sends semicolon
-- **Hold:** sends æ (Danish character)
-- **Hold + left-hand key:** activates RGUI modifier instead of æ
-
-This means you can chord the semicolon key with any left-hand key to trigger `GUI+<key>` shortcuts. The firmware detects which hand the interrupting key is on via the `chordal_hold_layout` matrix.
-
-This replaces a traditional RGUI home row mod on the right pinky, which was removed to make room for the Danish æ character.
+- **Hold:** acts as right GUI / Super
 
 ## Screenshot Shortcut (Print Screen)
 
@@ -159,7 +156,7 @@ Danish characters (æ, ø, å) on the RAISE layer use QMK's Unicode Map feature 
 
 The `UNICODE_TYPE_DELAY 10` setting in `config.h` adds a small delay between key events to ensure Wayland compositors process them reliably.
 
-If Unicode input doesn't work in a specific application, the hold-to-activate keys on the base layer (hold P=å, hold ;=æ, hold '=ø) use the same mechanism and serve as a fallback.
+If Unicode input doesn't work in a specific application, use an app that supports the Linux `Ctrl+Shift+U` Unicode input method (terminal, Firefox, etc.).
 
 ## AUR Package
 

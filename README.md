@@ -1,6 +1,6 @@
 # KLOR AI Writing Workstation
 
-Custom QMK/Vial firmware and AI bridge daemon for the [KLOR split keyboard](https://github.com/GEIGEIGEIST/KLOR) (RP2040, Polydactyl layout). Transforms a mechanical keyboard into an AI-powered writing tool with on-device command dispatch, LLM text transformations, speech-to-text, Danish character support, and 4,200+ autocorrect entries.
+Custom QMK/Vial firmware and AI bridge daemon for the [KLOR split keyboard](https://github.com/GEIGEIGEIST/KLOR) (RP2040, Polydactyl layout). Transforms a mechanical keyboard into an AI-powered writing tool with on-device command dispatch, LLM text transformations, speech-to-text, Danish character support on the RAISE layer, and 4,200+ autocorrect entries.
 
 Built for daily use on Arch Linux / [Omarchy](https://omarchy.com) (Hyprland/Wayland). Windows support included.
 
@@ -83,22 +83,15 @@ Configure step size and tool preference in `~/.config/klor-bridge/config.yml` un
 
 ## Danish Characters
 
-Three methods, depending on context:
+Use the **RAISE layer** (hold right thumb): dedicated Unicode Map keys for å/Å, æ/Æ, ø/Ø with shift awareness.
 
-**Base layer hold-to-activate** (hold 200ms):
-- Hold **P** → å/Å
-- Hold **;** → æ/Æ
-- Hold **'** → ø/Ø
-
-**RAISE layer** (hold right thumb): dedicated Unicode Map keys for å/Å, æ/Æ, ø/Ø with shift awareness.
-
-**DK_SC_AE cross-hand chord:** Hold semicolon + any left-hand key = RGUI modifier (for Hyprland shortcuts), instead of æ. Detected via `chordal_hold_layout` matrix.
+On the base layer, **P**, **;**, and **'** are plain keys again, and semicolon is restored as a normal **RGUI home-row mod**.
 
 ## Layers
 
 | # | Layer | Activation | Purpose |
 |---|-------|-----------|---------|
-| 0 | QWERTY | Default | Home row mods (GACS), Danish hold keys, one-shot shift |
+| 0 | QWERTY | Default | Home row mods (GACS), one-shot shift |
 | 1 | LOWER | Hold left thumb | Numbers (numpad layout), arrow keys, brackets, navigation |
 | 2 | RAISE | Hold right thumb | Symbols, Unicode Danish, currency (€£¥), Omarchy F-keys |
 | 3 | ADJUST | LOWER+RAISE | F1-F24, QK_BOOT (bootloader), AC_TOGG (autocorrect toggle) |
@@ -110,7 +103,7 @@ See `keymap-reference.html` for a complete visual layout of every key on every l
 
 | Position | Left hand | Right hand |
 |----------|-----------|------------|
-| Pinky | GUI / A | ; / æ (DK_SC_AE, not HRM) |
+| Pinky | GUI / A | GUI / ; |
 | Ring | ALT / S | ALT / L (LALT, not RALT) |
 | Middle | CTL / D | CTL / K |
 | Index | SFT / F | SFT / J |
