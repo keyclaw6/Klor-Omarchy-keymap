@@ -150,7 +150,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
    │   ESC   │   DEL   │    ←    │    ↓    │    →    │    [    ├─╯                ╰─┤    ]    │    4    │    5    │    6    │    -    │    _    │
    ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
-   │ SCRNSHT │   END   │   PG↑   │  SAVE   │   PG↓   │    (    ││  MUTE  ││PLY/PSE ││    )    │    1    │    2    │    3    │    *    │    ▼    │
+   │  PRTSC  │   END   │   PG↑   │  SAVE   │   PG↓   │    (    ││  MUTE  ││PLY/PSE ││    )    │    1    │    2    │    3    │    *    │    ▼    │
    └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
                                  │    ▼    │    ▼    │    ▼    │    ▼    ││    ▼    │    ▼    │    ▼    │    0    │
                                  └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘ */
@@ -159,7 +159,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
               KC_CAPS,  KC_HOME,  KC_UP,    KC_EQL,   KC_LCBR,                       KC_RCBR,  KC_7,    KC_8,    KC_9,    KC_PPLS,
     KC_ESC,   KC_DEL,   KC_LEFT,  KC_DOWN,  KC_RGHT,  KC_LBRC,                       KC_RBRC,  KC_4,    KC_5,    KC_6,    KC_MINS,  KC_UNDS,
-    SNAP2,    KC_END,   KC_PGUP,  C(KC_S),  KC_PGDN,  KC_LPRN,  KC_MUTE,   KC_MPLY,  KC_RPRN,  KC_1,    KC_2,    KC_3,    KC_PAST,  _______,
+    KC_PSCR,   KC_END,   KC_PGUP,  C(KC_S),  KC_PGDN,  KC_LPRN,  KC_MUTE,   KC_MPLY,  KC_RPRN,  KC_1,    KC_2,    KC_3,    KC_PAST,  _______,
                                   _______,  _______,  _______,  _______,   _______,  _______,  _______,  KC_0
  ),
 
@@ -218,34 +218,38 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
      ┌───────────────────────────────────────────────────────────┐
      │ n a v   ( O m a r c h y / H y p r l a n d   W M )         │
      └───────────────────────────────────────────────────────────┘
-     Every key sends SUPER+<key>.  Compose with thumb SHIFT/CTRL/ALT for:
-       +Shift = move-to-workspace / swap-window / app-launchers
-       +Ctrl  = system-panels / tiled-fullscreen / group-nav
-       +Alt   = move-into-group / special-workspace
-       +Shift+Alt = move-silently / move-workspace-to-monitor
+     Only real Hyprland navigation bindings.  Every key sends SUPER+<key>.
+     Compose with thumb SHIFT/CTRL/ALT for secondary actions:
+       +Shift  = swap window / move-to-workspace / prev-workspace
+       +Ctrl   = navigate group / former-workspace
+       +Alt    = move-into-group / move-out-of-group / special-workspace
 
                ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
-               │  GUI+Q  │ GUI+W ✕ │  GUI+↑  │  GUI+R  │ GUI+T ⇅ │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │  GUI+Y  │  GUI+7  │  GUI+8  │  GUI+9  │ GUI+P ◫ │
+               │ GUI+O ↗ │ GUI+W ✕ │  GUI+↑  │ GUI+S ⬚ │ GUI+T ⇅ │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │GUI+BSP⊙ │  GUI+7  │  GUI+8  │  GUI+9  │ GUI+P ◫ │
      ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
-     │ GUI+TAB │  GUI+A  │  GUI+←  │  GUI+↓  │  GUI+→  │ GUI+G ⊞ ├─╯                ╰─┤  GUI+H  │  GUI+4  │  GUI+5  │  GUI+6  │ GUI+K ⌨ │ GUI+L ⊟ │
+     │ GUI+TAB │ GUI+J ⊟ │  GUI+←  │  GUI+↓  │  GUI+→  │ GUI+G ⊞ ├─╯                ╰─┤         │  GUI+4  │  GUI+5  │  GUI+6  │ GUI+K ⌨ │ GUI+L ⊞ │
      ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
-     │ GUI+ESC │  GUI+Z  │  GUI+X  │  GUI+C  │  GUI+V  │  GUI+B  ││  MUTE  ││PLY/PSE ││  GUI+N  │  GUI+1  │  GUI+2  │  GUI+3  │ GUI+/ ⊕ │   NAV   │
+     │ GUI+ESC │ GUI+- ↔ │ GUI+= ↕ │         │         │         ││  MUTE  ││PLY/PSE ││         │  GUI+1  │  GUI+2  │  GUI+3  │ GUI+/ ⊕ │   NAV   │
      └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
                                    │  CTRL   │ GUI+SPC │ GUI+F ☐ │  SHIFT  ││   ALT   │ GUI+ENT │ GUI+, 🔕│  GUI+0  │
                                    └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘
 
-     Quick reference (all with NAV held):
-       Arrows ESDF  = focus window   │ +Shift = swap window     │ +Alt = move into group │ +Shift+Alt = move workspace to monitor
-       1-9, 0       = workspace      │ +Shift = move win to ws  │ +Shift+Alt = move silently
-       W = close    F = fullscreen   │ T = float   G = group    │ P = pseudo   K = keys  │ L = layout
-       Space = launcher │ Enter = terminal │ , = dismiss notif  │ ESC = system menu       │ TAB = next ws (+Shift = prev)
+     Key reference (all with NAV held):
+       O = pop/pin float    W = close         ↑←↓→ on ESDF = focus window
+       S = scratchpad       T = float toggle  G = group toggle
+       J = split toggle     P = pseudo        K = keybindings
+       L = layout cycle     / = monitor scale ESC = system menu
+       - = resize wider     = = resize taller BSPC = transparency
+       1-9, 0 = workspaces  TAB = next ws     +Shift+TAB = prev ws
+       SPC = launcher       ENT = terminal    , = dismiss notification
+       +Shift = swap/move-to-ws  +Alt = group nav  +Ctrl = group/former-ws
  */
 
    [_NAV] = LAYOUT_polydactyl(
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
-             LGUI(KC_Q), LGUI(KC_W), LGUI(KC_UP), LGUI(KC_R), LGUI(KC_T),             LGUI(KC_Y), LGUI(KC_7), LGUI(KC_8), LGUI(KC_9), LGUI(KC_P),
-   LGUI(KC_TAB), LGUI(KC_A), LGUI(KC_LEFT), LGUI(KC_DOWN), LGUI(KC_RGHT), LGUI(KC_G), LGUI(KC_H), LGUI(KC_4), LGUI(KC_5), LGUI(KC_6), LGUI(KC_K), LGUI(KC_L),
-   LGUI(KC_ESC), LGUI(KC_Z), LGUI(KC_X), LGUI(KC_C), LGUI(KC_V), LGUI(KC_B), KC_MUTE, KC_MPLY, LGUI(KC_N), LGUI(KC_1), LGUI(KC_2), LGUI(KC_3), LGUI(KC_SLSH), _______,
+              LGUI(KC_O),  LGUI(KC_W),  LGUI(KC_UP),   LGUI(KC_S),  LGUI(KC_T),          LGUI(KC_BSPC), LGUI(KC_7), LGUI(KC_8), LGUI(KC_9), LGUI(KC_P),
+   LGUI(KC_TAB), LGUI(KC_J), LGUI(KC_LEFT), LGUI(KC_DOWN), LGUI(KC_RGHT), LGUI(KC_G),   XXXXXXX, LGUI(KC_4), LGUI(KC_5), LGUI(KC_6), LGUI(KC_K), LGUI(KC_L),
+   LGUI(KC_ESC), LGUI(KC_MINS), LGUI(KC_EQL), XXXXXXX, XXXXXXX, XXXXXXX, KC_MUTE, KC_MPLY, XXXXXXX, LGUI(KC_1), LGUI(KC_2), LGUI(KC_3), LGUI(KC_SLSH), _______,
                                    KC_LCTL, LGUI(KC_SPC), LGUI(KC_F), KC_LSFT,   KC_LALT, LGUI(KC_ENT), LGUI(KC_COMM), LGUI(KC_0)
   ),
 };
@@ -274,9 +278,39 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
     [_LOWER]  = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
     [_RAISE]  = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
     [_ADJUST] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
-    [_NAV]    = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
+    // NAV: both encoders scroll workspaces (CCW = prev ws, CW = next ws)
+    [_NAV]    = { ENCODER_CCW_CW(LSG(KC_TAB), LGUI(KC_TAB)), ENCODER_CCW_CW(LSG(KC_TAB), LGUI(KC_TAB)) },
 };
 #endif
+
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ S T A T I C   C O M B O S                                                                                                                    │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+// J+K → Escape  (universal vim muscle memory)
+// D+F → Tab     (same-hand reach alternative)
+// These use the HRM keycodes so the combo fires regardless of tap/hold resolution.
+
+const uint16_t PROGMEM jk_combo[] = {HRM_J, HRM_K, COMBO_END};
+const uint16_t PROGMEM df_combo[] = {HRM_D, HRM_F, COMBO_END};
+
+combo_t key_combos[] = {
+    COMBO(jk_combo, KC_ESC),
+    COMBO(df_combo, KC_TAB),
+};
+
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ S T A T I C   K E Y   O V E R R I D E S                                                                                                     │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+// Shift+Backspace → Delete
+const key_override_t bspc_del_override = ko_make_basic(MOD_MASK_SHIFT, KC_BSPC, KC_DEL);
+
+const key_override_t *key_overrides[] = {
+    &bspc_del_override,
+    NULL,
+};
+
 
 // ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 // │ D A N I S H   H O L D - T O - A C T I V A T E                                                                                              │
