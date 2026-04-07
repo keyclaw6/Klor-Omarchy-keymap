@@ -995,19 +995,22 @@ class KlorBridge:
             )
             return
 
-        # Build PowerShell Out-GridView command
-        # Creates a list of objects with Name and Description, shows grid, returns selection
+        # Build PowerShell Out-GridView command.
+        # Include a numeric Index field so we can look up the snippet by
+        # position rather than by name — this avoids any round-trip issues
+        # with apostrophes or other characters that need escaping.
+        # Apostrophes inside PS single-quoted strings are escaped as ''.
         entries = []
-        for s in self.snippets:
-            name = s["name"].replace("'", "")
-            desc = s.get("description", "").replace("'", "")
-            entries.append(f"[PSCustomObject]@{{Name='{name}';Description='{desc}'}}")
+        for i, s in enumerate(self.snippets):
+            name = s["name"].replace("'", "''")
+            cat = s.get("category", "").replace("'", "''")
+            entries.append(f"[PSCustomObject]@{{Index={i};Name='{name}';Category='{cat}'}}")
 
         entries_str = ",".join(entries)
         ps_script = (
             f"$items = @({entries_str}); "
             "$sel = $items | Out-GridView -Title 'KLOR Prompt Snippets' -PassThru; "
-            "if ($sel) { $sel.Name }"
+            "if ($sel) { $sel.Index }"
         )
 
         try:
@@ -1041,15 +1044,14 @@ class KlorBridge:
             log.info("Prompt picker cancelled by user")
             return
 
-        selected_name = stdout.decode("utf-8").strip()
-        snippet = None
-        for s in self.snippets:
-            if s["name"] == selected_name:
-                snippet = s
-                break
-
-        if not snippet:
-            log.warning("Selected snippet not found: %s", selected_name)
+        # PowerShell returns the Index field; use it to look up the snippet
+        # directly — no string matching, immune to any escaping edge cases.
+        selected_raw = stdout.decode("utf-8").strip()
+        try:
+            idx = int(selected_raw)
+            snippet = self.snippets[idx]
+        except (ValueError, IndexError):
+            log.warning("Invalid snippet index returned from picker: %r", selected_raw)
             return
 
         text = snippet["text"]

@@ -142,6 +142,8 @@ class Platform:
         self.clip_write = plat.get("clipboard_write", "wl-copy")
         self.key_sim = plat.get("key_simulator", "wtype")
         self.copy_delay = plat.get("copy_delay_ms", 150) / 1000.0
+        # Maps tag -> notification ID for tag-based replacement/dismissal
+        self._notif_ids: dict = {}
 
     async def copy_selection(self) -> str:
         """Copy currently selected text to clipboard via Ctrl+C, then read it."""
@@ -217,19 +219,24 @@ class Platform:
                      category: str = "device") -> None:
         """Send a desktop notification via notify-send.
 
-        Uses tag-based replacement so that sequential notifications with the
-        same tag replace each other (works on mako, dunst, and swaync).
+        Uses --replace-id so that sequential notifications with the same tag
+        atomically replace each other without disturbing unrelated notifications
+        (works on mako, dunst, and swaync with libnotify >= 0.7.9).
 
         IMPORTANT: Never uses -t 0 (infinite).  Even "persistent" notifications
         get a generous timeout (30 s) so they don't stick forever if the
         replacement notification is never sent (e.g. crash).
         """
         try:
-            # Dismiss any previous notification with this tag first (mako)
-            if tag:
-                await self._dismiss_notification(tag)
+            # --print-id makes notify-send emit the assigned notification ID so
+            # we can pass it back as --replace-id on the next call for the same
+            # tag.  This replaces only our own notification, never anything else.
+            cmd = ["notify-send", "--print-id"]
 
-            cmd = ["notify-send"]
+            # If we've seen this tag before, replace the specific notification
+            # rather than creating a new one.
+            if tag and tag in self._notif_ids:
+                cmd += [f"--replace-id={self._notif_ids[tag]}"]
 
             # Timeout: cap "urgent" at 30 s instead of infinite
             if urgent:
@@ -253,29 +260,38 @@ class Platform:
             cmd += ["--", title, body]
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
-                stdout=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.DEVNULL,
             )
-            await proc.wait()
+            stdout, _ = await proc.communicate()
+
+            # Store the notification ID for future replacement
+            if tag:
+                try:
+                    self._notif_ids[tag] = int(stdout.decode().strip())
+                except ValueError:
+                    pass
         except Exception as e:
             log.debug("Notification failed: %s", e)
 
     async def _dismiss_notification(self, tag: str) -> None:
-        """Dismiss a notification by tag via makoctl (if available).
+        """Dismiss a specific tagged notification by replacing it with a
+        1 ms invisible placeholder, then clearing the stored ID.
 
-        This ensures that even persistent/critical notifications are
-        reliably replaced.  Silently ignored if makoctl is not installed
-        or the daemon is unreachable.
+        Only affects the notification that this bridge previously sent with
+        the given tag — unrelated notifications from other applications are
+        never touched.  Silently ignored if the tag has no stored ID.
         """
-        if not shutil.which("makoctl"):
+        notif_id = self._notif_ids.pop(tag, None)
+        if notif_id is None:
             return
         try:
             proc = await asyncio.create_subprocess_exec(
-                "makoctl", "dismiss", "-n", "0",
+                "notify-send", "--print-id", f"--replace-id={notif_id}",
+                "-t", "1", "--", " ", " ",
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.DEVNULL,
             )
-            # Don't wait long — this is best-effort
             await asyncio.wait_for(proc.wait(), timeout=1.0)
         except Exception:
             pass
@@ -710,6 +726,7 @@ class KlorBridge:
         bright_cfg = self.config.get("brightness", {})
         self._brightness_step = bright_cfg.get("step_percent", 5)
         self._brightness_tool = bright_cfg.get("tool", "brightnessctl")  # or "ddcutil"
+        self._ddcutil_fallback = bright_cfg.get("ddcutil_fallback", True)
 
     async def run(self) -> None:
         """Main event loop."""
@@ -1061,10 +1078,10 @@ class KlorBridge:
             )
             return
 
-        # Build list for dmenu: "name — description"
+        # Build list for dmenu: "name — category"
         lines = []
         for i, s in enumerate(self.snippets):
-            desc = s.get("description", "")
+            desc = s.get("category", "")
             label = s["name"]
             if desc:
                 label += f" — {desc}"
@@ -1187,9 +1204,10 @@ class KlorBridge:
             output = stdout.decode("utf-8", errors="replace")
             log.debug("brightnessctl: %s", output.strip().split("\n")[-1] if output else "ok")
         else:
-            # brightnessctl failed — try ddcutil as fallback
-            log.debug("brightnessctl failed (rc=%d), trying ddcutil fallback", proc.returncode)
-            await self._brightness_ddcutil(direction, step)
+            # brightnessctl failed — try ddcutil as fallback if enabled
+            log.debug("brightnessctl failed (rc=%d), ddcutil_fallback=%s", proc.returncode, self._ddcutil_fallback)
+            if self._ddcutil_fallback:
+                await self._brightness_ddcutil(direction, step)
 
     async def _brightness_ddcutil(self, direction: int, step: int) -> None:
         """Adjust brightness via ddcutil (DDC/CI for external monitors).
