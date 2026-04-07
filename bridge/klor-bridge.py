@@ -142,7 +142,7 @@ class Platform:
         self.clip_write = plat.get("clipboard_write", "wl-copy")
         self.key_sim = plat.get("key_simulator", "wtype")
         self.copy_delay = plat.get("copy_delay_ms", 150) / 1000.0
-        # Maps tag -> notification ID for tag-based replacement/dismissal
+        # Maps tag -> notification ID for tag-based replacement
         self._notif_ids: dict = {}
 
     async def copy_selection(self) -> str:
@@ -273,29 +273,6 @@ class Platform:
                     pass
         except Exception as e:
             log.debug("Notification failed: %s", e)
-
-    async def _dismiss_notification(self, tag: str) -> None:
-        """Dismiss a specific tagged notification by replacing it with a
-        1 ms invisible placeholder, then clearing the stored ID.
-
-        Only affects the notification that this bridge previously sent with
-        the given tag — unrelated notifications from other applications are
-        never touched.  Silently ignored if the tag has no stored ID.
-        """
-        notif_id = self._notif_ids.pop(tag, None)
-        if notif_id is None:
-            return
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                "notify-send", "--print-id", f"--replace-id={notif_id}",
-                "-t", "1", "--", " ", " ",
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL,
-            )
-            await asyncio.wait_for(proc.wait(), timeout=1.0)
-        except Exception:
-            pass
-
 
 # ─── LLM Client (OpenRouter) ──────────────────────────────────────────────────
 
@@ -1080,12 +1057,16 @@ class KlorBridge:
 
         # Build list for dmenu: "name — category"
         lines = []
-        for i, s in enumerate(self.snippets):
+        line_to_snippet = {}
+        for s in self.snippets:
             desc = s.get("category", "")
             label = s["name"]
             if desc:
                 label += f" — {desc}"
             lines.append(label)
+            # Keep a direct lookup by the exact displayed row so names may
+            # safely contain delimiter-like text.
+            line_to_snippet.setdefault(label, s)
         menu_input = "\n".join(lines)
 
         # Find a dmenu-compatible launcher
@@ -1142,17 +1123,10 @@ class KlorBridge:
 
         # Match selected line to a snippet
         selected = stdout.decode("utf-8").strip()
-        # Extract name (everything before " — ")
-        selected_name = selected.split(" — ")[0].strip()
-
-        snippet = None
-        for s in self.snippets:
-            if s["name"] == selected_name:
-                snippet = s
-                break
+        snippet = line_to_snippet.get(selected)
 
         if not snippet:
-            log.warning("Selected snippet not found: %s", selected_name)
+            log.warning("Selected snippet not found: %s", selected)
             return
 
         # Copy snippet text to clipboard
