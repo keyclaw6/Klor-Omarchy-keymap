@@ -26,37 +26,37 @@ The setup script adds this automatically. Without it, `wtype` and `wl-clipboard`
 
 ## NAV Layer — Full Omarchy/Hyprland Window Manager
 
-Layer 4 (`_NAV`), activated by holding the bottom-right key, provides comprehensive Hyprland window management. Every key on this layer sends `SUPER+<key>`, which Hyprland intercepts. The thumb keys provide CTRL, SHIFT, and ALT modifiers that compose naturally with the SUPER-embedded keycodes, giving access to the full Omarchy keybinding tree from a single layer.
+Layer 4 (`_NAV`), activated by holding the bottom-right key, is a navigation-only Omarchy layer. It keeps only window/workspace navigation, movement, grouping, and resize behavior. The thumb keys provide CTRL, SHIFT, and ALT modifiers that compose with the dedicated navigation keys.
 
 ### Layout
 
 ```
               ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
-              │ GUI+O ↗ │ GUI+W ✕ │  GUI+↑  │ GUI+S ⬚ │ GUI+T ⇅ │                    │GUI+BSP⊙ │  GUI+7  │  GUI+8  │  GUI+9  │ GUI+P ◫ │
+              │         │ GUI+CTL←│  GUI+↑  │ GUI+CTL→│         │                    │         │  GUI+7  │  GUI+8  │  GUI+9  │         │
     ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤                    ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
-    │ GUI+TAB │ GUI+J ⊟ │  GUI+←  │  GUI+↓  │  GUI+→  │ GUI+G ⊞ │                    │         │  GUI+4  │  GUI+5  │  GUI+6  │ GUI+K ⌨ │ GUI+L ⊞ │
+    │ GUI+TAB │         │  GUI+←  │  GUI+↓  │  GUI+→  │ GUI+G ⊞ │                    │         │  GUI+4  │  GUI+5  │  GUI+6  │         │         │
     ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
-    │ GUI+ESC │ GUI+- ↔ │ GUI+= ↕ │         │         │         ││  MUTE  ││PLY/PSE ││         │  GUI+1  │  GUI+2  │  GUI+3  │         │ [held]  │
+    │         │         │         │         │         │         ││  MUTE  ││PLY/PSE ││         │  GUI+1  │  GUI+2  │  GUI+3  │         │ [held]  │
     └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
-                                  │  CTRL   │ GUI+SPC │ GUI+F ☐ │  SHIFT  ││   ALT   │ GUI+ENT │ GUI+, 🔕│  GUI+0  │
+                                   │  CTRL   │         │         │  SHIFT  ││   ALT   │         │         │  GUI+0  │
                                   └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘
 ```
 
 ### Modifier Composition
 
-The magic of this layer: thumb keys (CTRL, SHIFT, ALT) combine with the SUPER-embedded main keys to produce all Omarchy modifier combos:
+The thumb keys (CTRL, SHIFT, ALT) combine with the dedicated navigation keys to produce the full navigation tree:
 
-| Thumb modifier | + Arrow keys (ESDF) | + Number keys (1-0) | + Letter keys |
-|----------------|--------------------|--------------------|---------------|
-| None | Focus window | Switch workspace | Window commands (W=close, T=float, G=group, etc.) |
-| +SHIFT | Swap window position | Move window to workspace (follow) | Window-management variants |
-| +ALT | Move into group | Group window 1-5 | Special workspace / grouping variants |
-| +CTRL | Group tab navigate | Former workspace | Window-management variants |
-| +SHIFT+ALT | Move workspace to monitor | Move window silently (stay) | — |
+| Thumb modifier | + Arrow keys | + Number keys (1-0) | + WS-TAB / G |
+|----------------|------------|--------------------|--------------|
+| None | Focus window | Switch workspace | WS-TAB = next workspace, G = toggle group |
+| +SHIFT | Swap window | Move window to workspace | WS-TAB = previous workspace |
+| +ALT | Move into group | Group window 1-5 | WS-TAB = next in group, G = move out of group |
+| +CTRL | Resize window | — | WS-TAB = former workspace |
+| +SHIFT+ALT | Move workspace to monitor | Move window silently | WS-TAB = previous in group |
 
 ### Key Reference
 
-**Left hand — Arrows & Window Commands:**
+**Left hand — Navigation cluster:**
 
 | Position | Key | Omarchy action |
 |----------|-----|---------------|
@@ -64,38 +64,26 @@ The magic of this layer: thumb keys (CTRL, SHIFT, ALT) combine with the SUPER-em
 | S (left) | `SUPER+←` | Focus window left |
 | D (down) | `SUPER+↓` | Focus window down |
 | F (right) | `SUPER+→` | Focus window right |
-| W | `SUPER+W` | Close window |
-| T | `SUPER+T` | Toggle floating |
 | G | `SUPER+G` | Toggle group |
-| TAB | `SUPER+TAB` | Next workspace (+SHIFT = previous) |
-| ESC | `SUPER+ESC` | System menu (logout/reboot/shutdown) |
-| O | `SUPER+O` | Pop window out (float + pin) |
-| S | `SUPER+S` | Toggle scratchpad |
-| J | `SUPER+J` | Toggle split |
-| - | `SUPER+-` | Resize active window horizontally |
-| = | `SUPER+=` | Resize active window vertically |
+| TAB | `SUPER+TAB` | Next workspace (+SHIFT = previous, +CTRL = former, +ALT = next in group, +SHIFT+ALT = previous in group) |
+| Top inner left | `SUPER+CTRL+LEFT` | Group focus backward |
+| Top inner right | `SUPER+CTRL+RIGHT` | Group focus forward |
+| CTRL + arrows | resize | Use the arrow cluster for resize instead of dedicated `-` / `=` keys |
 
 **Right hand — Workspaces & Navigation:**
 
 | Position | Key | Omarchy action |
 |----------|-----|---------------|
 | 1-9, 0 | `SUPER+N` | Switch to workspace N (+SHIFT = move window, +SHIFT+ALT = move silently) |
-| K | `SUPER+K` | Show all keybindings |
-| L | `SUPER+L` | Toggle workspace layout |
-| P | `SUPER+P` | Pseudo-tile window |
-| Backspace | `SUPER+Backspace` | Toggle active-window transparency |
+| 1-9, 0 | `SUPER+N` | Switch to workspace N (+SHIFT = move window, +SHIFT+ALT = move silently, +ALT on 1-5 = activate grouped window) |
 
 **Thumb keys:**
 
 | Position | Key | Omarchy action |
 |----------|-----|---------------|
-| Left 1 | CTRL | Modifier for SUPER+CTRL combos (tiled fullscreen, system panels) |
-| Left 2 | `SUPER+SPACE` | App launcher (walker) (+SHIFT = toggle waybar, +CTRL = backgrounds) |
-| Left 3 | `SUPER+F` | Fullscreen (+CTRL = tiled fullscreen, +ALT = maximize) |
-| Left 4 | SHIFT | Modifier for SUPER+SHIFT combos (move windows, swap, app launchers) |
-| Right 1 | ALT | Modifier for SUPER+ALT combos (groups, special workspaces) |
-| Right 2 | `SUPER+ENTER` | Terminal (+ALT = terminal with tmux) |
-| Right 3 | `SUPER+,` | Dismiss notification (+SHIFT = dismiss all, +ALT = invoke, +CTRL = silence) |
+| Left 1 | CTRL | Resize on arrows, former workspace on WS-TAB |
+| Left 4 | SHIFT | Swap on arrows, move-to-workspace on numbers, previous workspace on WS-TAB |
+| Right 1 | ALT | Group navigation on arrows/numbers, move-out-of-group on G |
 | Right 4 | `SUPER+0` | Workspace 10 |
 
 ### Common Workflows
@@ -107,11 +95,8 @@ The magic of this layer: thumb keys (CTRL, SHIFT, ALT) combine with the SUPER-em
 **Swap window left:** NAV + SHIFT + S
 **Move into group left:** NAV + ALT + S
 **Move workspace to left monitor:** NAV + SHIFT + ALT + S
-**Fullscreen:** NAV + Space (thumb)
-**Tiled fullscreen:** NAV + CTRL + Space (thumb)
-**Close window:** NAV + W
-**Open launcher:** NAV + Lower-thumb (SUPER+SPACE)
-**Open terminal:** NAV + Enter-thumb (SUPER+ENTER)
+**Resize left/right/up/down:** NAV + CTRL + arrow cluster
+**Group focus backward/forward:** NAV + top-row group keys
 
 ## RAISE Layer — Omarchy Shortcuts
 

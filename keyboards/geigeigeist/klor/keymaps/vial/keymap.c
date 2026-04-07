@@ -215,39 +215,45 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
      ┌───────────────────────────────────────────────────────────┐
      │ n a v   ( O m a r c h y / H y p r l a n d   W M )         │
      └───────────────────────────────────────────────────────────┘
-     Only real Hyprland navigation bindings.  Every key sends SUPER+<key>.
-     Compose with thumb SHIFT/CTRL/ALT for secondary actions:
-       +Shift  = swap window / move-to-workspace / prev-workspace
-       +Ctrl   = navigate group / former-workspace
-       +Alt    = move-into-group / move-out-of-group / special-workspace
+     Navigation-only Omarchy bindings. Keep only window/workspace navigation,
+     movement, grouping, and resize behavior on this layer.
+
+     Compose with thumb SHIFT / CTRL / ALT for the full navigation tree:
+       +Shift      = swap window / move-to-workspace / previous workspace
+       +Ctrl       = resize on arrows / former workspace on WS-TAB
+       +Alt        = move into group / group-window 1-5 / next group tab
+       +Shift+Alt  = move workspace to monitor / move window silently
 
                ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
-               │ GUI+O ↗ │ GUI+W ✕ │  GUI+↑  │ GUI+S ⬚ │ GUI+T ⇅ │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │GUI+BSP⊙ │  GUI+7  │  GUI+8  │  GUI+9  │ GUI+P ◫ │
+               │         │ GUI+CTL←│  GUI+↑  │ GUI+CTL→│         │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │         │  GUI+7  │  GUI+8  │  GUI+9  │         │
      ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
-     │ GUI+TAB │ GUI+J ⊟ │  GUI+←  │  GUI+↓  │  GUI+→  │ GUI+G ⊞ ├─╯                ╰─┤         │  GUI+4  │  GUI+5  │  GUI+6  │ GUI+K ⌨ │ GUI+L ⊞ │
+     │ GUI+TAB │         │  GUI+←  │  GUI+↓  │  GUI+→  │ GUI+G ⊞ ├─╯                ╰─┤         │  GUI+4  │  GUI+5  │  GUI+6  │         │         │
      ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
-     │ GUI+ESC │ GUI+- ↔ │ GUI+= ↕ │         │         │         ││  MUTE  ││PLY/PSE ││         │  GUI+1  │  GUI+2  │  GUI+3  │         │   NAV   │
+     │         │         │         │         │         │         ││  MUTE  ││PLY/PSE ││         │  GUI+1  │  GUI+2  │  GUI+3  │         │   NAV   │
      └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
-                                   │  CTRL   │ GUI+SPC │ GUI+F ☐ │  SHIFT  ││   ALT   │ GUI+ENT │ GUI+, 🔕│  GUI+0  │
+                                   │  CTRL   │         │         │  SHIFT  ││   ALT   │         │         │  GUI+0  │
                                    └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘
 
      Key reference (all with NAV held):
-       O = pop/pin float    W = close         ↑←↓→ on ESDF = focus window
-       S = scratchpad       T = float toggle  G = group toggle
-       J = split toggle     P = pseudo        K = keybindings
-       L = layout cycle     ESC = system menu
-       - = resize wider     = = resize taller BSPC = transparency
-       1-9, 0 = workspaces  TAB = next ws     +Shift+TAB = prev ws
-       SPC = launcher       ENT = terminal    , = dismiss notification
-       +Shift = swap/move-to-ws  +Alt = group nav  +Ctrl = group/former-ws
+       ↑←↓→       = focus window             +Shift = swap window
+       +Ctrl      = resize                   +Alt = move into group
+       +Shift+Alt = move workspace to monitor
+       1-9, 0     = workspace                +Shift = move win to ws
+                                             +Shift+Alt = move silently
+                                             +Alt + 1-5 = activate group window 1-5
+       G          = toggle group             +Alt+G = move out of group
+       WS-TAB     = next workspace           +Shift = previous workspace
+                                             +Ctrl = former workspace
+                                             +Alt = next in group
+                                             +Shift+Alt = previous in group
  */
 
    [_NAV] = LAYOUT_polydactyl(
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
-              LGUI(KC_O),  LGUI(KC_W),  LGUI(KC_UP),   LGUI(KC_S),  LGUI(KC_T),          LGUI(KC_BSPC), LGUI(KC_7), LGUI(KC_8), LGUI(KC_9), LGUI(KC_P),
-   LGUI(KC_TAB), LGUI(KC_J), LGUI(KC_LEFT), LGUI(KC_DOWN), LGUI(KC_RGHT), LGUI(KC_G),   XXXXXXX, LGUI(KC_4), LGUI(KC_5), LGUI(KC_6), LGUI(KC_K), LGUI(KC_L),
-   LGUI(KC_ESC), LGUI(KC_MINS), LGUI(KC_EQL), XXXXXXX, XXXXXXX, XXXXXXX, KC_MUTE, KC_MPLY, XXXXXXX, LGUI(KC_1), LGUI(KC_2), LGUI(KC_3), XXXXXXX, _______,
-                                   KC_LCTL, LGUI(KC_SPC), LGUI(KC_F), KC_LSFT,   KC_LALT, LGUI(KC_ENT), LGUI(KC_COMM), LGUI(KC_0)
+              XXXXXXX, LCTL(LGUI(KC_LEFT)), LGUI(KC_UP),  LCTL(LGUI(KC_RGHT)), XXXXXXX,   XXXXXXX,      LGUI(KC_7), LGUI(KC_8), LGUI(KC_9), XXXXXXX,
+   LGUI(KC_TAB), XXXXXXX,           LGUI(KC_LEFT), LGUI(KC_DOWN), LGUI(KC_RGHT), LGUI(KC_G), XXXXXXX,   LGUI(KC_4), LGUI(KC_5), LGUI(KC_6), XXXXXXX, XXXXXXX,
+   XXXXXXX,      XXXXXXX,           XXXXXXX,       XXXXXXX,       XXXXXXX,        XXXXXXX,    KC_MUTE, KC_MPLY, XXXXXXX,      LGUI(KC_1), LGUI(KC_2), LGUI(KC_3), XXXXXXX, _______,
+                                   KC_LCTL, XXXXXXX, XXXXXXX, KC_LSFT,   KC_LALT, XXXXXXX, XXXXXXX, LGUI(KC_0)
   ),
 };
 
