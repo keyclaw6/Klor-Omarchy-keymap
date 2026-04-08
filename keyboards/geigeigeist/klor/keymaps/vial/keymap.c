@@ -13,7 +13,7 @@
  *   - encoder_update_user → encoder_map (Vial-remappable)
  *   - OLED code removed (not installed on this board)
  *   - Danish characters (æ ø å) only on the RAISE layer via Unicode Map
- *   - One-shot shift on left thumb (OSM(MOD_LSFT))
+ *   - Plain left shift on left thumb (KC_LSFT)
  *   - Restored RGUI home-row mod on semicolon
  */
 
@@ -132,7 +132,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
    │ CMD/WIN │    Z    │    X    │    C    │    V    │    B    ││  MUTE  ││PLY/PSE ││    N    │    M    │    ,    │    .    │    /    │   NAV   │
    └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
-                                  │  CTRL   │  LOWER  │  SPACE  │OSM SHFT ││  R ALT  │  ENTER  │  RAISE  │ BSPACE  │
+                                  │  CTRL   │  LOWER  │  SPACE  │  LSHIFT ││  R ALT  │  ENTER  │  RAISE  │ BSPACE  │
                                   └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘ */
 
    [_QWERTY] = LAYOUT_polydactyl(
@@ -140,7 +140,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
               KC_Q,     KC_W,     KC_E,     KC_R,     KC_T,                          KC_Y,     KC_U,     KC_I,     KC_O,     KC_P,
     KC_TAB,   HRM_A,    HRM_S,    HRM_D,    HRM_F,    KC_G,                          KC_H,     HRM_J,    HRM_K,    HRM_L,    HRM_SCLN, KC_QUOT,
     KC_LGUI,  KC_Z,     KC_X,     KC_C,     KC_V,     KC_B,     KC_MUTE,   KC_MPLY,  KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,  MO(_NAV),
-                                  KC_LCTL,  MO(_LOWER),KC_SPC,  OSM(MOD_LSFT), KC_RALT,  KC_ENT,   MO(_RAISE),KC_BSPC
+                                  KC_LCTL,  MO(_LOWER),KC_SPC,  KC_LSFT,       KC_RALT,  KC_ENT,   MO(_RAISE),KC_BSPC
  ),
 
  /*
@@ -292,22 +292,6 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
     [_NAV]    = { ENCODER_CCW_CW(LSG(KC_TAB), LGUI(KC_TAB)), ENCODER_CCW_CW(LSG(KC_TAB), LGUI(KC_TAB)) },
 };
 #endif
-
-// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-// │ S T A T I C   C O M B O S                                                                                                                    │
-// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-
-// J+K → Escape  (universal vim muscle memory)
-// D+F → Tab     (same-hand reach alternative)
-// These use the HRM keycodes so the combo fires regardless of tap/hold resolution.
-
-const uint16_t PROGMEM jk_combo[] = {HRM_J, HRM_K, COMBO_END};
-const uint16_t PROGMEM df_combo[] = {HRM_D, HRM_F, COMBO_END};
-
-combo_t key_combos[] = {
-    COMBO(jk_combo, KC_ESC),
-    COMBO(df_combo, KC_TAB),
-};
 
 // ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 // │ S T A T I C   K E Y   O V E R R I D E S                                                                                                     │
