@@ -1,159 +1,130 @@
-# KLOR Bridge Prompt Templates
-# ─────────────────────────────
-# Each key matches a prompt_key value from actions.yml.
-# ${text} is replaced with the selected/transcribed text at runtime.
-#
-# HOW TO ADD A NEW PROMPT:
-#   1. Pick a name (e.g., "make_formal")
-#   2. Add it here as a YAML key with a multi-line template using |
-#   3. In actions.yml, set prompt_key: make_formal on your action
-#   4. Restart the bridge daemon — no firmware reflash needed
-#
-# TIPS:
-#   - Always end with "Return ONLY the result, nothing else."
-#     to prevent the LLM from adding commentary
-#   - Keep prompts focused on a single transformation
-#   - Test with different LLM models via config.yml's default_model
-
-# ── Active prompts (used by configured actions) ──────────────────
+# LLM Prompt Templates for Keyboard-Driven AI System
 
 improve_writing: |
-  Improve the following text. Make it clearer, more concise, and better structured.
-  Preserve the original meaning and tone. Return ONLY the improved text, nothing else.
+  You are an expert copyeditor.
 
-  Text:
-  ${text}
-
-rewrite: |
-  Rewrite the following text with different phrasing while preserving the meaning.
-  Make it sound natural and professional. Return ONLY the rewritten text, nothing else.
-
-  Text:
-  ${text}
-
-expand: |
-  Expand the following text with more detail, examples, or explanations.
-  Keep the same style and tone. Return ONLY the expanded text, nothing else.
-
-  Text:
-  ${text}
-
-prompt_expand: |
-  You are a high-performance task amplification and execution-conditioning agent. Your only job is to transform the user's highlighted instruction into a stronger prompt for a highly capable but effort-variable language model.
-
-  Preserve the original goal, domain, and intended deliverable exactly, but rewrite the instruction so the receiving model is pushed to apply maximum effort, think deeply, avoid shallow compliance, and produce its best possible work in a single response.
-
-  Do not change the task into a different task. Do not add unrelated scope. Do not introduce rigid step-by-step reasoning requirements unless they are necessary for quality. Instead, strengthen the instruction by increasing standards for thoroughness, verification, completeness, precision, edge-case awareness, self-checking, and persistence. The rewritten prompt should make it clear that the model must not stop at the first acceptable answer, must verify its own work after each meaningful stage, and must continue refining until the result is robust, accurate, and genuinely useful.
-
-  Optimize for situations where the user pays per prompt rather than per token, so the rewritten prompt should encourage maximal productive effort and depth within a single invocation. The output must remain practical, direct, and suitable for immediate copy-paste into another LLM.
+  Your objective is to improve the clarity, flow, structure, and wording of the provided text.
 
   Rules:
+  - Preserve the core meaning, all factual information, and the original tone/intent.
+  - Fix awkward phrasing, poor transitions, and redundancy.
+  - Do not over-rewrite the text into a completely different voice or inject your own stylistic preferences unless the original is incomprehensible.
+  - If a specific phrasing is ambiguous, choose the interpretation that best aligns with the surrounding context.
+  - Output ONLY the improved text. Do not include any preambles, explanations, or commentary.
 
-  Keep the original intent and requested deliverable.
-  Remove vagueness, laziness, and loopholes.
-  Increase quality bar, diligence, and verification expectations.
-  Encourage the model to make grounded assumptions and proceed instead of stalling unnecessarily.
-  Instruct the model to surface uncertainty honestly where relevant.
-  Avoid meta commentary about prompt engineering.
-  Do not explain your changes.
-  Do not include any text before or after the rewritten prompt.
-
-  Return only the improved prompt, fully written and ready to use.
-
-  Highlighted text:
-  ${text}
-
-fix_grammar: |
-  You are a precise language editor for Danish and English text. Your task is to lightly polish the highlighted text while preserving the original wording, tone, and structure as closely as possible.
-
-  Only make minimal necessary corrections:
-
-  Fix spelling mistakes
-  Correct grammar
-  Adjust punctuation (including commas)
-  Improve minor phrasing only where clarity is clearly broken
-
-  Do not rewrite, rephrase, or restructure the text unless absolutely required for correctness. Do not change tone, intent, or style. Do not make the text more formal or more casual than it already is.
-
-  Respect the original language (Danish or English) and do not translate.
-
-  Return only the corrected version of the text, with no explanations or commentary.
-
-  Text:
+  Text to improve:
   ${text}
 
 write_email: |
-  You are an experienced business communicator operating in a Danish/Nordic professional context. Your task is to rewrite the highlighted text into a clear, well-structured email.
+  You are an executive assistant crafting professional correspondence.
 
-  Use the same language as the input (Danish or English). Do not translate unless absolutely necessary. The tone must reflect Danish business culture: neutral, direct, calm, and factual. Avoid exaggeration, hype, or overly enthusiastic language. Avoid American-style corporate phrasing. Do not be overly formal or stiff—aim for a balanced, natural professional tone.
+  Your objective is to transform the provided notes or draft into a polished, professional email optimized for a Danish/Nordic work context.
 
-  Clarify and structure the message so it is easy to read and understand. Remove ambiguity, tighten wording, and ensure logical flow. If the input is incomplete, make reasonable assumptions to produce a coherent and usable email, without inventing unnecessary details.
+  Rules for Nordic professional style:
+  - Tone must be calm, clear, direct, and highly competent.
+  - Strictly avoid hype, exaggerated politeness, flattery, and American corporate fluff.
+  - Keep the structure logical and get straight to the point.
 
-  Structure the email properly:
+  Requirements:
+  - Include a concise, relevant Subject line (formatted as "Subject: [Your Subject]").
+  - Include an appropriate professional greeting.
+  - Write the email body based on the provided text, preserving all underlying facts and intent.
+  - Include a professional closing.
+  - Sign the email exactly as: Kristian Bilstrup
+  - Output ONLY the final email text. Do not include any preambles, commentary, or placeholders.
 
-  A concise and relevant subject line
-  A natural greeting
-  A clear and structured body
-  A simple and appropriate closing
+  Draft or notes to transform:
+  ${text}
 
-  Always sign the email as:
-  Kristian Bilstrup
+prompt_expand: |
+  You are an expert prompt engineer.
 
-  Do not include meta commentary. Do not explain your choices. Return only the finished email.
+  Your objective is to strengthen and expand the provided user instruction into a highly effective, rigorous prompt for a capable LLM.
 
-  Text:
+  Rules:
+  - Preserve the original goal and the exact desired deliverable.
+  - Increase the instruction's rigor, clarity, and completeness.
+  - Add specific constraints, step-by-step logic requirements (if applicable), and format specifications to remove ambiguity.
+  - Define clear expectations for verification, quality, and tone.
+  - Do not change the core task, only the prompt engineering wrapper around it.
+  - Output ONLY the rewritten, expanded prompt. Do not include any introductory text, metadata, or commentary.
+
+  Original instruction:
+  ${text}
+
+fix_grammar: |
+  You are a precision proofreader.
+
+  Your objective is to lightly correct spelling, grammar, punctuation, and obvious minor typographical issues in the provided text.
+
+  Rules:
+  - Make the absolute smallest necessary changes required for correct grammar and spelling.
+  - Preserve the original wording, phrasing, style, and voice as much as humanly possible.
+  - Fix correctness only. Do not address "style drift", flow, or aesthetic improvements.
+  - If a phrase is grammatically unconventional but clearly intentional or stylistic, leave it alone.
+  - Output ONLY the corrected text. Do not include any preambles, explanations of changes, or commentary.
+
+  Text to correct:
   ${text}
 
 summarize: |
-  Summarize the following text concisely. Capture the key points in 1-3 sentences.
-  Return ONLY the summary, nothing else.
+  You are an executive analyst.
 
-  Text:
+  Your objective is to produce a concise, highly decision-useful summary of the provided text.
+
+  Rules:
+  - Capture the most important points, core arguments, and critical action items.
+  - Ruthlessly omit noise, filler, tangents, and background fluff.
+  - Keep the output dense with information and easy to scan.
+  - Preserve the objective facts and primary conclusions of the original text.
+  - If the text contains conflicting information, summarize the conflict clearly without resolving it.
+  - Output ONLY the summary. Do not include introductory filler like "Here is a summary".
+
+  Text to summarize:
   ${text}
 
 translate_da_en: |
-  Translate the following Danish text to English.
-  Preserve the tone and register. Return ONLY the English translation, nothing else.
+  You are a professional bilingual translator.
 
-  Text:
+  Your objective is to translate the provided Danish text into high-quality English.
+
+  Rules:
+  - Preserve the exact intended meaning, tone, terminology, and professional register of the original text.
+  - Prefer highly fluent, natural English phrasing over awkward, literal word-for-word translation.
+  - If a Danish idiom does not exist in English, replace it with the closest natural English equivalent.
+  - If the text is ambiguous, infer the most likely meaning based on standard professional context.
+  - Output ONLY the translated English text. Do not include translation notes, alternative options, or any commentary.
+
+  Text to translate:
   ${text}
 
 translate_en_da: |
-  Translate the following English text to Danish.
-  Preserve the tone and register. Use natural Danish phrasing.
-  Return ONLY the Danish translation, nothing else.
+  You are a professional bilingual translator.
 
-  Text:
+  Your objective is to translate the provided English text into high-quality Danish.
+
+  Rules:
+  - Preserve the exact intended meaning, tone, terminology, and professional register of the original text.
+  - Prefer highly fluent, natural Danish phrasing over awkward, literal word-for-word translation.
+  - If an English idiom does not exist in Danish, replace it with the closest natural Danish equivalent.
+  - If the text is ambiguous, infer the most likely meaning based on standard professional context.
+  - Output ONLY the translated Danish text. Do not include translation notes, alternative options, or any commentary.
+
+  Text to translate:
   ${text}
 
 stt_postprocess: |
-  The following is a speech-to-text transcript that may contain errors.
-  Fix any obvious transcription mistakes, grammar issues, and formatting problems.
-  Preserve the speaker's intended meaning. Return ONLY the corrected text, nothing else.
+  You are an expert transcript editor.
 
-  Transcript:
+  Your objective is to clean up the provided raw speech-to-text (STT) transcript output.
+
+  Rules:
+  - Fix obvious transcription errors (e.g., phonetic misinterpretations), incorrect word boundaries, missing punctuation, poor formatting, and casing errors.
+  - Strictly preserve the speaker's exact intended meaning, facts, and conversational intent.
+  - Do not embellish, add new content, or completely rewrite sentences for stylistic flow.
+  - Remove obvious verbal filler (um, uh, false starts) only if it impedes readability, but maintain the original voice.
+  - If a section is highly ambiguous or garbled, prefer conservative, minimal correction over aggressive rewriting. Do not guess wildly.
+  - Output ONLY the cleaned transcript text. Do not include any preambles, notes, or commentary.
+
+  Transcript to clean:
   ${text}
-
-# ── Example prompts for unconfigured keys ────────────────────────
-# Uncomment and assign a prompt_key in actions.yml to activate.
-#
-# make_formal: |
-#   Rewrite the following text in a formal, professional tone.
-#   Return ONLY the formal version, nothing else.
-#
-#   Text:
-#   ${text}
-#
-# make_casual: |
-#   Rewrite the following text in a casual, conversational tone.
-#   Return ONLY the casual version, nothing else.
-#
-#   Text:
-#   ${text}
-#
-# explain_code: |
-#   Explain what the following code does in plain English.
-#   Be concise but thorough. Return ONLY the explanation, nothing else.
-#
-#   Code:
-#   ${text}

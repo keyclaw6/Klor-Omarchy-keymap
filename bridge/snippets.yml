@@ -1,153 +1,313 @@
-# KLOR Bridge — Prompt Snippet Library
-# ─────────────────────────────────────
-# Used by the Prompt Picker (double-tap RALT → P).
-# The bridge shows snippet names in a searchable popup (walker --dmenu).
-# Selecting a snippet copies its text to the clipboard for pasting.
-#
-# Format:
-#   - name: Short display name (shown in picker)
-#     category: Grouping label (shown as prefix: "category: name")
-#     text: |
-#       Full text copied to clipboard when selected.
-#       Can be multi-line. Trailing newlines are stripped.
-#
-# Add your own snippets below. Restart the bridge after editing.
+# Prompt Snippet Library
 
 snippets:
   - name: Expand this properly
     category: Prompting
     text: |
-      Expand the following into a stronger, more complete result. Think through the
-      task fully before answering. Do not be lazy or superficial. Cover hidden
-      assumptions, edge cases, tradeoffs, and concrete next steps. Keep the result
-      well-structured and useful.
+      Act as an expert prompt engineer. I will provide you with a rough idea or a brief instruction. Your task is to expand this into a comprehensive, high-quality prompt that I can use with another AI model.
 
-  - name: Write this email
-    category: Email
-    text: |
-      Rewrite the following as a polished professional email. Keep it clear,
-      direct, and friendly. Use a concise Nordic business tone. End with a clear
-      next step or ask.
+      Your generated prompt must include:
+      - A clear role and objective for the AI.
+      - Specific, step-by-step instructions on how to execute the task.
+      - Quality standards and constraints (e.g., tone, length, what to avoid).
+      - Instructions on how the AI should handle edge cases or missing context.
+      - A clearly defined output format.
 
-  - name: Explain this like I'm 10
-    category: Explanation
-    text: |
-      Explain the following as if you are teaching a smart 10-year-old. Use simple
-      language, short sentences, and one concrete example. Avoid jargon unless you
-      define it immediately.
-
-  - name: Make this concise
-    category: Writing
-    text: |
-      Rewrite the following to be more concise and direct. Remove filler words,
-      repetition, and weak qualifiers. Keep the meaning intact.
-
-  - name: Improve the writing
-    category: Writing
-    text: |
-      Rewrite the following so it reads better. Improve clarity, structure, tone,
-      and flow while preserving the original meaning.
-
-  - name: Summarize the key points
-    category: Analysis
-    text: |
-      Summarize the following into the most important points only. Use short bullet
-      points and focus on what matters for decision-making.
-
-  - name: Extract action items
-    category: Analysis
-    text: |
-      Extract the concrete action items from the following. Return a numbered list.
-      Include owner and deadline when they are stated or clearly implied.
-
-  - name: Review this code
-    category: Code
-    text: |
-      Review the following code like a senior engineer. Focus on bugs, risks,
-      regressions, edge cases, and missing tests. Put the most important findings first.
-
-  - name: Explain this code
-    category: Code
-    text: |
-      Explain what the following code does in plain language. Cover the purpose,
-      main logic, important data flow, and anything surprising or risky.
-
+      Do not change my core goal; simply wrap it in a robust structure that guarantees excellent downstream model performance. Return only the final, ready-to-use prompt text.
   - name: Improve this prompt
     category: Prompting
     text: |
-      Rewrite the following prompt so it produces a better result from a language
-      model. Make it more specific, add constraints, define the desired output,
-      and remove ambiguity. Return only the improved prompt.
+      Act as an expert prompt engineer. I will provide you with an existing prompt that is currently underperforming or poorly structured.
 
+      Your task is to rewrite and optimize it to produce highly accurate, reliable, and well-formatted outputs from an LLM.
+
+      Please refine the prompt by:
+      - Clarifying ambiguous instructions.
+      - Adding explicit constraints and formatting requirements.
+      - Defining a clear persona or role.
+      - Incorporating step-by-step reasoning (chain-of-thought) if the task is complex.
+      - Removing unnecessary filler or confusing phrasing.
+
+      Provide the revised prompt directly. If you need to make structural assumptions to improve it, briefly note them at the very end.
+  - name: Write this email
+    category: Email
+    text: |
+      Act as a professional communicator working in a Nordic business environment. Write an email based on the context I provide.
+
+      Tone and Style Requirements:
+      - Calm, direct, and exceptionally clear.
+      - Non-hype and non-American-corporate (avoid words like "super excited", "synergy", "deep dive", or aggressive sales language).
+      - Polite but strictly professional. Respect the recipient's time by getting straight to the point.
+      - Use short paragraphs and plain language.
+
+      Structure:
+      - A clear, descriptive subject line.
+      - A brief greeting.
+      - The core message/context delivered immediately.
+      - A clear call to action or next step, if applicable.
+      - A standard, understated sign-off.
+
+      If the context I provide is missing critical details (like dates or specific names), use clear placeholders (e.g., [Date]) rather than inventing facts.
   - name: Reply to this email
     category: Email
     text: |
-      Write a professional reply to the following email. Keep it concise, polite,
-      and clear. Answer the core points directly and end with the next step.
+      Act as a professional communicator working in a Nordic business environment. Draft a reply to the email I provide, incorporating my brief instructions for the response.
 
+      Tone and Style Requirements:
+      - Calm, direct, clear, and efficient.
+      - Avoid overly enthusiastic, sycophantic, or corporate-buzzword-heavy language.
+      - Address all questions or points raised in the original email methodically.
+
+      Instructions:
+      1. Read the provided email and my notes for the reply.
+      2. Draft a response that directly answers the sender's points.
+      3. Keep the formatting clean, using bullet points if addressing multiple separate questions.
+      4. Ensure the tone is polite but gets straight to the business at hand.
+
+      If my instructions are ambiguous regarding a specific question in the original email, politely state that we will follow up on that specific point later, rather than guessing.
   - name: Follow up on this
     category: Email
     text: |
-      Write a concise follow-up email about the following. Be polite, direct, and
-      specific about what response or action is needed.
+      Act as a professional in a Nordic business environment. Write a follow-up email regarding a previous conversation or unanswered message.
 
+      Tone and Style Requirements:
+      - Polite, patient, and non-pushy.
+      - Direct and brief. Do not use guilt-tripping language or aggressive urgency unless explicitly instructed.
+      - Clear about what is needed from the recipient to move forward.
+
+      Structure:
+      - Provide brief context on what is being followed up on.
+      - Clearly state the current status or the missing information.
+      - Ask a direct question about their timeline or how they wish to proceed.
+      - Offer assistance if they are blocked.
+
+      Keep it to 3-4 sentences maximum.
+  - name: Explain this like I'm 10
+    category: Explanation
+    text: |
+      Act as an expert teacher. Your task is to explain the provided concept, text, or problem so that a smart 10-year-old could perfectly understand it.
+
+      Requirements:
+      - Strip away all industry jargon, complex terminology, and assumed prior knowledge.
+      - Use highly relatable, everyday analogies to illustrate abstract concepts.
+      - Break the explanation down into logical, bite-sized steps.
+      - Keep the tone encouraging, curious, and engaging, but do not be patronizing.
+      - Focus on the "why" and "how" rather than just reciting facts.
+
+      If the topic is inherently dangerous or inappropriate for a child, explain the safest, most high-level structural concept without detailing harmful specifics. Format the output with clear headings and short paragraphs.
+  - name: Make this concise
+    category: Writing
+    text: |
+      Act as an expert editor. Your task is to ruthlessly edit the provided text to make it as concise and impactful as possible.
+
+      Requirements:
+      - Strip out all fluff, filler words, repetitive statements, and unnecessary adverbs/adjectives.
+      - Convert passive voice to active voice wherever it improves clarity and flow.
+      - Preserve the exact original meaning, intent, and core arguments. Do not remove essential context.
+      - Ensure the final text is punchy, easily scannable, and highly readable.
+
+      Return only the edited text, with no introductory or concluding remarks.
+  - name: Improve the writing
+    category: Writing
+    text: |
+      Act as an expert copyeditor. Your task is to elevate the quality of the provided text while strictly preserving its original meaning, tone, and intent.
+
+      Requirements:
+      - Fix all grammatical, spelling, and punctuation errors.
+      - Improve sentence variety and structural flow so the text reads smoothly.
+      - Replace weak verbs and repetitive vocabulary with more precise, appropriate alternatives.
+      - Ensure logical transitions between paragraphs and ideas.
+      - Do not add new information, alter the author's voice, or change the intended audience.
+
+      If a sentence is entirely ambiguous, rewrite it to the most likely intended meaning but keep it conceptually aligned with the surrounding text. Return only the polished text.
   - name: Make this more formal
     category: Writing
     text: |
-      Rewrite the following in a more formal and professional tone. Keep the same
-      meaning, but improve precision, structure, and polish.
+      Act as an expert editor. Your task is to rewrite the provided text to have a formal, highly professional, and polished tone.
 
+      Requirements:
+      - Remove all slang, colloquialisms, idioms, and overly conversational phrasing.
+      - Replace casual vocabulary with elevated, precise professional language.
+      - Ensure proper grammar and complete sentences.
+      - Avoid contractions (e.g., use "do not" instead of "don't") where appropriate for a formal register.
+      - Strictly preserve the original meaning, data, and intent. Do not change what is being said, only how it is being said.
+
+      Return only the formalized text.
   - name: Make this more natural
     category: Writing
     text: |
-      Rewrite the following so it sounds more natural and fluent. Remove awkward
-      phrasing and make it read like strong native writing.
+      Act as an expert editor. Your task is to rewrite the provided text so that it sounds like a natural, fluent human speaking or writing in a conversational yet professional context.
 
-  - name: Translate Danish to English
-    category: Translation
+      Requirements:
+      - Remove robotic, stilted, overly academic, or "AI-sounding" phrasing.
+      - Soften rigid transitions and incorporate natural conversational rhythm.
+      - Use common idioms appropriately and comfortably, but avoid overly informal slang.
+      - Convert overly dense, passive sentences into clear, active, relatable statements.
+      - Preserve the original meaning and core information entirely.
+
+      The end result should read as if a smart, articulate colleague wrote it directly to you. Return only the revised text.
+  - name: Summarize the key points
+    category: Analysis
     text: |
-      Translate the following Danish text into natural, fluent English. Preserve
-      the meaning, tone, and any important terminology.
+      Act as an executive analyst. Your task is to analyze the provided text and extract a high-signal, decision-useful summary.
 
-  - name: Translate English to Danish
-    category: Translation
+      Requirements:
+      - Do not provide a generic "pretty" summary. Focus relentlessly on the bottom line, critical insights, and strategic context.
+      - Structure the output using clear bullet points under relevant headings (e.g., "Core Argument", "Key Evidence/Data", "Strategic Implications").
+      - Highlight any risks, costs, or bottlenecks mentioned in the text.
+      - Exclude pleasantries, background noise, and tangential details.
+
+      If the text contains conflicting information, explicitly point out the contradiction. Ensure the final output allows a decision-maker to instantly grasp what matters and why.
+  - name: Extract action items
+    category: Analysis
     text: |
-      Translate the following English text into natural, fluent Danish. Preserve
-      the meaning, tone, and any important terminology.
+      Act as a meticulous project manager. Analyze the provided text (e.g., meeting transcript, email thread, project brief) and extract all actionable tasks.
 
+      Requirements:
+      - For each action item, clearly identify:
+        1. WHAT needs to be done (concrete task).
+        2. WHO is responsible (if mentioned; otherwise mark as "Unassigned").
+        3. WHEN it is due (if mentioned; otherwise mark as "No deadline specified").
+      - Format the output as a clean, scannable table or a structured checklist.
+      - Group related tasks by project, department, or theme if appropriate.
+      - Ignore general statements of intent; only capture items that require specific execution.
+
+      If a task is vaguely defined, add a brief note suggesting what clarification is needed to execute it.
   - name: Turn this into meeting notes
     category: Analysis
     text: |
-      Turn the following into clean meeting notes. Use short sections for context,
-      decisions, action items, and open questions.
+      Act as an expert chief of staff. Turn the provided raw text, transcript, or disorganized notes into a structured, highly readable, and decision-useful meeting summary.
 
+      Requirements for the output structure:
+      - **Context/Objective:** 1-2 sentences on what the meeting was about.
+      - **Decisions Made:** Explicitly list final agreements and approvals. This is the most critical section.
+      - **Key Discussion Points:** Bullet points capturing the core debates, data shared, and rationale behind decisions. Avoid chronological play-by-plays; group by theme.
+      - **Open Questions / Risks:** Highlight unresolved issues or blocked items.
+      - **Action Items:** Clear deliverables with owners and deadlines.
+
+      Optimize for clarity and brevity. Do not transcribe who said what unless it is critical to the decision context or political alignment.
   - name: Write a decision memo
     category: Analysis
     text: |
-      Turn the following into a short decision memo. Include the decision, key
-      rationale, alternatives considered, tradeoffs, and recommended next steps.
+      Act as a senior strategic advisor. Based on the provided context, draft a concise, high-impact decision memo aimed at executive leadership.
 
+      The memo must be optimized for decision usefulness, not narrative flow. Use the following strict structure:
+
+      1. **Executive Summary:** The core issue and the requested decision in 2-3 sentences.
+      2. **Context & Background:** The bare minimum facts required to understand the problem.
+      3. **Options Considered:** For each viable option, provide:
+         - A clear description.
+         - Pros / Cons.
+         - Estimated cost/effort and timeline.
+      4. **Recommendation:** State the recommended path clearly.
+      5. **Rationale & Risk Mitigation:** Why this is the best option, what the primary risks are, and how those risks will be mitigated.
+
+      Maintain a highly objective, analytical tone. If critical data is missing to make a firm recommendation, explicitly state what data is needed.
+  - name: Review this code
+    category: Code
+    text: |
+      Act as a senior staff software engineer conducting a rigorous code review. Analyze the provided code with a strict focus on correctness, risks, regressions, and edge cases.
+
+      Your review must cover:
+      - **Correctness & Logic:** Does the code do what it intends to do? Are there off-by-one errors, race conditions, or flawed state management?
+      - **Security & Risks:** Are there vulnerabilities (e.g., injection, unvalidated input, insecure dependencies, memory leaks)?
+      - **Edge Cases:** How does the code handle unexpected nulls, empty arrays, malformed data, or extreme inputs?
+      - **Performance:** Are there obvious bottlenecks, N+1 queries, or inefficient algorithms?
+      - **Maintainability:** Is the implementation practical? Point out overly complex abstractions.
+
+      Constraints:
+      - Do not nitpick stylistic choices (formatting, variable naming) unless they actively harm readability or violate universal conventions.
+      - Be direct and objective.
+      - If suggesting a fix, provide a brief code snippet demonstrating the correct approach.
+  - name: Explain this code
+    category: Code
+    text: |
+      Act as a senior developer mentoring a mid-level engineer. Explain the provided code comprehensively, focusing on practical implementation details.
+
+      Your explanation must cover:
+      - **High-Level Purpose:** What is this code fundamentally trying to achieve?
+      - **Inputs, Outputs, and State:** What data goes in, what comes out, and how is internal or external state mutated (side effects)?
+      - **Execution Flow:** Walk through the critical path of the logic. Why was it written this way?
+      - **Dependencies:** Note any critical standard library or framework features being utilized.
+      - **Potential Pitfalls:** Highlight any non-obvious behaviors, fragile assumptions, or areas where the code might break under specific conditions.
+
+      Use clear, technical language but avoid academic jargon. Format your response with clear headings and use inline code references (e.g., `variableName`) for clarity.
   - name: Turn this into a bug report
     category: Code
     text: |
-      Turn the following into a high-quality bug report. Include summary,
-      environment, reproduction steps, expected behavior, actual behavior, and
-      any likely technical clues.
+      Act as a meticulous Quality Assurance engineer. Take the provided context, error logs, or disorganized user complaints and translate them into a professional, actionable bug report for a development team.
 
+      Structure the bug report exactly as follows:
+
+      - **Title:** A clear, concise summary of the issue.
+      - **Environment:** (Extract any mentioned OS, browser, version, or device details. Use placeholders if missing).
+      - **Expected Behavior:** What the system should logically do.
+      - **Actual Behavior:** What is actually happening (include specific error messages).
+      - **Steps to Reproduce:** A numbered, deterministic list of steps to trigger the bug. If the provided context is vague, deduce the most likely steps and mark them as "(Assumed)".
+      - **Impact/Severity:** Assess how this affects the user or system stability.
+      - **Potential Root Cause (Optional):** If the logs or context hint at a specific code failure, note it here to save the developer time.
   - name: Refactor this code
     category: Code
     text: |
-      Refactor the following code to improve readability, maintainability, and
-      correctness. Keep behavior the same unless a bug is clearly identified.
+      Act as an expert software architect. Refactor the provided code to improve maintainability, readability, and performance, while strictly preserving its exact external behavior and API contract.
 
+      Requirements:
+      - Prioritize practical implementation. Reduce cyclomatic complexity, eliminate deep nesting, and remove duplicated logic (DRY).
+      - Ensure variables and functions are named descriptively to reveal their intent.
+      - Do not introduce new external dependencies unless absolutely necessary and justified.
+      - Handle implicit edge cases that the original code may have missed, provided it does not break expected behavior.
+
+      Output format:
+      1. **Refactored Code:** Provide the complete, updated code block.
+      2. **Changelog:** Briefly list the structural changes made and explain *why* they improve the code (e.g., "Extracted validation logic into a separate pure function to enable easier testing").
   - name: Write tests for this
     category: Code
     text: |
-      Write tests for the following code. Cover the main path, important edge
-      cases, and failure modes. Use the testing style that fits the language.
+      Act as a senior test engineer. Write a comprehensive suite of automated tests for the provided code.
 
+      Requirements:
+      - **Coverage:** You must cover the Happy Path, expected Failure Modes (e.g., validation errors), and critical Edge Cases (e.g., null inputs, boundary values, empty states).
+      - **Structure:** Use a standard Arrange-Act-Assert (or Given-When-Then) pattern for every test.
+      - **Dependencies:** Clearly demonstrate how to mock or stub any external dependencies (network calls, databases, file systems) to ensure tests are fast and deterministic.
+      - **Framework:** Assume a standard, modern testing framework appropriate for the language (e.g., Jest/Vitest for JS/TS, PyTest for Python, JUnit for Java, Go core testing).
+
+      Provide the full test code. Precede the code with a brief bulleted list outlining the specific scenarios you are testing to ensure no regressions.
+  - name: Translate Danish to English
+    category: Translation
+    text: |
+      Act as an expert professional translator. Translate the provided Danish text into idiomatic, professional English.
+
+      Requirements:
+      - Preserve the direct, clear, and professional tone typical of Nordic business communication.
+      - Ensure terminology is accurate for a modern business or technical context.
+      - Do not translate idioms literally; find the most natural English equivalent that carries the exact same intent and weight.
+      - Maintain the original formatting, paragraph structure, and any included data or names.
+
+      Return only the translated English text. No introductory or concluding remarks.
+  - name: Translate English to Danish
+    category: Translation
+    text: |
+      Act as an expert professional translator. Translate the provided English text into idiomatic, natural Danish.
+
+      Requirements:
+      - Preserve the tone and intent of the original text, but adapt it to sound natural to a Danish reader.
+      - Avoid direct anglicisms ("Danglish"). Use native Danish phrasing and sentence structures.
+      - Ensure the tone is calm, direct, and professional, avoiding excessive hyperbole or overly formal, archaic Danish.
+      - Maintain the original formatting, paragraph structure, and any included data or names.
+
+      Return only the translated Danish text. No introductory or concluding remarks.
   - name: Brainstorm strong options
     category: Creative
     text: |
-      Generate several strong options for the following. Include practical ideas,
-      one more ambitious idea, and the main tradeoffs for each option.
+      Act as a world-class creative strategist. I will provide a problem, goal, or brief. Your task is to brainstorm a list of strong, distinct options or solutions.
+
+      Requirements:
+      - Employ divergent thinking. Do not give me 10 variations of the exact same idea. Push across different categories (e.g., practical/safe, highly innovative, low-cost/high-impact, unconventional).
+      - For each option, provide:
+        1. A catchy, clear title.
+        2. A 2-3 sentence description of how it works.
+        3. The primary "Pro" (why it would succeed).
+        4. The primary "Con" or risk (what to watch out for).
+      - Avoid generic fluff. Make the ideas specific, actionable, and grounded in reality, even the unconventional ones.
+
+      Format the output clearly with bolding and bullet points so it is easy to review and compare the options.
