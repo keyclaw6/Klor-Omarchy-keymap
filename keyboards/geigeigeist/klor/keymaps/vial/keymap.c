@@ -62,8 +62,8 @@ enum klor_layers {
 // Use QK_KB_0 instead of SAFE_RANGE so Vial can see/assign these keycodes.
 // Keep screenshot on plain KC_PSCR to avoid depending on dynamic custom-keycode state.
 enum custom_keycodes {
-    BRIGHT_UP = QK_KB_0,  // Brightness increase (sent to bridge daemon)
-    BRIGHT_DOWN,          // Brightness decrease (sent to bridge daemon)
+    BRIGHT_UP = QK_KB_0,  // Brightness increase (emits standard media brightness key)
+    BRIGHT_DOWN,          // Brightness decrease (emits standard media brightness key)
 };
 
 enum internal_nav_keycodes {
@@ -283,7 +283,7 @@ const char chordal_hold_layout[MATRIX_ROWS][MATRIX_COLS] PROGMEM =
 
 #if defined(ENCODER_MAP_ENABLE)
 const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
-    //                Left encoder (volume)                Right encoder (brightness → bridge)
+    //                Left encoder (volume)                Right encoder (brightness media keys)
     [_QWERTY] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
     [_LOWER]  = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
     [_RAISE]  = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
@@ -664,16 +664,16 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             return false;
         }
 
-        // ── Brightness encoder → bridge HID packets ──
+        // ── Brightness encoder → standard brightness media keys ──
         case BRIGHT_UP:
             if (record->event.pressed) {
-                bridge_send_action(ACTION_BRIGHTNESS_UP, 0);
+                tap_code16(KC_BRIU);
             }
-            return false;  // fully handled — don't pass to host as keycode
+            return false;
 
         case BRIGHT_DOWN:
             if (record->event.pressed) {
-                bridge_send_action(ACTION_BRIGHTNESS_DOWN, 0);
+                tap_code16(KC_BRID);
             }
             return false;
     }

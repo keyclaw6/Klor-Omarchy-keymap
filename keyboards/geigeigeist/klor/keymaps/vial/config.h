@@ -12,6 +12,9 @@
 /* ── Split: left half is USB master ── */
 #define MASTER_LEFT
 
+/* ── Encoders ── */
+#define ENCODER_RESOLUTION 2
+
 /* ── Tap-hold: Home Row Mods (Flow Tap + Chordal Hold + HOOKE) ── */
 #define TAPPING_TERM 200
 #define QUICK_TAP_TERM 0
