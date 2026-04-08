@@ -51,6 +51,11 @@ The system has two halves that communicate over USB Raw HID:
 
 ### Layers
 
+> [!WARNING]
+> `_NAV`, the LOWER screenshot key, the verified STT/LLM notification flows, and the current prompt picker behavior are locked.
+> Their current behavior is the accepted stable contract.
+> Do not edit them again unless the user explicitly requests a change.
+
 | # | Name | Purpose |
 |---|------|---------|
 | 0 | `_QWERTY` | Base layer. Home row mods (GACS), one-shot shift |
@@ -58,6 +63,13 @@ The system has two halves that communicate over USB Raw HID:
 | 2 | `_RAISE` | Right thumb hold. Symbols, Unicode Danish (æ/ø/å via Unicode Map), currency |
 | 3 | `_ADJUST` | LOWER+RAISE (tri-layer). F-keys (F1-F24), QK_BOOT, AC_TOGG |
 | 4 | `_NAV` | Bottom-right key hold. Full Omarchy/Hyprland window manager control — every key sends `LGUI(key)`, compose with thumb SHIFT/CTRL/ALT for all WM operations |
+
+Locked behavior summary:
+
+- `_LOWER` bottom-left is plain `KC_PSCR`
+- `_NAV` numbers are `Super+1..0` with `Shift` for move-to-workspace and `Shift+Alt` for silent move
+- `_NAV` arrows are custom navigation keycodes that map to focus, swap, move-into-group, move-workspace-to-monitor, and resize depending on held thumb mods
+- `_NAV` keeps dedicated `Super+Ctrl+Left/Right` group focus keys
 
 ### Home Row Mods
 
@@ -307,6 +319,21 @@ Second trigger (stop + process):
 5. Layer 3 (if depth >= 3): LLM post-processing via stt_postprocess prompt
 6. Write result to clipboard
 7. Show "Transcription complete" notification
+
+Notification robustness contract:
+
+- STT notifications are tagged with `klor-stt`
+- LLM notifications are tagged with `klor-llm`
+- Prompt picker notifications are tagged with `klor-picker`
+- STT start/progress notifications must remain finite and must not use critical urgency
+- Multi-step notifications use an explicit begin/step/end flow lifecycle in the bridge
+- Before each state transition, the bridge clears the previous tagged notification via `makoctl` by ID and falls back to dismissing the current mako group
+- User mako config in `~/.config/mako/config` forces `KLOR Bridge` `Recording...` and `Processing transcription...` notifications to expire and skip history
+- User mako config also forces `Processing with LLM...` notifications to expire and skip history
+- Do not simplify this back to plain `notify-send` replacement only; that was not reliable enough on the main 4K monitor
+- The current STT and LLM notification behavior is verified working and locked. Do not change it unless the user explicitly requests it.
+
+Verified by session-level smoke tests in `bridge/notification_smoke_test.py`, with results logged to `~/.cache/klor-bridge-notification-smoke.log`.
 ```
 
 ### STT Correction Pipeline
@@ -328,16 +355,16 @@ Activated by double-tap RALT → P. Flow:
 
 ```
 1. Load snippets from ~/.config/klor-bridge/snippets.yml
-2. Format as "category: name" lines
-3. Pipe to walker --dmenu (Linux) or Out-GridView (Windows)
+2. Format title-only picker rows with collision-safe labels
+3. Launch the GTK picker helper on Linux once, centered on the monitor under the cursor
 4. User selects a snippet from the searchable popup
 5. Copy snippet's full text to clipboard
 6. Show notification: "Prompt copied — X chars"
 ```
 
-Snippets are YAML entries with `name`, `category`, and `text` fields. Ships with 28 defaults across 7 categories (Writing, Email, Code, Translation, Analysis, Creative, Prompting).
+Snippets are YAML entries with `name`, `category`, and `text` fields.
 
-**Linux launcher fallback chain:** `walker --dmenu` → `fuzzel --dmenu` → `wofi --dmenu` → `rofi -dmenu` → `bemenu`.
+The current Linux prompt picker behavior is verified working and locked. Do not change its GTK helper path, single-launch centered placement on the cursor's monitor, compact UI, or clipboard result flow unless the user explicitly requests it.
 
 ### Brightness Control (encoder)
 
@@ -450,6 +477,13 @@ The compiled UF2 is ~252 KB. The RP2040 has 2 MB flash, so there is ample room. 
 ### Linux (systemd)
 
 `systemd/klor-bridge.service` runs the bridge as a user service, bound to `graphical-session.target`. Security hardening: `NoNewPrivileges`, `ProtectHome=read-only`, `ProtectSystem=strict`, `PrivateTmp`, CPU/memory limits (512 MB, 50% CPU).
+
+Supported runtime contract:
+
+- The supported normal runtime is the user service only
+- Supported restart command: `systemctl --user restart klor-bridge`
+- Foreground manual runs are debug-only and should not be left running in parallel with the user service
+- Do not use root-owned manual bridge launches; they can break cache ownership, duplicate bridge processes, and desynchronize the Wayland session environment
 
 `systemd/99-klor-hid.rules` grants the user read/write access to the KLOR's HID device via uaccess:
 ```

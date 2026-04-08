@@ -60,14 +60,27 @@ After entering command mode (double-tap RALT), tap **T** 1-3 times to select cor
 
 Recording starts automatically. Press **RALT** or **T** again to stop. Result is copied to clipboard.
 
+Notification behavior is hardened for Omarchy/mako:
+
+- `Recording...` and `Processing transcription...` are finite notifications and should clear correctly after STT state changes
+- `Processing with LLM...` is also treated as a finite flow notification
+- STT notifications are intentionally not sent as critical urgency
+- STT, LLM, and prompt-picker notifications now use the same explicit notification-flow lifecycle in the bridge
+- These STT and LLM notification behaviors are now verified working and locked; do not change them unless the user explicitly asks
+
 ## Prompt Picker
 
 Enter command mode (double-tap RALT), then press **P** to open a searchable popup with reusable text snippets. Select one and its text is copied to your clipboard for pasting.
 
 Snippets are organized by category (Writing, Email, Code, Translation, Analysis, Creative, Prompting) and stored in `~/.config/klor-bridge/snippets.yml`. Ships with 28 default snippets — add your own and restart the bridge.
 
-**Linux:** Uses `walker --dmenu` (or `fuzzel`/`wofi`/`rofi`/`bemenu` as fallbacks).
+**Linux:** Uses the custom GTK prompt picker window. It is compact, keyboard-first, and opens once, centered on the monitor under the cursor.
 **Windows:** Uses PowerShell `Out-GridView`.
+
+Prompt picker lock:
+
+- The current Linux prompt picker behavior is verified working and locked
+- Keep the compact GTK UI, keyboard-first filtering, single-launch centered placement on the cursor's monitor, and clipboard result flow unchanged unless the user explicitly asks for a change
 
 ## Brightness Control
 
@@ -89,6 +102,10 @@ On the base layer, **P**, **;**, and **'** are plain keys again, and semicolon i
 
 ## Layers
 
+> [!WARNING]
+> The NAV layer, the LOWER screenshot key, the verified notification flows, and the current prompt picker behavior are now locked.
+> Treat their current behavior as frozen and do not change them again unless the user explicitly asks.
+
 | # | Layer | Activation | Purpose |
 |---|-------|-----------|---------|
 | 0 | QWERTY | Default | Home row mods (GACS), one-shot shift |
@@ -98,6 +115,14 @@ On the base layer, **P**, **;**, and **'** are plain keys again, and semicolon i
 | 4 | NAV | Hold bottom-right | Full Omarchy/Hyprland WM control — workspaces, focus, window management |
 
 See `keymap-reference.html` for a complete visual layout of every key on every layer.
+
+Locked layer contract:
+
+- LOWER bottom-left is plain `KC_PSCR` and must remain the standard host `Print Screen` key
+- NAV is navigation-only and must keep workspace switching, move-to-workspace, silent move-to-workspace, group navigation, and resize on the arrow cluster
+- NAV arrows use thumb modifiers for focus, swap, group move, monitor move, and resize
+- Dedicated group-focus keys `Super+Ctrl+Left/Right` remain on NAV
+- STT notifications, LLM notifications, and prompt-picker notifications are verified working and must not be changed unless explicitly requested
 
 ## Home Row Mods
 
@@ -202,10 +227,18 @@ systemctl --user enable --now klor-bridge
 journalctl --user -u klor-bridge -f   # view logs
 ```
 
+Supported runtime strategy:
+
+- Normal start/restart path is `systemctl --user enable --now klor-bridge` and `systemctl --user restart klor-bridge`
+- Treat the systemd user service as the only supported long-running runtime on Linux
+- Do not use ad-hoc manual bridge launches as a normal restart method; they can desync the live session environment and create duplicate bridge processes
+
 Manual/debug mode:
 ```bash
 python3 ~/.config/klor-bridge/klor-bridge.py --verbose
 ```
+
+Debug mode is for temporary foreground troubleshooting only. Exit it before returning to the supported systemd-managed runtime.
 
 ## Customization
 

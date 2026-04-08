@@ -26,7 +26,28 @@ The setup script adds this automatically. Without it, `wtype` and `wl-clipboard`
 
 ## NAV Layer — Full Omarchy/Hyprland Window Manager
 
+> [!WARNING]
+> NAV, LOWER screenshot behavior, verified STT/LLM notifications, and the current prompt picker behavior are now locked.
+> Do not change these again unless the user explicitly asks for it.
+> This is the agreed stable mapping and should be treated as frozen.
+
 Layer 4 (`_NAV`), activated by holding the bottom-right key, is a navigation-only Omarchy layer. It keeps only window/workspace navigation, movement, grouping, and resize behavior. The thumb keys provide CTRL, SHIFT, and ALT modifiers that compose with the dedicated navigation keys.
+
+Frozen NAV contract:
+
+- Plain arrows = `Super+Arrow` window focus
+- `Shift+Arrow` = `Super+Shift+Arrow` window swap / move
+- `Alt+Arrow` = `Super+Alt+Arrow` move window into group
+- `Shift+Alt+Arrow` = `Super+Shift+Alt+Arrow` move workspace to monitor
+- `Ctrl+Arrow` = resize on the arrow cluster
+- `Ctrl+Alt+Left/Right` = `Super+Ctrl+Left/Right` group focus fallback
+- Number row = `Super+1..0` workspace switch
+- `Shift+Number` = `Super+Shift+1..0` move window to workspace
+- `Shift+Alt+Number` = `Super+Shift+Alt+1..0` move window silently to workspace
+- `Alt+1..5` = `Super+Alt+1..5` activate grouped window 1..5
+- `Super+Tab` on NAV with thumb modifiers for previous/former/group cycling
+- `Super+G` on NAV with `Alt+G` for group-out behavior
+- Dedicated `Super+Ctrl+Left/Right` keys remain on NAV and must stay there
 
 ### Layout
 
@@ -128,6 +149,10 @@ The semicolon key is restored as a normal `RGUI_T(KC_SCLN)` home-row mod.
 
 ## Screenshot Shortcut (Print Screen)
 
+> [!WARNING]
+> The LOWER screenshot key is locked.
+> Do not convert it back to a custom Vial keycode or custom macro unless the user explicitly asks.
+
 The LOWER layer's bottom-left key sends a standard `Print Screen` keypress.
 
 On Omarchy/Hyprland, `PRINT` is already bound by default:
@@ -183,9 +208,27 @@ The bridge sends desktop notifications via `notify-send` for operation feedback 
 
 Key implementation details:
 - Notifications use both `string:x-dunst-stack-tag` and `string:x-canonical-private-synchronous` hints for cross-compositor compatibility
-- Never uses `-t 0` (infinite timeout) — maximum timeout is 30 seconds, with tag replacement handling state transitions
-- Before replacing a notification with different urgency, the bridge attempts `makoctl dismiss` (best-effort, silent on failure)
-- App name `klor-bridge` is set via `-a` flag for mako filtering/styling
+- STT notifications never use critical urgency anymore; they are intentionally sent as normal urgency with explicit timeouts
+- Never uses `-t 0` (infinite timeout) — maximum timeout is 30 seconds
+- Before posting a new tagged notification, the bridge now explicitly clears the old one with `makoctl dismiss -n <id>` and also falls back to dismissing the current group
+- STT, LLM, and prompt-picker notifications now all use the same explicit begin/step/end flow lifecycle instead of ad-hoc raw replacements
+- App name `KLOR Bridge` is set via `-a` flag for mako filtering/styling
+- Local mako overrides in `~/.config/mako/config` force `Recording...` and `Processing transcription...` to expire and skip history
+
+Important anti-regression rule:
+
+- Do not switch STT notifications back to `critical` urgency. Omarchy's default mako config treats critical notifications as persistent (`default-timeout=0`), which is the exact failure mode that caused `Recording...` to stick on the 4K monitor.
+- The current STT and LLM notification behavior is verified working on the user's monitors and is locked. Do not change it unless the user explicitly asks.
+
+Verification notes:
+
+- Session-level smoke tests live in `bridge/notification_smoke_test.py`
+- Latest smoke test log is written to `~/.cache/klor-bridge-notification-smoke.log`
+- The smoke test covers:
+  - STT start -> processing -> complete -> clear
+  - LLM copy -> processing -> ready -> clear
+  - prompt-picker result -> clear
+  - repeated STT lifecycle transitions
 
 To customize notification appearance, create `~/.config/mako/config` with criteria:
 ```ini
@@ -213,8 +256,8 @@ brightness:
   ddcutil_fallback: true   # try ddcutil if brightnessctl fails
 ```
 
-## Prompt Picker (Walker)
+## Prompt Picker
 
-The Prompt Picker (double-tap RALT → P) uses **walker** in `--dmenu` mode to present a searchable list of text snippets. Walker is Omarchy's default launcher and supports dmenu-compatible input.
+The Prompt Picker (double-tap RALT → P) uses a compact custom GTK window to present a searchable list of text snippets in the center of the monitor under the cursor.
 
-If walker is not available, the bridge falls back to `fuzzel`, `wofi`, `rofi`, or `bemenu` (in that order).
+This picker behavior is verified working and locked. Do not change its single-launch centered placement model, compact keyboard-first UI, or clipboard result flow unless the user explicitly asks.
