@@ -294,22 +294,6 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
 #endif
 
 // ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-// │ S T A T I C   C O M B O S                                                                                                                    │
-// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-
-// J+K → Escape  (universal vim muscle memory)
-// D+F → Tab     (same-hand reach alternative)
-// These use the HRM keycodes so the combo fires regardless of tap/hold resolution.
-
-const uint16_t PROGMEM jk_combo[] = {HRM_J, HRM_K, COMBO_END};
-const uint16_t PROGMEM df_combo[] = {HRM_D, HRM_F, COMBO_END};
-
-combo_t key_combos[] = {
-    COMBO(jk_combo, KC_ESC),
-    COMBO(df_combo, KC_TAB),
-};
-
-// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 // │ S T A T I C   K E Y   O V E R R I D E S                                                                                                     │
 // └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
