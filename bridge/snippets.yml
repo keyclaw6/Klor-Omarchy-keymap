@@ -14,186 +14,140 @@
 # Add your own snippets below. Restart the bridge after editing.
 
 snippets:
-  # ── Writing ──────────────────────────────────────────────────
+  - name: Expand this properly
+    category: Prompting
+    text: |
+      Expand the following into a stronger, more complete result. Think through the
+      task fully before answering. Do not be lazy or superficial. Cover hidden
+      assumptions, edge cases, tradeoffs, and concrete next steps. Keep the result
+      well-structured and useful.
 
-  - name: Make it concise
+  - name: Write this email
+    category: Email
+    text: |
+      Rewrite the following as a polished professional email. Keep it clear,
+      direct, and friendly. Use a concise Nordic business tone. End with a clear
+      next step or ask.
+
+  - name: Explain this like I'm 10
+    category: Explanation
+    text: |
+      Explain the following as if you are teaching a smart 10-year-old. Use simple
+      language, short sentences, and one concrete example. Avoid jargon unless you
+      define it immediately.
+
+  - name: Make this concise
     category: Writing
     text: |
       Rewrite the following to be more concise and direct. Remove filler words,
-      redundancies, and unnecessary qualifiers. Keep the meaning intact.
+      repetition, and weak qualifiers. Keep the meaning intact.
 
-  - name: Make it formal
+  - name: Improve the writing
     category: Writing
     text: |
-      Rewrite the following in a formal, professional tone suitable for business
-      communication. Maintain the original meaning and key points.
+      Rewrite the following so it reads better. Improve clarity, structure, tone,
+      and flow while preserving the original meaning.
 
-  - name: Make it casual
-    category: Writing
+  - name: Summarize the key points
+    category: Analysis
     text: |
-      Rewrite the following in a casual, conversational tone. Keep it friendly
-      and approachable while preserving the core message.
+      Summarize the following into the most important points only. Use short bullet
+      points and focus on what matters for decision-making.
 
-  - name: Simplify language
-    category: Writing
+  - name: Extract action items
+    category: Analysis
     text: |
-      Rewrite the following using simpler words and shorter sentences. Target a
-      general audience with no domain expertise. Avoid jargon.
+      Extract the concrete action items from the following. Return a numbered list.
+      Include owner and deadline when they are stated or clearly implied.
 
-  - name: Add detail
-    category: Writing
+  - name: Review this code
+    category: Code
     text: |
-      Expand the following with more detail, examples, and explanation. Make it
-      thorough while keeping it well-organized and readable.
-
-  - name: Fix flow and transitions
-    category: Writing
-    text: |
-      Improve the flow and transitions between paragraphs and ideas in the
-      following text. Add connecting phrases where needed. Don't change the content.
-
-  # ── Email ────────────────────────────────────────────────────
-
-  - name: Professional reply
-    category: Email
-    text: |
-      Write a professional email reply to the following. Be polite, clear, and
-      action-oriented. Use a Nordic business communication style (direct but friendly).
-
-  - name: Decline politely
-    category: Email
-    text: |
-      Write a polite email declining the following request or invitation. Express
-      appreciation, give a brief reason, and leave the door open for future opportunities.
-
-  - name: Follow-up email
-    category: Email
-    text: |
-      Write a professional follow-up email regarding the following topic. Be concise,
-      reference the previous interaction, and clearly state the next steps or question.
-
-  - name: Meeting request
-    category: Email
-    text: |
-      Write a professional email requesting a meeting about the following topic.
-      Suggest 2-3 time slots, state the purpose clearly, and keep it brief.
-
-  # ── Code ─────────────────────────────────────────────────────
+      Review the following code like a senior engineer. Focus on bugs, risks,
+      regressions, edge cases, and missing tests. Put the most important findings first.
 
   - name: Explain this code
     category: Code
     text: |
       Explain what the following code does in plain language. Cover the purpose,
-      key logic, and any notable patterns or potential issues.
+      main logic, important data flow, and anything surprising or risky.
 
-  - name: Review this code
+  - name: Improve this prompt
+    category: Prompting
+    text: |
+      Rewrite the following prompt so it produces a better result from a language
+      model. Make it more specific, add constraints, define the desired output,
+      and remove ambiguity. Return only the improved prompt.
+
+  - name: Reply to this email
+    category: Email
+    text: |
+      Write a professional reply to the following email. Keep it concise, polite,
+      and clear. Answer the core points directly and end with the next step.
+
+  - name: Follow up on this
+    category: Email
+    text: |
+      Write a concise follow-up email about the following. Be polite, direct, and
+      specific about what response or action is needed.
+
+  - name: Make this more formal
+    category: Writing
+    text: |
+      Rewrite the following in a more formal and professional tone. Keep the same
+      meaning, but improve precision, structure, and polish.
+
+  - name: Make this more natural
+    category: Writing
+    text: |
+      Rewrite the following so it sounds more natural and fluent. Remove awkward
+      phrasing and make it read like strong native writing.
+
+  - name: Translate Danish to English
+    category: Translation
+    text: |
+      Translate the following Danish text into natural, fluent English. Preserve
+      the meaning, tone, and any important terminology.
+
+  - name: Translate English to Danish
+    category: Translation
+    text: |
+      Translate the following English text into natural, fluent Danish. Preserve
+      the meaning, tone, and any important terminology.
+
+  - name: Turn this into meeting notes
+    category: Analysis
+    text: |
+      Turn the following into clean meeting notes. Use short sections for context,
+      decisions, action items, and open questions.
+
+  - name: Write a decision memo
+    category: Analysis
+    text: |
+      Turn the following into a short decision memo. Include the decision, key
+      rationale, alternatives considered, tradeoffs, and recommended next steps.
+
+  - name: Turn this into a bug report
     category: Code
     text: |
-      Review the following code for bugs, performance issues, security concerns,
-      and style improvements. List findings as bullet points with severity.
+      Turn the following into a high-quality bug report. Include summary,
+      environment, reproduction steps, expected behavior, actual behavior, and
+      any likely technical clues.
 
-  - name: Add comments
-    category: Code
-    text: |
-      Add clear, concise inline comments to the following code. Explain the "why"
-      not the "what". Don't over-comment obvious lines.
-
-  - name: Write tests
-    category: Code
-    text: |
-      Write unit tests for the following code. Cover happy paths, edge cases, and
-      error conditions. Use the testing framework that matches the language.
-
-  - name: Refactor this
+  - name: Refactor this code
     category: Code
     text: |
       Refactor the following code to improve readability, maintainability, and
-      adherence to best practices. Explain what you changed and why.
+      correctness. Keep behavior the same unless a bug is clearly identified.
 
-  # ── Translation ──────────────────────────────────────────────
-
-  - name: Danish to English
-    category: Translation
+  - name: Write tests for this
+    category: Code
     text: |
-      Translate the following Danish text to natural, fluent English. Preserve
-      tone, intent, and any domain-specific terminology.
+      Write tests for the following code. Cover the main path, important edge
+      cases, and failure modes. Use the testing style that fits the language.
 
-  - name: English to Danish
-    category: Translation
-    text: |
-      Translate the following English text to natural, fluent Danish. Preserve
-      tone, intent, and any domain-specific terminology.
-
-  - name: Improve English (non-native)
-    category: Translation
-    text: |
-      The following was written by a non-native English speaker. Improve the
-      grammar, word choice, and phrasing to sound natural while preserving the
-      original meaning and voice.
-
-  # ── Analysis ─────────────────────────────────────────────────
-
-  - name: Summarize key points
-    category: Analysis
-    text: |
-      Summarize the following into 3-5 bullet points capturing the most important
-      information. Be concise and factual.
-
-  - name: List pros and cons
-    category: Analysis
-    text: |
-      Analyze the following and list the pros and cons in two columns. Be balanced
-      and specific. Include practical implications.
-
-  - name: Extract action items
-    category: Analysis
-    text: |
-      Extract all action items, tasks, and commitments from the following text.
-      Format as a numbered list with responsible party (if mentioned) and deadline.
-
-  - name: Identify assumptions
-    category: Analysis
-    text: |
-      Identify the key assumptions in the following text. For each assumption,
-      note whether it's stated or implied, and assess the risk if it's wrong.
-
-  # ── Creative ─────────────────────────────────────────────────
-
-  - name: Brainstorm ideas
+  - name: Brainstorm strong options
     category: Creative
     text: |
-      Generate 10 creative ideas related to the following topic. Include a mix of
-      conventional and unconventional approaches. Brief description for each.
-
-  - name: Write an outline
-    category: Creative
-    text: |
-      Create a structured outline for a document about the following topic. Include
-      main sections, subsections, and key points to cover in each.
-
-  - name: Devil's advocate
-    category: Creative
-    text: |
-      Take a devil's advocate position on the following. Present the strongest
-      counterarguments, potential risks, and overlooked considerations.
-
-  # ── Prompting ────────────────────────────────────────────────
-
-  - name: Strengthen this prompt
-    category: Prompting
-    text: |
-      Improve the following LLM prompt to get better results. Add specificity,
-      constraints, output format requirements, and examples where helpful.
-      Return only the improved prompt.
-
-  - name: Chain of thought
-    category: Prompting
-    text: |
-      Solve the following step by step. Show your reasoning at each stage before
-      giving the final answer. If you're uncertain about any step, say so.
-
-  - name: Structured output
-    category: Prompting
-    text: |
-      Respond to the following in structured JSON format. Include all relevant
-      fields with clear key names. Ensure the output is valid JSON.
+      Generate several strong options for the following. Include practical ideas,
+      one more ambitious idea, and the main tradeoffs for each option.

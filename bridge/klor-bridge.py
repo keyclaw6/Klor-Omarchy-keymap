@@ -23,12 +23,17 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
+import json
 import logging
 import os
+import shlex
 import re
 import shutil
 import sys
+import tempfile
 import time
+import uuid
 from pathlib import Path
 import yaml
 
@@ -142,15 +147,75 @@ class Platform:
         self.clip_write = plat.get("clipboard_write", "wl-copy")
         self.key_sim = plat.get("key_simulator", "wtype")
         self.copy_delay = plat.get("copy_delay_ms", 150) / 1000.0
+        self.copy_poll_interval = plat.get("copy_poll_interval_ms", 60) / 1000.0
+        self.copy_timeout = plat.get("copy_timeout_ms", 1800) / 1000.0
         # Maps tag -> notification ID for tag-based replacement
         self._notif_ids: dict = {}
+        # Tracks tags that represent active multi-step flows
+        self._active_tags: set[str] = set()
+
+    async def _dismiss_mako_notification(self, notif_id: int) -> None:
+        """Best-effort dismissal of a specific mako notification."""
+        if notif_id <= 0 or not shutil.which("makoctl"):
+            return
+
+        proc = await asyncio.create_subprocess_exec(
+            "makoctl", "dismiss", "-n", str(notif_id),
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await proc.wait()
+
+    async def _dismiss_recent_group(self) -> None:
+        """Best-effort dismissal of the current mako notification group."""
+        if not shutil.which("makoctl"):
+            return
+
+        proc = await asyncio.create_subprocess_exec(
+            "makoctl", "dismiss", "--group",
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await proc.wait()
+
+    async def clear_notification(self, tag: str) -> None:
+        """Best-effort clear of a previously posted tagged notification."""
+        self._active_tags.discard(tag)
+        notif_id = self._notif_ids.pop(tag, None)
+        if notif_id is not None:
+            await self._dismiss_mako_notification(notif_id)
+        # Group dismissal is a fallback for compositors/mako states where the
+        # individual notification ID is no longer replaceable but the visual
+        # banner still remains on screen.
+        await self._dismiss_recent_group()
+
+    async def begin_notification_flow(self, tag: str) -> None:
+        """Start a tagged notification flow by clearing any stale prior state."""
+        if not tag:
+            return
+        await self.clear_notification(tag)
+        self._active_tags.add(tag)
+
+    async def end_notification_flow(self, tag: str, delay: float = 0.0) -> None:
+        """End a tagged notification flow, optionally after a short delay."""
+        if not tag:
+            return
+        if delay > 0:
+            await asyncio.sleep(delay)
+        await self.clear_notification(tag)
 
     async def copy_selection(self) -> str:
-        """Copy currently selected text to clipboard via Ctrl+C, then read it."""
-        # Save current clipboard
+        """Copy current selection with event-aware clipboard probing."""
         old_clip = await self._read_clipboard()
+        sentinel = f"__klor_copy_probe__:{uuid.uuid4()}"
+        sentinel_prefix = "__klor_copy_probe__:"
 
-        # Send Ctrl+C
+        await self._write_clipboard(sentinel)
+
+        watch_task = None
+        if self.clip_read == "wl-paste" and shutil.which("wl-paste"):
+            watch_task = asyncio.create_task(self._watch_clipboard_change())
+
         proc = await asyncio.create_subprocess_exec(
             self.key_sim, "-M", "ctrl", "-k", "c", "-m", "ctrl",
             stdout=asyncio.subprocess.DEVNULL,
@@ -158,13 +223,48 @@ class Platform:
         )
         await proc.wait()
 
-        # Wait for clipboard to update
-        await asyncio.sleep(self.copy_delay)
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + max(self.copy_timeout, self.copy_delay)
+        last_clip = sentinel
+        try:
+            await asyncio.sleep(self.copy_delay)
+            while loop.time() < deadline:
+                if watch_task is not None and watch_task.done():
+                    watched = watch_task.result()
+                    if watched and watched != sentinel and not watched.startswith(sentinel_prefix):
+                        return watched
+                text = await self._read_clipboard()
+                last_clip = text
+                if text and text != sentinel and not text.startswith(sentinel_prefix):
+                    return text
+                await asyncio.sleep(self.copy_poll_interval)
+        finally:
+            if watch_task is not None:
+                watch_task.cancel()
+                with contextlib.suppress(BaseException):
+                    await watch_task
+            if last_clip.startswith(sentinel_prefix):
+                await self._write_clipboard(old_clip)
 
-        # Read new clipboard content
-        text = await self._read_clipboard()
+        return ""
 
-        return text if text else old_clip or ""
+    async def _watch_clipboard_change(self) -> str:
+        proc = await asyncio.create_subprocess_exec(
+            self.clip_read,
+            "--watch",
+            self.clip_read,
+            "--no-newline",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        try:
+            stdout, _ = await proc.communicate()
+            return stdout.decode("utf-8", errors="replace").strip()
+        finally:
+            if proc.returncode is None:
+                proc.kill()
+                with contextlib.suppress(ProcessLookupError):
+                    await proc.wait()
 
     async def paste_text(self, text: str) -> None:
         """Write text to clipboard and paste via Ctrl+V."""
@@ -195,9 +295,42 @@ class Platform:
         )
         await proc.wait()
 
-    async def _read_clipboard(self) -> str:
+    async def launch_hyprland_exec(self, command: str) -> bool:
+        """Launch a command via Hyprland so layer-shell UI inherits compositor context."""
+        if not shutil.which("hyprctl"):
+            return False
+
+        exec_command = command
+        try:
+            payload = json.loads(command)
+        except Exception:
+            payload = None
+        if isinstance(payload, dict) and isinstance(payload.get("argv"), list):
+            argv = [str(part) for part in payload["argv"] if str(part)]
+            env_pairs = payload.get("env") or {}
+            env_prefix = " ".join(
+                f"{key}={shlex.quote(str(value))}"
+                for key, value in env_pairs.items()
+                if value not in (None, "")
+            )
+            exec_command = " ".join(shlex.quote(part) for part in argv)
+            if env_prefix:
+                exec_command = f"env {env_prefix} {exec_command}"
+
         proc = await asyncio.create_subprocess_exec(
-            self.clip_read,
+            "hyprctl", "dispatch", "exec", exec_command,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        await proc.wait()
+        return proc.returncode == 0
+
+    async def _read_clipboard(self, primary: bool = False) -> str:
+        args = [self.clip_read]
+        if primary:
+            args.append("--primary")
+        proc = await asyncio.create_subprocess_exec(
+            *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
         )
@@ -228,19 +361,18 @@ class Platform:
         replacement notification is never sent (e.g. crash).
         """
         try:
+            if tag:
+                await self.clear_notification(tag)
+
             # --print-id makes notify-send emit the assigned notification ID so
             # we can pass it back as --replace-id on the next call for the same
             # tag.  This replaces only our own notification, never anything else.
             cmd = ["notify-send", "--print-id"]
 
-            # If we've seen this tag before, replace the specific notification
-            # rather than creating a new one.
-            if tag and tag in self._notif_ids:
-                cmd += [f"--replace-id={self._notif_ids[tag]}"]
-
-            # Timeout: cap "urgent" at 30 s instead of infinite
+            # Keep urgent notifications finite and avoid compositor-specific
+            # persistent critical banners for STT state changes.
             if urgent:
-                cmd += ["-t", "30000", "-u", "critical"]
+                cmd += ["-t", str(max(timeout, 1000)), "-u", "normal"]
             else:
                 cmd += ["-t", str(max(timeout, 1000))]
 
@@ -274,6 +406,14 @@ class Platform:
         except Exception as e:
             log.debug("Notification failed: %s", e)
 
+    async def notify_flow_step(self, tag: str, title: str, body: str = "",
+                               urgent: bool = False, timeout: int = 5000,
+                               category: str = "device") -> None:
+        """Post a notification belonging to an active multi-step flow."""
+        if tag and tag not in self._active_tags:
+            self._active_tags.add(tag)
+        await self.notify(title, body, urgent=urgent, timeout=timeout, tag=tag, category=category)
+
 # ─── LLM Client (OpenRouter) ──────────────────────────────────────────────────
 
 
@@ -304,6 +444,52 @@ class LLMClient:
                 )
             self._client = AsyncOpenAI(base_url=self.base_url, api_key=api_key)
 
+    @staticmethod
+    def _content_part_text(part) -> str:
+        if part is None:
+            return ""
+        if isinstance(part, str):
+            return part
+        if isinstance(part, dict):
+            part_type = str(part.get("type") or "").lower()
+            if part_type in {"text", "output_text", "input_text"}:
+                return str(part.get("text") or part.get("content") or "")
+            return str(part.get("text") or "")
+
+        part_type = str(getattr(part, "type", "") or "").lower()
+        if part_type in {"text", "output_text", "input_text"}:
+            return str(getattr(part, "text", None) or getattr(part, "content", "") or "")
+        return str(getattr(part, "text", "") or "")
+
+    @classmethod
+    def _extract_message_text(cls, response) -> str:
+        choices = getattr(response, "choices", None)
+        if not choices:
+            raise RuntimeError("LLM response contained no choices")
+
+        message = getattr(choices[0], "message", None)
+        if message is None:
+            raise RuntimeError("LLM response contained no message")
+
+        content = getattr(message, "content", None)
+        if isinstance(content, str):
+            return content.strip()
+
+        if isinstance(content, list):
+            text = "".join(cls._content_part_text(part) for part in content).strip()
+            if text:
+                return text
+
+        refusal = getattr(message, "refusal", None)
+        if refusal:
+            raise RuntimeError(f"LLM refused request: {str(refusal)[:200]}")
+
+        tool_calls = getattr(message, "tool_calls", None)
+        if tool_calls:
+            raise RuntimeError("LLM returned tool calls instead of text")
+
+        raise RuntimeError("LLM response contained no usable text")
+
     async def process_text(self, text: str, prompt_template: str, **kwargs) -> str:
         """Send text through an LLM prompt and return the result."""
         self._ensure_client()
@@ -319,9 +505,71 @@ class LLMClient:
             max_tokens=max_tokens,
             temperature=temperature,
         )
-        result = response.choices[0].message.content or ""
+        result = self._extract_message_text(response)
         log.info("LLM response: result_len=%d", len(result))
         return result.strip()
+
+    @staticmethod
+    def classify_error(exc: Exception) -> str:
+        raw_err = str(exc).strip() or exc.__class__.__name__
+        err_lower = raw_err.lower()
+
+        if isinstance(exc, asyncio.TimeoutError):
+            return "Request took too long. Try shorter text, a smaller prompt, or check API connectivity."
+        if "refused request" in err_lower:
+            return "Model refused the request. Try different wording or less sensitive content."
+        if "tool calls" in err_lower:
+            return "Model returned a tool-use response instead of text. Try a different model."
+        if "no usable text" in err_lower or "no choices" in err_lower or "no message" in err_lower:
+            return "Model returned an invalid text response. Try again or switch model."
+        if "401" in err_lower or "unauthorized" in err_lower or "invalid api key" in err_lower or "authentication" in err_lower:
+            return "Authentication failed. Check the configured OpenRouter API key."
+        if "429" in err_lower or "rate limit" in err_lower or "too many requests" in err_lower:
+            return "Rate limited by the LLM provider. Wait a moment and try again."
+        if "500" in err_lower or "502" in err_lower or "503" in err_lower or "504" in err_lower or "server error" in err_lower:
+            return "The LLM provider had a server error. Try again shortly."
+        if "connect" in err_lower or "network" in err_lower or "dns" in err_lower or "timed out" in err_lower:
+            return "Network error while contacting the LLM provider. Check connectivity and try again."
+        return raw_err[:200]
+
+
+class STTError(RuntimeError):
+    pass
+
+
+class STTNoAudioError(STTError):
+    pass
+
+
+class STTNoSpeechError(STTError):
+    pass
+
+
+class STTPostProcessError(STTError):
+    pass
+
+
+def classify_stt_error(exc: Exception) -> str:
+    raw_err = str(exc).strip() or exc.__class__.__name__
+    err_lower = raw_err.lower()
+
+    if isinstance(exc, asyncio.TimeoutError):
+        return "Speech processing took too long. Try a shorter recording or check API connectivity."
+    if isinstance(exc, STTNoAudioError):
+        return "No audio was captured. Check the microphone input and try again."
+    if isinstance(exc, STTNoSpeechError):
+        return "No speech was detected. Try speaking louder or closer to the microphone."
+    if isinstance(exc, STTPostProcessError):
+        return raw_err[:200]
+    if "api key not configured" in err_lower or "401" in err_lower or "unauthorized" in err_lower or "authentication" in err_lower:
+        return "Speech-to-text authentication failed. Check the configured ElevenLabs API key."
+    if "429" in err_lower or "rate limit" in err_lower or "too many requests" in err_lower:
+        return "Rate limited by ElevenLabs. Wait a moment and try again."
+    if "500" in err_lower or "502" in err_lower or "503" in err_lower or "504" in err_lower or "server error" in err_lower:
+        return "ElevenLabs had a server error. Try again shortly."
+    if "connect" in err_lower or "network" in err_lower or "dns" in err_lower or "timed out" in err_lower:
+        return "Network error while contacting ElevenLabs. Check connectivity and try again."
+    return raw_err[:200]
 
 
 # ─── STT Pipeline ─────────────────────────────────────────────────────────────
@@ -375,14 +623,19 @@ class STTPipeline:
                 log.warning("Audio callback status: %s", status)
             self._audio_buffer.append(indata.copy())
 
-        self._stream = sd.InputStream(
-            samplerate=self.sample_rate,
-            channels=self.channels,
-            dtype="float32",
-            device=device,
-            callback=callback,
-        )
-        self._stream.start()
+        try:
+            self._stream = sd.InputStream(
+                samplerate=self.sample_rate,
+                channels=self.channels,
+                dtype="float32",
+                device=device,
+                callback=callback,
+            )
+            self._stream.start()
+        except Exception:
+            self._recording = False
+            self._stream = None
+            raise
         log.info("STT recording started")
 
     async def _stop_and_process(self, depth: int) -> str:
@@ -397,7 +650,7 @@ class STTPipeline:
 
         if not self._audio_buffer:
             log.warning("No audio captured")
-            return ""
+            raise STTNoAudioError("No audio was captured")
 
         audio = np.concatenate(self._audio_buffer, axis=0)
         self._audio_buffer = []
@@ -407,6 +660,9 @@ class STTPipeline:
         transcript = await self._transcribe(audio)
         log.info("L1 transcript: %s", transcript[:100])
 
+        if not transcript or transcript.isspace():
+            raise STTNoSpeechError("No speech detected in recording")
+
         if depth >= 2 and transcript:
             # Layer 2: Domain corrector
             transcript = self._domain_correct(transcript)
@@ -415,7 +671,10 @@ class STTPipeline:
         if depth >= 3 and transcript:
             # Layer 3: LLM post-processing
             template = self.prompts.get("stt_postprocess", "Fix errors:\n${text}")
-            transcript = await self.llm.process_text(transcript, template)
+            try:
+                transcript = await self.llm.process_text(transcript, template)
+            except Exception as exc:
+                raise STTPostProcessError(f"STT post-process failed: {self.llm.classify_error(exc)}") from exc
             log.info("L3 post-processed: %s", transcript[:100])
 
         return transcript
@@ -695,6 +954,8 @@ class KlorBridge:
         self.platform = Platform(self.config)
         self.llm = LLMClient(self.config)
         self.stt = STTPipeline(self.config, self.llm, self.prompts)
+        self._llm_action_lock = asyncio.Lock()
+        self._llm_action_active = False
 
         # STT state
         self._stt_depth = 1
@@ -859,29 +1120,62 @@ class KlorBridge:
         """
         action_name = action.get("name", "LLM")
         action_key = action.get("key", "?").upper()
+        if self._llm_action_active:
+            await self.platform.begin_notification_flow("klor-llm")
+            await self.platform.notify_flow_step(
+                "klor-llm",
+                f"{action_key} — Busy",
+                "Another LLM action is already running. Wait for it to finish.",
+                timeout=4000,
+            )
+            await self.platform.end_notification_flow("klor-llm", delay=4)
+            return
+
+        async with self._llm_action_lock:
+            self._llm_action_active = True
+            try:
+                await self._run_llm_text_action(action, action_name, action_key)
+            finally:
+                self._llm_action_active = False
+
+    async def _run_llm_text_action(self, action: dict, action_name: str, action_key: str) -> None:
+        await self.platform.begin_notification_flow("klor-llm")
 
         # Notify: starting
-        await self.platform.notify(
+        await self.platform.notify_flow_step(
+            "klor-llm",
             f"{action_key} — Copying selection...",
             f"Action: {action_name}",
-            tag="klor-llm",
         )
 
-        # Copy selected text (with retry for reliability)
-        text = await self.platform.copy_selection()
-        if not text or text.isspace():
-            # Retry once with a longer delay
-            await asyncio.sleep(0.2)
+        # Copy selected text with sentinel-based clipboard probing. The copy
+        # helper now safely distinguishes a real selection from stale clipboard
+        # contents, even when the selected text matches the previous clipboard.
+        text = ""
+        copy_attempt_delays = (0.0, 0.2, 0.45, 0.8)
+        for attempt, delay in enumerate(copy_attempt_delays, start=1):
+            if delay > 0:
+                await asyncio.sleep(delay)
             text = await self.platform.copy_selection()
+            if text and not text.isspace():
+                break
+            if attempt < len(copy_attempt_delays):
+                await self.platform.notify_flow_step(
+                    "klor-llm",
+                    f"{action_key} — Copying selection...",
+                    f"Retrying selection copy ({attempt + 1}/{len(copy_attempt_delays)})",
+                    timeout=1200,
+                )
 
         if not text or text.isspace():
-            log.warning("No text selected (clipboard empty after retry)")
-            await self.platform.notify(
+            log.warning("No fresh text selected after copy retries")
+            await self.platform.notify_flow_step(
+                "klor-llm",
                 f"{action_key} — No text selected",
-                "Select some text and try again",
-                tag="klor-llm",
+                "Selection copy did not produce new clipboard text. Select text and try again.",
                 timeout=5000,
             )
+            await self.platform.end_notification_flow("klor-llm", delay=5)
             return
 
         # Look up prompt template
@@ -889,19 +1183,20 @@ class KlorBridge:
         template = self.prompts.get(prompt_key)
         if not template:
             log.error("Prompt template not found: %s", prompt_key)
-            await self.platform.notify(
+            await self.platform.notify_flow_step(
+                "klor-llm",
                 f"{action_key} — Config error",
                 f"Prompt template '{prompt_key}' not found in prompts.yml",
-                tag="klor-llm",
                 timeout=8000,
             )
+            await self.platform.end_notification_flow("klor-llm", delay=8)
             return
 
         # Notify: processing with LLM
-        await self.platform.notify(
+        await self.platform.notify_flow_step(
+            "klor-llm",
             f"{action_key} — Processing with LLM...",
             f"{len(text)} chars selected. Please wait.",
-            tag="klor-llm",
             urgent=True,  # stays visible until replaced
         )
 
@@ -913,43 +1208,47 @@ class KlorBridge:
             )
         except asyncio.TimeoutError:
             log.error("LLM request timed out after 120s")
-            await self.platform.notify(
+            await self.platform.notify_flow_step(
+                "klor-llm",
                 f"{action_key} — LLM timeout",
-                "Request took too long. Try shorter text or check API.",
-                tag="klor-llm",
+                self.llm.classify_error(asyncio.TimeoutError()),
                 timeout=8000,
             )
+            await self.platform.end_notification_flow("klor-llm", delay=8)
             return
         except Exception as e:
             log.error("LLM request failed: %s", e, exc_info=True)
-            err_msg = str(e)[:200]
-            await self.platform.notify(
+            err_msg = self.llm.classify_error(e)
+            await self.platform.notify_flow_step(
+                "klor-llm",
                 f"{action_key} — LLM error",
                 err_msg,
-                tag="klor-llm",
                 timeout=8000,
             )
+            await self.platform.end_notification_flow("klor-llm", delay=8)
             return
 
         if not result or result.isspace():
             log.warning("LLM returned empty result")
-            await self.platform.notify(
+            await self.platform.notify_flow_step(
+                "klor-llm",
                 f"{action_key} — Empty result",
                 "LLM returned nothing. Try different text.",
-                tag="klor-llm",
                 timeout=5000,
             )
+            await self.platform.end_notification_flow("klor-llm", delay=5)
             return
 
         # Write result to clipboard (no paste)
         await self.platform._write_clipboard(result)
         log.info("LLM result copied to clipboard: %d chars → %d chars", len(text), len(result))
-        await self.platform.notify(
+        await self.platform.notify_flow_step(
+            "klor-llm",
             f"{action_key} — Result ready",
             f"{len(result)} chars copied to clipboard. Paste with Ctrl+V.",
-            tag="klor-llm",
             timeout=5000,
         )
+        await self.platform.end_notification_flow("klor-llm", delay=5)
 
     async def _handle_stt_toggle(self, depth: int) -> None:
         """Toggle speech-to-text recording.
@@ -962,10 +1261,10 @@ class KlorBridge:
         if self.stt.is_recording:
             # ── Stop recording & process ──
             log.info("STT stop → processing with depth=%d", self._stt_depth)
-            await self.platform.notify(
+            await self.platform.notify_flow_step(
+                "klor-stt",
                 "Processing transcription...",
                 f"Depth {self._stt_depth}/3 — please wait",
-                tag="klor-stt",
                 timeout=30000,
             )
 
@@ -976,61 +1275,58 @@ class KlorBridge:
                 )
             except asyncio.TimeoutError:
                 log.error("STT processing timed out")
-                await self.platform.notify(
+                await self.platform.notify_flow_step(
+                    "klor-stt",
                     "STT timeout",
-                    "Transcription took too long. Try a shorter recording.",
-                    tag="klor-stt",
+                    classify_stt_error(asyncio.TimeoutError()),
                     timeout=8000,
                 )
+                await self.platform.end_notification_flow("klor-stt", delay=8)
                 return
             except Exception as e:
                 log.error("STT processing failed: %s", e, exc_info=True)
-                await self.platform.notify(
+                await self.platform.notify_flow_step(
+                    "klor-stt",
                     "STT error",
-                    str(e)[:200],
-                    tag="klor-stt",
+                    classify_stt_error(e),
                     timeout=8000,
                 )
+                await self.platform.end_notification_flow("klor-stt", delay=8)
                 return
 
             if result:
                 await self.platform._write_clipboard(result)
                 word_count = len(result.split())
                 log.info("STT copied to clipboard: %d chars, %d words", len(result), word_count)
-                await self.platform.notify(
+                await self.platform.notify_flow_step(
+                    "klor-stt",
                     "Transcription complete",
                     f"{word_count} words ({len(result)} chars) copied. Paste with Ctrl+V.",
-                    tag="klor-stt",
                     timeout=5000,
                 )
-            else:
-                log.warning("STT produced no text")
-                await self.platform.notify(
-                    "No speech detected",
-                    "Try again and speak clearly",
-                    tag="klor-stt",
-                    timeout=5000,
-                )
+                await self.platform.end_notification_flow("klor-stt", delay=5)
         else:
             # ── Start recording ──
             self._stt_depth = depth
+            await self.platform.begin_notification_flow("klor-stt")
             try:
                 await self.stt.toggle_recording(depth)
             except Exception as e:
                 log.error("Failed to start recording: %s", e, exc_info=True)
-                await self.platform.notify(
+                await self.platform.notify_flow_step(
+                    "klor-stt",
                     "Recording failed",
-                    str(e)[:200],
-                    tag="klor-stt",
+                    classify_stt_error(e),
                     timeout=8000,
                 )
+                await self.platform.end_notification_flow("klor-stt", delay=8)
                 return
 
             log.info("STT recording started (depth=%d)", depth)
-            await self.platform.notify(
+            await self.platform.notify_flow_step(
+                "klor-stt",
                 "Recording...",
                 f"Depth {depth}/3. Press RALT or T to stop.",
-                tag="klor-stt",
                 urgent=True,  # stays visible (30 s max) until replaced
             )
 
@@ -1046,100 +1342,142 @@ class KlorBridge:
             # Reload in case snippets.yml was added/modified since startup
             self.snippets = load_snippets()
 
+        await self.platform.begin_notification_flow("klor-picker")
+
         if not self.snippets:
-            await self.platform.notify(
+            await self.platform.notify_flow_step(
+                "klor-picker",
                 "No snippets configured",
                 "Add prompts to ~/.config/klor-bridge/snippets.yml",
-                tag="klor-picker",
                 timeout=5000,
             )
+            await self.platform.end_notification_flow("klor-picker", delay=5)
             return
 
-        # Build list for dmenu: "name — category"
+        # Build a title-only list so the picker stays compact and easy to scan.
         lines = []
         line_to_snippet = {}
         for s in self.snippets:
-            desc = s.get("category", "")
-            label = s["name"]
-            if desc:
-                label += f" — {desc}"
+            base_label = s["name"]
+            label = base_label
+            if label in line_to_snippet:
+                desc = s.get("category", "")
+                label = f"{base_label} ({desc})" if desc else base_label
+            if label in line_to_snippet:
+                index = 2
+                unique_label = f"{label} #{index}"
+                while unique_label in line_to_snippet:
+                    index += 1
+                    unique_label = f"{label} #{index}"
+                label = unique_label
             lines.append(label)
-            # Keep a direct lookup by the exact displayed row so names may
-            # safely contain delimiter-like text.
-            line_to_snippet.setdefault(label, s)
+            line_to_snippet[label] = s
         menu_input = "\n".join(lines)
 
-        # Find a dmenu-compatible launcher
-        picker_cmd = None
-        if shutil.which("walker"):
-            picker_cmd = ["walker", "--dmenu", "-p", "Prompt snippets"]
-        elif shutil.which("fuzzel"):
-            picker_cmd = ["fuzzel", "--dmenu", "--prompt", "Prompt: "]
-        elif shutil.which("wofi"):
-            picker_cmd = ["wofi", "--dmenu", "--prompt", "Prompt snippets"]
-        elif shutil.which("rofi"):
-            picker_cmd = ["rofi", "-dmenu", "-p", "Prompt snippets"]
-        elif shutil.which("bemenu"):
-            picker_cmd = ["bemenu", "-p", "Prompt snippets"]
-
-        if not picker_cmd:
-            log.error("No dmenu-compatible launcher found (walker, fuzzel, wofi, rofi, bemenu)")
-            await self.platform.notify(
+        helper = Path(__file__).with_name("prompt_picker_helper.py")
+        if not helper.exists():
+            log.error("Prompt picker helper not found: %s", helper)
+            await self.platform.notify_flow_step(
+                "klor-picker",
                 "Prompt picker unavailable",
-                "Install walker, fuzzel, wofi, rofi, or bemenu",
-                tag="klor-picker",
+                f"Missing helper: {helper.name}",
                 timeout=5000,
             )
+            await self.platform.end_notification_flow("klor-picker", delay=5)
             return
 
         try:
-            log.info("Opening prompt picker with %s (%d snippets)", picker_cmd[0], len(self.snippets))
-            proc = await asyncio.create_subprocess_exec(
-                *picker_cmd,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
+            log.info("Opening GTK prompt picker (%d snippets)", len(self.snippets))
+            cache_dir = Path.home() / ".cache" / "klor-bridge"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+
+            with tempfile.NamedTemporaryFile("w", delete=False, dir=cache_dir, suffix=".txt", encoding="utf-8") as input_file:
+                input_file.write(menu_input)
+                input_path = Path(input_file.name)
+
+            result_path = cache_dir / f"picker-result-{int(time.time() * 1000)}.json"
+            helper_env = os.environ.copy()
+            for key in ("KLOR_PICKER_TEST_QUERY", "KLOR_PICKER_TEST_ACCEPT_MS"):
+                value = os.environ.get(key)
+                if value:
+                    helper_env[key] = value
+            helper_proc = await asyncio.create_subprocess_exec(
+                sys.executable,
+                str(helper),
+                str(input_path),
+                str(result_path),
+                env=helper_env,
+                stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.DEVNULL,
             )
-            stdout, _ = await asyncio.wait_for(
-                proc.communicate(input=menu_input.encode("utf-8")),
-                timeout=60,  # 1 minute to pick
+
+            try:
+                loop = asyncio.get_running_loop()
+                deadline = loop.time() + 28
+                while not result_path.exists() and loop.time() < deadline:
+                    await asyncio.sleep(0.1)
+
+                if not result_path.exists():
+                    log.warning("Prompt picker timed out waiting for result")
+                    if helper_proc.returncode is None:
+                        helper_proc.kill()
+                        with contextlib.suppress(ProcessLookupError):
+                            await helper_proc.wait()
+                    await self.platform.end_notification_flow("klor-picker")
+                    return
+
+                result_data = json.loads(result_path.read_text(encoding="utf-8"))
+                stdout = (result_data.get("stdout") or "").encode("utf-8")
+                returncode = int(result_data.get("returncode", 1))
+            finally:
+                if helper_proc.returncode is None:
+                    try:
+                        await asyncio.wait_for(helper_proc.wait(), timeout=1.0)
+                    except (asyncio.TimeoutError, ProcessLookupError):
+                        helper_proc.kill()
+                        with contextlib.suppress(ProcessLookupError):
+                            await helper_proc.wait()
+                input_path.unlink(missing_ok=True)
+                result_path.unlink(missing_ok=True)
+
+            if returncode != 0 or not stdout:
+                log.info("Prompt picker cancelled by user")
+                await self.platform.end_notification_flow("klor-picker")
+                return
+
+            selected = stdout.decode("utf-8").strip()
+            snippet = line_to_snippet.get(selected)
+
+            if not snippet:
+                log.warning("Selected snippet not found: %s", selected)
+                await self.platform.end_notification_flow("klor-picker")
+                return
+
+            text = snippet["text"]
+            await self.platform._write_clipboard(text)
+            log.info("Prompt snippet copied: %s (%d chars)", snippet["name"], len(text))
+            await self.platform.notify_flow_step(
+                "klor-picker",
+                f"Snippet: {snippet['name']}",
+                f"{len(text)} chars copied. Paste with Ctrl+V.",
+                timeout=3000,
             )
+            await self.platform.end_notification_flow("klor-picker", delay=3)
+            return
         except asyncio.TimeoutError:
             log.warning("Prompt picker timed out")
+            await self.platform.end_notification_flow("klor-picker")
             return
         except Exception as e:
             log.error("Prompt picker failed: %s", e)
-            await self.platform.notify(
+            await self.platform.notify_flow_step(
+                "klor-picker",
                 "Prompt picker error",
                 str(e)[:200],
-                tag="klor-picker",
                 timeout=5000,
             )
+            await self.platform.end_notification_flow("klor-picker", delay=5)
             return
-
-        if proc.returncode != 0 or not stdout:
-            log.info("Prompt picker cancelled by user")
-            return
-
-        # Match the exact displayed row back to the snippet so names may
-        # safely contain the delimiter and duplicate names across categories.
-        selected = stdout.decode("utf-8").strip()
-        snippet = line_to_snippet.get(selected)
-
-        if not snippet:
-            log.warning("Selected snippet not found: %s", selected)
-            return
-
-        # Copy snippet text to clipboard
-        text = snippet["text"]
-        await self.platform._write_clipboard(text)
-        log.info("Prompt snippet copied: %s (%d chars)", snippet["name"], len(text))
-        await self.platform.notify(
-            f"Snippet: {snippet['name']}",
-            f"{len(text)} chars copied. Paste with Ctrl+V.",
-            tag="klor-picker",
-            timeout=3000,
-        )
 
     # ── Brightness Control ────────────────────────────────────────
 
