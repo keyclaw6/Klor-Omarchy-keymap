@@ -32,7 +32,12 @@ bridge:
 llm:
   provider: openrouter     # API provider (only openrouter supported currently)
   base_url: https://openrouter.ai/api/v1  # OpenAI-compatible API endpoint
-  default_model: nvidia/nemotron-3-super-120b-a12b  # Model for text transformations
+  default_model: openai/gpt-oss-120b  # Model for text transformations and parsing
+  provider_order:          # Preferred OpenRouter providers, in order
+    - cerebras
+    - groq
+    - deepinfra
+    - together
   max_tokens: 4096         # Maximum response length
   temperature: 0.3         # Lower = more deterministic, higher = more creative (0.0-2.0)
 
