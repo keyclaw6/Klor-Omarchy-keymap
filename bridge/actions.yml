@@ -146,11 +146,11 @@ actions:
     key: o
     description: Unassigned — edit to add your action
 
-  placeholder_p:
+  prompt_picker:
     action_id: 0x50          # P key
     type: prompt_picker
     key: p
-    description: Open searchable prompt snippet picker (walker/dmenu)
+    description: Open searchable prompt snippet picker (compact GTK popup)
 
   placeholder_q:
     action_id: 0x51          # Q key

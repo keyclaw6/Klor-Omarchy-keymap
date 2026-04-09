@@ -47,7 +47,7 @@ The system has two halves that communicate over USB Raw HID:
 
 ## Firmware Architecture
 
-**Source:** `keyboards/geigeigeist/klor/keymaps/vial/keymap.c` (~800 lines)
+**Source:** `keyboards/geigeigeist/klor/keymaps/vial/keymap.c` (788 lines)
 
 ### Layers
 
@@ -58,7 +58,7 @@ The system has two halves that communicate over USB Raw HID:
 
 | # | Name | Purpose |
 |---|------|---------|
-| 0 | `_QWERTY` | Base layer. Home row mods (GACS), one-shot shift |
+| 0 | `_QWERTY` | Base layer. Home row mods (GACS), plain left shift (`KC_LSFT`) |
 | 1 | `_LOWER` | Left thumb hold. Numbers, navigation, brackets |
 | 2 | `_RAISE` | Right thumb hold. Symbols, Unicode Danish (æ/ø/å via Unicode Map), currency |
 | 3 | `_ADJUST` | LOWER+RAISE (tri-layer). F-keys (F1-F24), QK_BOOT, AC_TOGG |
@@ -89,9 +89,9 @@ Tuning:
 
 Danish characters are available on the RAISE layer via QMK Unicode Map. The base layer uses plain `P`, `;`, and `'` again.
 
-### One-Shot Shift
+### Left Thumb Shift
 
-Left thumb: `OSM(MOD_LSFT)`. Tap once → next keypress is shifted, then shift auto-releases. Double-tap → toggle (acts as caps lock). Times out after 3 seconds (`ONESHOT_TIMEOUT 3000`).
+Left thumb: plain `KC_LSFT`. Standard hold-to-shift behavior. `ONESHOT_TIMEOUT` and `ONESHOT_TAP_TOGGLE` are defined in `config.h` but no OSM key is active in the current keymap.
 
 ### Bootloader Combo
 
@@ -142,7 +142,7 @@ make -C ~/vial-qmk geigeigeist/klor/2040:vial
 
 ### Entering Command Mode
 
-Double-tap right ALT within 250ms (`RALT_TAP_WINDOW`). Manual state machine in `process_ralt_tap()` — QMK's `tap_dance_actions[]` cannot be used because Vial owns that array.
+Double-tap right ALT within 350ms (`RALT_TAP_WINDOW`). Manual state machine in `process_ralt_tap()` — QMK's `tap_dance_actions[]` cannot be used because Vial owns that array.
 
 - 1 tap: normal RALT (registered on press, unregistered on release)
 - 2 taps: enter command mode (second tap is consumed, RALT not registered)
@@ -254,7 +254,7 @@ The bridge protocol hooks into `raw_hid_receive_kb()`, which vial-qmk's `via.c` 
 
 ## Bridge Daemon Architecture
 
-**Source:** `bridge/klor-bridge.py` (Linux/Wayland, ~865 lines), `bridge/klor-bridge-windows.py` (Windows, ~850 lines)
+**Source:** `bridge/klor-bridge.py` (Linux/Wayland, 1,607 lines), `bridge/klor-bridge-windows.py` (Windows, 1,139 lines)
 
 ### Components
 
@@ -368,18 +368,14 @@ The current Linux prompt picker behavior is verified working and locked. Do not 
 
 ### Brightness Control (encoder)
 
-The right rotary encoder sends `ACTION_BRIGHTNESS_UP` (0x11) / `ACTION_BRIGHTNESS_DOWN` (0x12) via Raw HID on every encoder tick. These are custom keycodes handled in `process_record_user` — they are NOT standard keycodes and are consumed before reaching the host OS.
+The right rotary encoder uses custom keycodes `BRIGHT_UP` / `BRIGHT_DOWN` (defined as `QK_KB_0` / `QK_KB_1`), handled in `process_record_user`. Each tick taps `KC_BRIU` / `KC_BRID` — standard media brightness keycodes. The OS processes these directly; the bridge is not involved.
 
-**Linux brightness chain:**
-1. `brightnessctl set {step}%+` / `{step}%-` — controls laptop backlight
-2. If `brightnessctl` fails and `ddcutil_fallback: true`: `ddcutil setvcp 10 + {step}` / `- {step}` — controls external monitors via DDC/CI
-
-**Windows:** PowerShell WMI call to `WmiMonitorBrightnessMethods.WmiSetBrightness()`.
+The bridge daemon does have a brightness handler for action IDs `0x11` (`ACTION_BRIGHTNESS_UP`) / `0x12` (`ACTION_BRIGHTNESS_DOWN`), including a `brightnessctl`/`ddcutil` chain on Linux and WMI on Windows. This path is available for future use but is not triggered by the current firmware.
 
 **Configuration** (`config.yml`):
 ```yaml
 brightness:
-  step_percent: 5        # % per encoder tick
+  step_percent: 5        # % per encoder tick (used only if bridge brightness path is active)
   tool: brightnessctl    # or "ddcutil"
   ddcutil_fallback: true # try ddcutil if brightnessctl fails
   notify: false          # show notification on change
@@ -389,7 +385,7 @@ brightness:
 
 ```
 Encoder 0 (left):  Volume Down / Volume Up (all layers)
-Encoder 1 (right): Brightness Down / Brightness Up (all layers, via bridge)
+Encoder 1 (right): Brightness Down / Brightness Up (all layers, via KC_BRID / KC_BRIU media keys)
 ```
 
 ### Configuration Files

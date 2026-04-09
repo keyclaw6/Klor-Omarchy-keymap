@@ -239,21 +239,13 @@ default-timeout=5000
 
 ## Brightness Control
 
-The right rotary encoder controls monitor brightness via the bridge daemon, using:
-- **`brightnessctl`** — for laptop/internal backlight (available by default on Omarchy)
-- **`ddcutil`** — for external monitors via DDC/CI (install: `sudo pacman -S ddcutil`)
+The right rotary encoder sends standard media brightness keycodes (`KC_BRID` / `KC_BRIU`). The OS handles brightness natively — Hyprland routes these to the kernel display driver without bridge involvement.
 
-If `ddcutil` is needed, your user must have access to the I2C bus:
+For external monitor control via DDC/CI, the bridge has a `brightnessctl`/`ddcutil` chain available (action IDs `0x11`/`0x12`), but the current firmware sends media keys instead. If you need DDC/CI control, you would need to change the encoder to send Raw HID brightness packets and configure `ddcutil` with I2C bus access:
+
 ```bash
 sudo usermod -aG i2c $USER
 # Log out and back in
-```
-
-Configure step size in `~/.config/klor-bridge/config.yml`:
-```yaml
-brightness:
-  step_percent: 5          # % per encoder tick
-  ddcutil_fallback: true   # try ddcutil if brightnessctl fails
 ```
 
 ## Prompt Picker

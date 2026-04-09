@@ -85,14 +85,14 @@ Prompt picker lock:
 ## Brightness Control
 
 The **right rotary encoder** controls monitor brightness:
-- **Clockwise** — brightness up (5% per tick, configurable)
+- **Clockwise** — brightness up
 - **Counter-clockwise** — brightness down
 
-Works on both Linux and Windows:
-- **Linux:** `brightnessctl` for laptop backlight, with `ddcutil` fallback for external monitors
-- **Windows:** WMI/PowerShell brightness control
+The firmware sends standard media keycodes (`KC_BRIU` / `KC_BRID`) directly — the OS handles brightness natively without bridge involvement.
 
-Configure step size and tool preference in `~/.config/klor-bridge/config.yml` under the `brightness:` section. The left encoder remains volume control.
+The bridge daemon includes a `brightnessctl`/`ddcutil` brightness chain (action IDs `0x11`/`0x12`) for future use, but the current firmware uses media keys instead.
+
+The left encoder remains volume control.
 
 ## Danish Characters
 
@@ -108,7 +108,7 @@ On the base layer, **P**, **;**, and **'** are plain keys again, and semicolon i
 
 | # | Layer | Activation | Purpose |
 |---|-------|-----------|---------|
-| 0 | QWERTY | Default | Home row mods (GACS), one-shot shift |
+| 0 | QWERTY | Default | Home row mods (GACS), plain left shift (`KC_LSFT`) |
 | 1 | LOWER | Hold left thumb | Numbers (numpad layout), arrow keys, brackets, navigation |
 | 2 | RAISE | Hold right thumb | Symbols, Unicode Danish, currency (€£¥), Omarchy F-keys |
 | 3 | ADJUST | LOWER+RAISE | F1-F24, QK_BOOT (bootloader), AC_TOGG (autocorrect toggle) |
@@ -320,7 +320,7 @@ Klor-Omarchy-keymap/
 │   └── corrections.yml             # Regex corrections for STT
 ├── keyboards/                       # QMK firmware source
 │   └── geigeigeist/klor/keymaps/vial/
-│       ├── keymap.c                 # Main firmware (~800 lines)
+│       ├── keymap.c                 # Main firmware (788 lines)
 │       ├── config.h                 # QMK/Vial configuration
 │       ├── rules.mk                # Build feature flags
 │       ├── vial.json                # Vial GUI descriptor
@@ -331,7 +331,9 @@ Klor-Omarchy-keymap/
 ├── systemd/                         # Linux service files
 │   ├── klor-bridge.service          # systemd user service
 │   └── 99-klor-hid.rules           # udev rule for HID access
-├── keymap-reference.html            # Visual keymap (open in browser)
+├── keymap-reference.html            # Visual keymap (open in browser, 4K)
+├── 04_4k_klor_layout.txt            # ASCII art keymap reference (plain text, printable)
+├── 10_klor_wallpaper_FINAL.html     # 4K HTML desktop wallpaper (3840×2160)
 ├── setup.sh                         # Linux setup script
 ├── setup-windows.ps1                # Windows setup script
 ├── ARCHITECTURE.md                  # Technical design documentation
