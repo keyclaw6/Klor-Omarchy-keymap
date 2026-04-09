@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=3840, height=2160">
+  <title>KLOR Polydactyl — 4K Layout Wallpaper</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&display=swap');
+
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 3840px;
+      height: 2160px;
+      overflow: hidden;
+      background: #080b10;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /* Layered radial vignette: warm center, deep edges */
+      background:
+        radial-gradient(ellipse 60%% 70%% at 50%% 50%%,
+          rgba(13, 17, 23, 1) 0%%,
+          rgba(10, 14, 20, 1) 50%%,
+          rgba(5, 8, 12, 1) 80%%,
+          rgba(2, 3, 6, 1) 100%%);
+    }
+
+    .container {
+      position: relative;
+    }
+
+    /* Ambient glow behind the text block */
+    .container::before {
+      content: '';
+      position: absolute;
+      top: -100px;
+      left: -160px;
+      right: -160px;
+      bottom: -100px;
+      background: radial-gradient(ellipse at center,
+        rgba(88, 166, 255, 0.035) 0%%,
+        rgba(88, 166, 255, 0.012) 45%%,
+        rgba(88, 166, 255, 0.003) 65%%,
+        transparent 80%%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    pre {
+      position: relative;
+      z-index: 1;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Source Code Pro', monospace;
+      font-size: 11.5px;
+      line-height: 1.08;
+      color: #c9d1d9;
+      white-space: pre;
+      margin: 0;
+      padding: 0;
+      tab-size: 4;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: geometricPrecision;
+      letter-spacing: 0px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <pre>╔══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+║                         KLOR POLYDACTYL — 42-KEY SPLIT KEYBOARD — COMPLETE LAYOUT REFERENCE (4K)                                                             ║
+║  Firmware: QMK/Vial on RP2040  │  Bridge: Python asyncio + OpenRouter LLM + ElevenLabs STT  │  WM: Omarchy/Hyprland  │  USB: 0x3A3C:0x0001                   ║
+║  Home Row Mods (GACS): GUI/A  ALT/S  CTL/D  SFT/F  ──  SFT/J  CTL/K  ALT/L  GUI/;  │  Column stagger: mid &gt; idx &gt; inner &gt; ring &gt; pinky &gt; outer               ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+  ╔══════════════════════════════════════════╗
+  ║  LAYER 0: QWERTY (Base + Home Row Mods)  ║
+  ╚══════════════════════════════════════════╝
+
+                 ┌───────────┬───────────┬───────────┬───────────┬───────────┐                        ┌───────────┬───────────┬───────────┬───────────┬───────────┐
+                 │     Q     │     W     │     E     │     R     │     T     │                        │     Y     │     U     │     I     │     O     │     P     │
+     ┌───────────┬───────────┼───────────┼───────────┼───────────┼───────────┤                        ├───────────┼───────────┼───────────┼───────────┼───────────┬───────────┐
+     │    TAB    │   A /GUI  │   S /ALT  │   D /CTL  │   F /SFT  │     G     │                        │     H     │   J /SFT  │   K /CTL  │   L /ALT  │   ; /GUI  │     &#x27;     │
+     ├───────────┼───────────┼───────────┼───────────┼───────────┼───────────┤╭──────────╮╭──────────╮├───────────┼───────────┼───────────┼───────────┼───────────┼───────────┤
+     │   L-GUI   │     Z     │     X     │     C     │     V     │     B     ││   MUTE   ││ PLY/PSE  ││     N     │     M     │     ,     │     .     │     /     │    NAV    │
+     └───────────┴───────────┴───────────┴───────────┴───────────┴───────────┘╰──────────╯╰──────────╯└───────────┴───────────┴───────────┴───────────┴───────────┴───────────┘
+                                      ┌───────────┬───────────┬───────────┬───────────┐      ┌───────────┬───────────┬───────────┬───────────┐
+                                      │    CTRL   │   LOWER   │   SPACE   │  L-SHIFT  │      │   R-ALT   │   ENTER   │   RAISE   │    BKSP   │
+                                      └───────────┴───────────┴───────────┴───────────┘      └───────────┴───────────┴───────────┴───────────┘
+
+  ╔═════════════════════════════════════════╗
+  ║  LAYER 1: LOWER (Numbers + Navigation)  ║
+  ╚═════════════════════════════════════════╝
+
+                 ┌───────────┬───────────┬───────────┬───────────┬───────────┐                        ┌───────────┬───────────┬───────────┬───────────┬───────────┐
+                 │    CAPS   │    HOME   │     Up    │     =     │     {     │                        │     }     │     7     │     8     │     9     │     +     │
+     ┌───────────┬───────────┼───────────┼───────────┼───────────┼───────────┤                        ├───────────┼───────────┼───────────┼───────────┼───────────┬───────────┐
+     │    ESC    │    DEL    │    Left   │    Down   │   Right   │     [     │                        │     ]     │     4     │     5     │     6     │     -     │     _     │
+     ├───────────┼───────────┼───────────┼───────────┼───────────┼───────────┤╭──────────╮╭──────────╮├───────────┼───────────┼───────────┼───────────┼───────────┼───────────┤
+     │   PRTSC   │    END    │    PgUp   │   Ctrl+S  │    PgDn   │     (     ││   MUTE   ││ PLY/PSE  ││     )     │     1     │     2     │     3     │     *     │  (trans)  │
+     └───────────┴───────────┴───────────┴───────────┴───────────┴───────────┘╰──────────╯╰──────────╯└───────────┴───────────┴───────────┴───────────┴───────────┴───────────┘
+                                      ┌───────────┬───────────┬───────────┬───────────┐      ┌───────────┬───────────┬───────────┬───────────┐
+                                      │  (trans)  │  &gt;&gt;HELD&lt;&lt; │  (trans)  │  (trans)  │      │  (trans)  │  (trans)  │  (trans)  │     0     │
+                                      └───────────┴───────────┴───────────┴───────────┘      └───────────┴───────────┴───────────┴───────────┘
+
+  ╔════════════════════════════════════════════════╗
+  ║  LAYER 2: RAISE (Symbols + Danish + Currency)  ║
+  ╚════════════════════════════════════════════════╝
+
+                 ┌───────────┬───────────┬───────────┬───────────┬───────────┐                        ┌───────────┬───────────┬───────────┬───────────┬───────────┐
+                 │     !     │     @     │     #     │     $     │     %     │                        │     ^     │     &amp;     │     \     │   degree  │   aa/AA   │
+     ┌───────────┬───────────┼───────────┼───────────┼───────────┼───────────┤                        ├───────────┼───────────┼───────────┼───────────┼───────────┬───────────┐
+     │    AF13   │    AF14   │    AF15   │    AF16   │    AF17   │     SZ    │                        │    Yen    │    Euro   │   Pound   │   approx  │   ae/AE   │   oe/OE   │
+     ├───────────┼───────────┼───────────┼───────────┼───────────┼───────────┤╭──────────╮╭──────────╮├───────────┼───────────┼───────────┼───────────┼───────────┼───────────┤
+     │    AF18   │    AF19   │    AF20   │    AF21   │    AF22   │    AF23   ││   MUTE   ││ PLY/PSE  ││     &lt;=    │     &gt;=    │    CUE    │     ~     │     `     │  (trans)  │
+     └───────────┴───────────┴───────────┴───────────┴───────────┴───────────┘╰──────────╯╰──────────╯└───────────┴───────────┴───────────┴───────────┴───────────┴───────────┘
+                                      ┌───────────┬───────────┬───────────┬───────────┐      ┌───────────┬───────────┬───────────┬───────────┐
+                                      │  (trans)  │  (trans)  │  (trans)  │  (trans)  │      │  (trans)  │  (trans)  │  &gt;&gt;HELD&lt;&lt; │  (trans)  │
+                                      └───────────┴───────────┴───────────┴───────────┘      └───────────┴───────────┴───────────┴───────────┘
+
+  ╔═════════════════════════════════════╗
+  ║  LAYER 3: ADJUST (F-Keys + System)  ║
+  ╚═════════════════════════════════════╝
+
+                 ┌───────────┬───────────┬───────────┬───────────┬───────────┐                        ┌───────────┬───────────┬───────────┬───────────┬───────────┐
+                 │    F15    │    F16    │    F17    │    F18    │    F19    │                        │    ---    │     F7    │     F8    │     F9    │    F14    │
+     ┌───────────┬───────────┼───────────┼───────────┼───────────┼───────────┤                        ├───────────┼───────────┼───────────┼───────────┼───────────┬───────────┐
+     │    F20    │    F21    │    F22    │    F23    │    F24    │    APP    │                        │    ---    │     F4    │     F5    │     F6    │    F12    │    F13    │
+     ├───────────┼───────────┼───────────┼───────────┼───────────┼───────────┤╭──────────╮╭──────────╮├───────────┼───────────┼───────────┼───────────┼───────────┼───────────┤
+     │  QK_BOOT  │  AC_TOGG  │    ---    │    ---    │    ---    │    ---    ││   MUTE   ││ PLY/PSE  ││    ---    │     F1    │     F2    │     F3    │    F10    │    F11    │
+     └───────────┴───────────┴───────────┴───────────┴───────────┴───────────┘╰──────────╯╰──────────╯└───────────┴───────────┴───────────┴───────────┴───────────┴───────────┘
+                                      ┌───────────┬───────────┬───────────┬───────────┐      ┌───────────┬───────────┬───────────┬───────────┐
+                                      │  (trans)  │  &gt;&gt;HELD&lt;&lt; │  (trans)  │  (trans)  │      │  (trans)  │  (trans)  │  &gt;&gt;HELD&lt;&lt; │    BKSP   │
+                                      └───────────┴───────────┴───────────┴───────────┘      └───────────┴───────────┴───────────┴───────────┘
+
+  ╔════════════════════════════════════════╗
+  ║  LAYER 4: NAV (Omarchy / Hyprland WM)  ║
+  ╚════════════════════════════════════════╝
+
+                 ┌───────────┬───────────┬───────────┬───────────┬───────────┐                        ┌───────────┬───────────┬───────────┬───────────┬───────────┐
+                 │    ---    │  G+C+Lft  │    G+Up   │  G+C+Rgt  │    ---    │                        │    ---    │    G+7    │    G+8    │    G+9    │    ---    │
+     ┌───────────┬───────────┼───────────┼───────────┼───────────┼───────────┤                        ├───────────┼───────────┼───────────┼───────────┼───────────┬───────────┐
+     │   G+Tab   │    ---    │   G+Left  │   G+Down  │  G+Right  │  G+G grp  │                        │    ---    │    G+4    │    G+5    │    G+6    │    ---    │    ---    │
+     ├───────────┼───────────┼───────────┼───────────┼───────────┼───────────┤╭──────────╮╭──────────╮├───────────┼───────────┼───────────┼───────────┼───────────┼───────────┤
+     │    ---    │    ---    │    ---    │    ---    │    ---    │    ---    ││   MUTE   ││ PLY/PSE  ││    ---    │    G+1    │    G+2    │    G+3    │    ---    │  &gt;&gt;HELD&lt;&lt; │
+     └───────────┴───────────┴───────────┴───────────┴───────────┴───────────┘╰──────────╯╰──────────╯└───────────┴───────────┴───────────┴───────────┴───────────┴───────────┘
+                                      ┌───────────┬───────────┬───────────┬───────────┐      ┌───────────┬───────────┬───────────┬───────────┐
+                                      │    CTRL   │    ---    │    ---    │   SHIFT   │      │    ALT    │    ---    │    ---    │    G+0    │
+                                      └───────────┴───────────┴───────────┴───────────┘      └───────────┴───────────┴───────────┴───────────┘
+
+  ╔═══════════════════════════════════════════════════════════════════════════════════════════════════════╗
+  ║  COMMAND MODE  (Double-tap RALT within 350ms → 3s timeout → next letter dispatches action via HID)    ║
+  ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+    Active Actions:                                           Unconfigured (available for new actions):
+    ┌─────┬───────────────┬──────────────────────────────┐    A  B  C  F  H  J  K  L  M  O  Q  U  V  W  X  Y  Z
+    │ Key │ Type          │ Action                       │
+    ├─────┼───────────────┼──────────────────────────────┤    STT Depth (T key tap count):
+    │  D  │ llm_text      │ Translate Danish → English   │      1 tap = Raw transcription
+    │  E  │ llm_text      │ Prompt Expand                │      2 taps = + Domain corrections
+    │  G  │ llm_text      │ Fix Grammar                  │      3 taps = + LLM post-processing
+    │  I  │ llm_text      │ Improve Writing              │
+    │  N  │ llm_text      │ Translate English → Danish   │    While STT recording:
+    │  P  │ prompt_picker │ Open Snippet Picker          │      Single RALT press = stop recording
+    │  R  │ llm_text      │ Write Email (Nordic style)   │      ESC = cancel + stop STT
+    │  S  │ llm_text      │ Summarize                    │
+    │  T  │ stt_toggle    │ Speech-to-Text (depth 1-3)   │
+    └─────┴───────────────┴──────────────────────────────┘
+
+  ╔════════════════════════════════════════════════════════════════════════════════════════════════╗
+  ║  ENCODERS + OVERRIDES + SYSTEM                                                                 ║
+  ╚════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+    Encoders:                                                Key Overrides:
+    ┌──────────┬─────────────────────┬─────────────────────┐  Shift + Backspace → Delete
+    │  Layer   │ Left (CCW / CW)     │ Right (CCW / CW)    │
+    ├──────────┼─────────────────────┼─────────────────────┤  Bootloader Combo:
+    │ QWERTY   │ Vol Down / Vol Up   │ Bright- / Bright+   │  All 4 thumb keys on one half × 5 presses
+    │ LOWER    │ Vol Down / Vol Up   │ Bright- / Bright+   │  within 3 seconds → UF2 bootloader
+    │ RAISE    │ Vol Down / Vol Up   │ Bright- / Bright+   │  (works per-half independently)
+    │ ADJUST   │ Vol Down / Vol Up   │ Bright- / Bright+   │
+    │ NAV      │ Prev WS / Next WS   │ Prev WS / Next WS   │  Autocorrect: ~4,200 entries (65 KB trie)
+    └──────────┴─────────────────────┴─────────────────────┘  Toggle: AC_TOGG on ADJUST layer
+
+  ╔══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+  ║  NAV LAYER COMPOSE TABLE  (hold NAV + thumb modifier combos for different Hyprland actions)                                  ║
+  ╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+    Arrows (←↓↑→):                                         Workspace keys (1-9, 0):
+      Plain        = Focus window                            Plain        = Go to workspace
+      +Shift       = Swap window                             +Shift       = Move window to workspace
+      +Ctrl        = Resize (GUI+- / GUI+=)                  +Alt         = Activate group window 1-5
+      +Alt         = Move into group                         +Shift+Alt   = Move window silently
+      +Shift+Alt   = Move workspace to monitor
+
+    WS-Tab (GUI+Tab):                                      Group (G key):
+      Plain        = Next workspace                          Plain        = Toggle group
+      +Shift       = Previous workspace                      +Alt         = Move out of group
+      +Ctrl        = Former workspace
+      +Alt         = Next in group                         GUI+Ctrl+Left/Right = Focus prev/next group
+      +Shift+Alt   = Previous in group
+
+  ╔══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+  ║  PROMPT SNIPPET CATALOG  (22 snippets — access via Command Mode → P key → searchable picker)                                 ║
+  ╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+     1. [Prompting   ] Expand this properly                       11. [Analysis    ] Summarize the key points
+     2. [Prompting   ] Improve this prompt                        12. [Analysis    ] Extract action items
+     3. [Email       ] Write this email                           13. [Analysis    ] Turn this into meeting notes
+     4. [Email       ] Reply to this email                        14. [Analysis    ] Write a decision memo
+     5. [Email       ] Follow up on this                          15. [Code        ] Review this code
+     6. [Explanation ] Explain this like I&#x27;m 10                   16. [Code        ] Explain this code
+     7. [Writing     ] Make this concise                          17. [Code        ] Turn this into a bug report
+     8. [Writing     ] Improve the writing                        18. [Code        ] Refactor this code
+     9. [Writing     ] Make this more formal                      19. [Code        ] Write tests for this
+    10. [Writing     ] Make this more natural                     20. [Translation ] Translate Danish to English
+                                                                  21. [Translation ] Translate English to Danish
+                                                                  22. [Creative    ] Brainstorm strong options
+
+  ╔═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗
+  ║  BRIDGE LLM PROMPT HEADLINES  (full bodies in bridge/prompts.yml — headlines only for reference)                          ║
+  ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+    improve_writing ─── Expert copyeditor: improve clarity, flow, structure, and wording
+    write_email ─────── Executive assistant: transform notes into polished Danish/Nordic professional email
+    prompt_expand ───── Expert prompt engineer: strengthen and expand user instruction into rigorous LLM prompt
+    fix_grammar ─────── Precision proofreader: minimal corrections to spelling, grammar, and punctuation
+    summarize ───────── Executive analyst: concise, decision-useful summary
+    translate_da_en ─── Professional translator: Danish to high-quality English
+    translate_en_da ─── Professional translator: English to high-quality Danish
+    stt_postprocess ─── Transcript editor: clean up raw speech-to-text output
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  KLOR Polydactyl  │  42 keys + 2 encoders  │  RP2040 wired split  │  Vial-compatible  │  Designed for 42&quot; 4K display (380×110 terminal grid)
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</pre>
+  </div>
+</body>
+</html>
