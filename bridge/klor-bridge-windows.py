@@ -244,6 +244,7 @@ class LLMClient:
         llm_cfg = config.get("llm", {})
         self.base_url = llm_cfg.get("base_url", "https://openrouter.ai/api/v1")
         self.default_model = llm_cfg.get("default_model", "nvidia/nemotron-3-super-120b-a12b")
+        self.provider_order = [str(p) for p in llm_cfg.get("provider_order", []) if str(p).strip()]
         self.max_tokens = llm_cfg.get("max_tokens", 4096)
         self.temperature = llm_cfg.get("temperature", 0.3)
         self._client = None
@@ -271,14 +272,19 @@ class LLMClient:
         model = kwargs.get("model", self.default_model)
         max_tokens = kwargs.get("max_tokens", self.max_tokens)
         temperature = kwargs.get("temperature", self.temperature)
+        request_kwargs = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+
+        provider_order = kwargs.get("provider_order", self.provider_order)
+        if provider_order:
+            request_kwargs["extra_body"] = {"provider": {"order": provider_order, "allow_fallbacks": True}}
 
         log.info("LLM request: model=%s, text_len=%d", model, len(text))
-        response = await self._client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
+        response = await self._client.chat.completions.create(**request_kwargs)
         result = response.choices[0].message.content or ""
         log.info("LLM response: result_len=%d", len(result))
         return result.strip()
