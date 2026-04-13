@@ -11,12 +11,13 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
+gi.require_version("Graphene", "1.0")
 
-from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+from gi.repository import Gdk, GLib, Graphene, Gtk  # noqa: E402
 
 
-WINDOW_WIDTH = 520
-WINDOW_HEIGHT = 260
+WINDOW_WIDTH = 560
+WINDOW_HEIGHT = 420
 WINDOW_OFFSET_Y = 0
 WINDOW_MARGIN = 16
 
@@ -69,6 +70,7 @@ class PromptPickerApp(Gtk.Application):
         self.window: Gtk.ApplicationWindow | None = None
         self.listbox: Gtk.ListBox | None = None
         self.entry: Gtk.Entry | None = None
+        self.scroller: Gtk.ScrolledWindow | None = None
         self._result_written = False
         self.test_query = os.environ.get("KLOR_PICKER_TEST_QUERY", "").strip().lower()
         self.test_accept_delay_ms = int(os.environ.get("KLOR_PICKER_TEST_ACCEPT_MS", "0") or "0")
@@ -85,11 +87,11 @@ class PromptPickerApp(Gtk.Application):
         window.connect("close-request", self._on_close_request)
         window.set_visible(False)
 
-        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        root.set_margin_top(12)
-        root.set_margin_bottom(12)
-        root.set_margin_start(12)
-        root.set_margin_end(12)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        root.set_margin_top(8)
+        root.set_margin_bottom(8)
+        root.set_margin_start(8)
+        root.set_margin_end(8)
         root.add_css_class("prompt-picker-root")
 
         entry = Gtk.Entry()
@@ -103,13 +105,19 @@ class PromptPickerApp(Gtk.Application):
         root.append(entry)
 
         scroller = Gtk.ScrolledWindow()
+        self.scroller = scroller
         scroller.set_hexpand(True)
         scroller.set_vexpand(True)
-        scroller.set_min_content_height(5 * 36)
+        scroller.set_min_content_height(11 * 28)
+        scroller.set_propagate_natural_height(True)
+        scroller.set_has_frame(False)
+        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
 
         listbox = Gtk.ListBox()
         self.listbox = listbox
         listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        listbox.set_activate_on_single_click(True)
+        listbox.set_adjustment(scroller.get_vadjustment())
         listbox.connect("row-activated", self._on_row_activated)
         scroller.set_child(listbox)
         root.append(scroller)
@@ -136,9 +144,9 @@ class PromptPickerApp(Gtk.Application):
           box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
         }
         entry {
-          min-height: 34px;
-          font-size: 15px;
-          padding: 8px 10px;
+          min-height: 28px;
+          font-size: 13px;
+          padding: 5px 8px;
           border-radius: 8px;
           border: none;
           background: rgba(255, 255, 255, 0.06);
@@ -151,10 +159,10 @@ class PromptPickerApp(Gtk.Application):
           background: transparent;
         }
         list row {
-          min-height: 36px;
-          padding: 8px 10px;
-          border-radius: 8px;
-          font-size: 14px;
+          min-height: 28px;
+          padding: 4px 8px;
+          border-radius: 6px;
+          font-size: 12px;
           color: #f3f4f6;
         }
         list row:selected {
@@ -180,6 +188,7 @@ class PromptPickerApp(Gtk.Application):
             row = self.listbox.get_selected_row()
             if row is not None:
                 self.listbox.select_row(row)
+                GLib.idle_add(self._scroll_row_into_view, row)
         return False
 
     def _apply_test_query(self) -> bool:
@@ -227,6 +236,34 @@ class PromptPickerApp(Gtk.Application):
         row = self.listbox.get_row_at_index(self.selected_index)
         if row is not None:
             self.listbox.select_row(row)
+            GLib.idle_add(self._scroll_row_into_view, row)
+
+    def _scroll_row_into_view(self, row: Gtk.ListBoxRow) -> bool:
+        if self.scroller is None:
+            return False
+        vadj = self.scroller.get_vadjustment()
+        if vadj is None:
+            return False
+
+        if self.listbox is None:
+            return False
+
+        bounds = Graphene.Rect()
+        if not row.compute_bounds(self.listbox, bounds):
+            return False
+
+        row_top = float(bounds.get_y())
+        row_bottom = row_top + float(bounds.get_height())
+        visible_top = float(vadj.get_value())
+        visible_bottom = visible_top + float(vadj.get_page_size())
+
+        if row_top < visible_top:
+            vadj.set_value(max(vadj.get_lower(), row_top))
+        elif row_bottom > visible_bottom:
+            target = row_bottom - float(vadj.get_page_size())
+            upper_limit = max(vadj.get_lower(), float(vadj.get_upper()) - float(vadj.get_page_size()))
+            vadj.set_value(min(upper_limit, target))
+        return False
 
     def _on_search_changed(self, entry: Gtk.Entry) -> None:
         query = entry.get_text().strip().lower()
@@ -297,6 +334,7 @@ class PromptPickerApp(Gtk.Application):
             row = self.listbox.get_row_at_index(self.selected_index)
             if row is not None:
                 self.listbox.select_row(row)
+                GLib.idle_add(self._scroll_row_into_view, row)
 
 
 def main() -> int:

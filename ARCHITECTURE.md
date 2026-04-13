@@ -354,7 +354,7 @@ Sends the corrected transcript through the `stt_postprocess` prompt template via
 Activated by double-tap RALT → P. Flow:
 
 ```
-1. Load snippets from ~/.config/klor-bridge/snippets.yml
+1. Reload snippets from ~/.config/klor-bridge/snippets.yml if the file changed since the last picker open
 2. Format title-only picker rows with collision-safe labels
 3. Launch the GTK picker helper on Linux once, centered on the monitor under the cursor
 4. User selects a snippet from the searchable popup
@@ -364,7 +364,7 @@ Activated by double-tap RALT → P. Flow:
 
 Snippets are YAML entries with `name`, `category`, and `text` fields.
 
-The current Linux prompt picker behavior is verified working and locked. Do not change its GTK helper path, single-launch centered placement on the cursor's monitor, compact UI, or clipboard result flow unless the user explicitly requests it.
+The current Linux prompt picker behavior is verified working and locked. Do not change its GTK helper path, single-launch centered placement on the cursor's monitor, visible-selection scrolling, denser taller layout, or clipboard result flow unless the user explicitly requests it.
 
 ### Brightness Control (encoder)
 
@@ -396,8 +396,8 @@ All config is in `~/.config/klor-bridge/`:
 |------|---------|
 | `config.yml` | Bridge settings: USB IDs, LLM params, STT params, platform tools, brightness |
 | `actions.yml` | Action registry: maps action IDs (0x41-0x5A, 0x10-0x12) to behaviors |
-| `prompts.yml` | LLM prompt templates referenced by `prompt_key` in actions |
-| `snippets.yml` | Prompt snippet library for the Prompt Picker (P key) |
+| `prompts.yml` | LLM prompt templates referenced by `prompt_key` in actions; reloaded live on next use |
+| `snippets.yml` | Prompt snippet library for the Prompt Picker (P key); reloaded live on next picker open |
 | `lexicon.yml` | Domain vocabulary for STT Layer 2 fuzzy matching + ElevenLabs keyterms |
 | `corrections.yml` | Regex substitution rules for STT Layer 2 |
 
@@ -501,7 +501,23 @@ No firmware change required:
 
 1. In `actions.yml`: change an unconfigured placeholder's `type` to `llm_text`, set `prompt_key`
 2. In `prompts.yml`: add the corresponding template with `${text}` placeholder
-3. Restart: `systemctl --user restart klor-bridge`
+3. Restart: `systemctl --user restart klor-bridge` only if you changed `actions.yml`; prompt text edits in `prompts.yml` are picked up on the next use
+
+## Repository Hygiene
+
+### 2026-04-13 Cleanup
+
+- Synced the repository documentation with the current runtime model: the supported Linux runtime is the user systemd service reading `~/.config/klor-bridge/`
+- Documented live reload for `prompts.yml` and `snippets.yml`
+- Documented the current prompt-picker UI contract after the scrolling and density fix
+- Removed the stale `deepinfra` provider preference from the repo config template
+- Reduced the default snippet library to the nine prompt-engineering snippets currently in use
+
+### Maintenance Rule
+
+- Keep behavior, config templates, setup scripts, and docs aligned in the same change set
+- Prefer the smallest correct repo change that restores congruence
+- If the live deployed bridge behavior changes, the tracked repo source and docs must be updated in the same pass
 
 ### Adding a New Action Type
 

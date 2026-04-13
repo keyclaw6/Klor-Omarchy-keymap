@@ -8,10 +8,11 @@
 #   2. Change type from "unconfigured" to "llm_text" or another type
 #   3. Set prompt_key to match a template name in prompts.yml
 #   4. Add/edit the matching prompt template in prompts.yml
-#   5. No firmware reflash needed — just restart the bridge daemon
+#   5. No firmware reflash needed — prompt text changes are live on next use
+#      but actions.yml changes still require a bridge restart
 #
 # Action types:
-#   llm_text      — Copy selected text → LLM transform → paste result
+#   llm_text      — Copy selected text → LLM transform → copy result to clipboard
 #   stt_toggle    — Start/stop speech-to-text recording
 #   prompt_picker — Open searchable popup to insert a text snippet from snippets.yml
 #   unconfigured  — Placeholder; bridge logs a notice and does nothing

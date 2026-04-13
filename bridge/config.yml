@@ -36,7 +36,6 @@ llm:
   provider_order:          # Preferred OpenRouter providers, in order
     - cerebras
     - groq
-    - deepinfra
     - together
   max_tokens: 4096         # Maximum response length
   temperature: 0.3         # Lower = more deterministic, higher = more creative (0.0-2.0)

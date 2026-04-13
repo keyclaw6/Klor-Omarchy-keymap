@@ -118,12 +118,16 @@ deploy_configs() {
         fi
     done
 
-    # Always overwrite the bridge script (it's code, not config)
-    if [[ -f "$SCRIPT_DIR/bridge/klor-bridge.py" ]]; then
-        cp "$SCRIPT_DIR/bridge/klor-bridge.py" "$CONFIG_DIR/klor-bridge.py"
-        chmod +x "$CONFIG_DIR/klor-bridge.py"
-        info "  Installed klor-bridge.py"
-    fi
+    # Always overwrite bridge code/helpers (these are code, not user config)
+    for f in klor-bridge.py prompt_picker_helper.py prompt_picker_window.py; do
+        src="$SCRIPT_DIR/bridge/$f"
+        dst="$CONFIG_DIR/$f"
+        if [[ -f "$src" ]]; then
+            cp "$src" "$dst"
+            chmod +x "$dst"
+            info "  Installed $f"
+        fi
+    done
 
     info "Config files deployed."
 }

@@ -107,6 +107,13 @@ def load_snippets() -> list[dict]:
     return valid
 
 
+def file_mtime_ns(path: Path) -> int | None:
+    try:
+        return path.stat().st_mtime_ns
+    except FileNotFoundError:
+        return None
+
+
 # ─── Secrets ──────────────────────────────────────────────────────────────────
 
 
@@ -654,6 +661,10 @@ class KlorBridge:
         self.actions = load_actions()
         self.prompts = load_prompts()
         self.snippets = load_snippets()
+        self._prompts_path = CONFIG_DIR / "prompts.yml"
+        self._snippets_path = CONFIG_DIR / "snippets.yml"
+        self._prompts_mtime_ns = file_mtime_ns(self._prompts_path)
+        self._snippets_mtime_ns = file_mtime_ns(self._snippets_path)
 
         self.hid = HIDConnection(self.config)
         self.platform = Platform(self.config)
@@ -758,6 +769,39 @@ class KlorBridge:
         else:
             log.debug("Unknown packet: cmd=%02x", cmd_id)
 
+    def _reload_prompts_if_changed(self) -> None:
+        mtime_ns = file_mtime_ns(self._prompts_path)
+        if mtime_ns == self._prompts_mtime_ns:
+            return
+
+        try:
+            prompts = load_prompts()
+        except Exception as e:
+            self._prompts_mtime_ns = mtime_ns
+            log.error("Failed to reload %s: %s", self._prompts_path.name, e)
+            return
+
+        self.prompts.clear()
+        self.prompts.update(prompts)
+        self._prompts_mtime_ns = mtime_ns
+        log.info("Reloaded %s (%d templates)", self._prompts_path.name, len(self.prompts))
+
+    def _reload_snippets_if_changed(self) -> None:
+        mtime_ns = file_mtime_ns(self._snippets_path)
+        if mtime_ns == self._snippets_mtime_ns:
+            return
+
+        try:
+            snippets = load_snippets()
+        except Exception as e:
+            self._snippets_mtime_ns = mtime_ns
+            log.error("Failed to reload %s: %s", self._snippets_path.name, e)
+            return
+
+        self.snippets[:] = snippets
+        self._snippets_mtime_ns = mtime_ns
+        log.info("Reloaded %s (%d snippets)", self._snippets_path.name, len(self.snippets))
+
     async def _dispatch_action(self, action_id: int, param: int) -> None:
         """Execute an action based on its ID."""
         # ── Brightness (direct action IDs, not in actions.yml) ──
@@ -841,6 +885,7 @@ class KlorBridge:
             )
             return
 
+        self._reload_prompts_if_changed()
         prompt_key = action.get("prompt_key", "")
         template = self.prompts.get(prompt_key)
         if not template:
@@ -909,6 +954,8 @@ class KlorBridge:
 
         if self.stt.is_recording:
             log.info("STT stop → processing with depth=%d", self._stt_depth)
+            if self._stt_depth >= 3:
+                self._reload_prompts_if_changed()
             await self.platform.notify(
                 "Processing transcription...",
                 f"Depth {self._stt_depth}/3 — please wait",
@@ -988,8 +1035,7 @@ class KlorBridge:
         Loads snippets from snippets.yml, presents them in a selection UI,
         and copies the selected snippet's text to the clipboard.
         """
-        if not self.snippets:
-            self.snippets = load_snippets()
+        self._reload_snippets_if_changed()
 
         if not self.snippets:
             await self.platform.notify(

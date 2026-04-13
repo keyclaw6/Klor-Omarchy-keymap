@@ -250,6 +250,6 @@ sudo usermod -aG i2c $USER
 
 ## Prompt Picker
 
-The Prompt Picker (double-tap RALT → P) uses a compact custom GTK window to present a searchable list of text snippets in the center of the monitor under the cursor.
+The Prompt Picker (double-tap RALT → P) uses a custom GTK window to present a searchable list of text snippets in the center of the monitor under the cursor.
 
-This picker behavior is verified working and locked. Do not change its single-launch centered placement model, compact keyboard-first UI, or clipboard result flow unless the user explicitly asks.
+This picker behavior is verified working and locked. Do not change its single-launch centered placement model, visible-selection scrolling, taller denser keyboard-first UI, or clipboard result flow unless the user explicitly asks.

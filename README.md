@@ -72,15 +72,15 @@ Notification behavior is hardened for Omarchy/mako:
 
 Enter command mode (double-tap RALT), then press **P** to open a searchable popup with reusable text snippets. Select one and its text is copied to your clipboard for pasting.
 
-Snippets are organized by category (Writing, Email, Code, Translation, Analysis, Creative, Prompting) and stored in `~/.config/klor-bridge/snippets.yml`. Ships with 28 default snippets — add your own and restart the bridge.
+Snippets are stored in the live file at `~/.config/klor-bridge/snippets.yml`. The bridge reloads that file the next time you open the picker, so snippet edits are live after save.
 
-**Linux:** Uses the custom GTK prompt picker window. It is compact, keyboard-first, and opens once, centered on the monitor under the cursor.
+**Linux:** Uses the custom GTK prompt picker window. It is keyboard-first, opens once, centered on the monitor under the cursor, and uses a taller denser layout so more prompts remain visible at once.
 **Windows:** Uses PowerShell `Out-GridView`.
 
 Prompt picker lock:
 
 - The current Linux prompt picker behavior is verified working and locked
-- Keep the compact GTK UI, keyboard-first filtering, single-launch centered placement on the cursor's monitor, and clipboard result flow unchanged unless the user explicitly asks for a change
+- Keep the keyboard-first filtering, single-launch centered placement on the cursor's monitor, visible-selection scrolling, denser taller layout, and clipboard result flow unchanged unless the user explicitly asks for a change
 
 ## Brightness Control
 
@@ -250,7 +250,29 @@ No firmware reflash needed:
 2. Find an unconfigured placeholder (e.g., `placeholder_b` for the B key)
 3. Change `type: unconfigured` to `type: llm_text` and set `prompt_key`
 4. Add the prompt template in `~/.config/klor-bridge/prompts.yml`
-5. Restart: `systemctl --user restart klor-bridge`
+5. Restart: `systemctl --user restart klor-bridge` (needed for `actions.yml` changes)
+
+Prompt/snippet edit behavior:
+
+- `prompts.yml` text changes are picked up on the next LLM use, and on the next depth-3 STT post-process
+- `snippets.yml` changes are picked up the next time the prompt picker opens
+- `actions.yml`, `config.yml`, bridge code, and setup changes still require a restart or redeploy
+
+## Change Log
+
+### 2026-04-13
+
+- Added prompt/snippet hot reload in the bridge runtime: prompt text changes are now live on next use and snippet library changes are live on next picker open
+- Reduced the default prompt snippet library to the current nine prompt-engineering snippets only
+- Updated the Linux GTK prompt picker UI: taller window, denser row layout, smaller text and margins, and explicit keep-selection-visible scrolling during keyboard navigation
+- Removed the stale `deepinfra` provider preference from the repo config template; the documented provider chain is now `cerebras`, `groq`, then `together`
+- Tightened setup/deploy guidance so the documented Linux runtime matches the systemd-managed `~/.config/klor-bridge/` deployment model
+
+Minimal-change maintenance rule:
+
+- Keep future changes minimal and congruent across code, config templates, setup scripts, and docs
+- When behavior changes, update both the repo source and the deployed/runtime guidance in the same pass
+- Do not let the live bridge gain features that the tracked repo source and setup scripts do not also describe
 
 ### Changing the LLM Model
 
