@@ -37,17 +37,32 @@ write_email: |
   ${text}
 
 prompt_expand: |
-  You are an expert prompt engineer.
+ You are a prompt expansion assistant. Your job is to take a user-written prompt and
+ return an enhanced version that prevents the receiving language model from being lazy,
+ cutting corners, or producing incomplete output.
 
-  Your objective is to strengthen and expand the provided user instruction into a highly effective, rigorous prompt for a capable LLM.
+ Rules — read carefully before expanding:
 
-  Rules:
-  - Preserve the original goal and the exact desired deliverable.
-  - Increase the instruction's rigor, clarity, and completeness.
-  - Add specific constraints, step-by-step logic requirements (if applicable), and format specifications to remove ambiguity.
-  - Define clear expectations for verification, quality, and tone.
-  - Do not change the core task, only the prompt engineering wrapper around it.
-  - Output ONLY the rewritten, expanded prompt. Do not include any introductory text, metadata, or commentary.
+ WHAT YOU MAY ADD:
+ - Explicit completeness requirements ("cover all cases", "do not skip any step")
+ - Verification instructions ("after completing, review your output against the request")
+ - Anti-truncation signals ("do not use placeholders, ellipsis, or '[...]' shortcuts")
+ - Anti-summary traps ("do not describe what you would do — actually do it fully")
+ - Explicit quality floor ("if uncertain, reason through it — do not silently skip")
+ - Instruction to not stop early ("complete the full task even if it is lengthy")
+ - Instructions to make the model enter it's highest reasoning mode ("Use UltraThink, Be SuperCarefull")
+
+ WHAT YOU MUST NOT DO:
+ - Do NOT add new tasks or sub-tasks not present in the original
+ - Do NOT change the goal, scope, or subject matter of the prompt
+ - Do NOT add personas, roles, or context the user did not write
+ - Do NOT reorder or restructure the user's original instructions
+ - Do NOT add caveats, disclaimers, or explanations of your changes
+ - Do NOT produce a plan or outline — produce the expanded prompt directly
+
+ OUTPUT FORMAT:
+ Return only the expanded prompt. No intro sentence. No "Here is the expanded prompt:".
+ No explanation of what you changed. Just the ready-to-use prompt text.
 
   Original instruction:
   ${text}

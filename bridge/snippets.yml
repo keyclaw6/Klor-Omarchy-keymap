@@ -311,3 +311,154 @@ snippets:
       - Avoid generic fluff. Make the ideas specific, actionable, and grounded in reality, even the unconventional ones.
 
       Format the output clearly with bolding and bullet points so it is easy to review and compare the options.
+  - name: COMPLETE + VERIFY
+    category: Prompting
+    description: Full execution with mandatory self-review
+    text: |
+      You must complete this task in its entirety without stopping early, summarizing,
+      or abbreviating. Do not use placeholders such as "...", "[rest here]", "[continues]",
+      "[same pattern]", or "etc." — every part must be fully written out.
+
+      When you believe you have finished, do not output the result yet. First, conduct a
+      thorough internal review:
+      - Re-read the original instructions line by line
+      - Confirm every requirement has been fully addressed
+      - Check that nothing has been skipped, compressed, or left implicit
+      - Verify the output matches the exact scope requested — nothing added, nothing omitted
+
+      Only after this review passes should you output the final result.
+
+      Ultrathink. 
+  - name: TODOLIST + REORIENT (revised)
+    category: Prompting
+    text: |
+      Before you begin any work, produce a detailed numbered to-do list under a clearly
+      visible heading: ## TASK PLAN
+
+      Break the task down into every discrete step required for completion. Be specific —
+      do not write vague steps like "implement the feature". Write steps you can actually
+      check off, like "1. Create the database schema", "2. Write the migration", etc.
+
+      The final item on your to-do list must always be:
+      "[Last number]. Delete the external TASK PLAN file."
+
+      Store this to-do list externally from your own context so it persists independently.
+      After completing each step:
+      - Mark it as done: ~~1. Create the database schema~~ ✅
+      - Explicitly state which step you are moving to next
+
+      If at any point you sense you have lost track of the original goal, your progress,
+      or the overall structure of the task — stop immediately. Do not continue blindly.
+      Instead: (1) re-read the full original instructions from the beginning, (2) locate
+      your external TASK PLAN and review which steps are complete, (3) state out loud where
+      you are and what comes next, then resume. This reorientation is mandatory after any
+      context compression or long output sequence.
+
+      Ultrathink. 
+  - name: THINK FIRST + RESEARCH SELF
+    category: Prompting
+    description: Eliminate premature escalation and unnecessary questions
+    text: |
+      You are expected to handle uncertainty and ambiguity independently before involving me.
+
+      If any part of the task is unclear, do not ask me for clarification yet. Instead,
+      reason through every plausible interpretation, identify the most logical one, state
+      your assumption in a single sentence, and proceed on that basis.
+
+      If you encounter something you do not know or are uncertain about, use every tool
+      available to you to research and resolve it before continuing. Search, read, reason,
+      and synthesize — do not surface a concern to me that you have not first genuinely
+      attempted to resolve yourself.
+
+      You may only escalate to me if: (1) you have exhausted all available tools and
+      reasoning paths, (2) the ambiguity is so fundamental that proceeding on any
+      assumption would risk producing a completely wrong result, and (3) you can clearly
+      articulate exactly what you tried and why it was insufficient.
+
+      Ultrathink. 
+  - name: SCOPE LOCK
+    category: Prompting
+    text: |
+      Adhere strictly to the scope of what was requested. Do not add features, improvements,
+      considerations, warnings, alternatives, or tangential information that was not
+      explicitly asked for. If you believe something additional would genuinely be valuable,
+      you may add a clearly separated section at the very end titled ## OPTIONAL ADDITIONS —
+      but only after the core task is entirely complete, and only if the additions are
+      concrete and specific, not generic suggestions.
+
+      Ultrathink. 
+  - name: TEST + DONE SIGNAL
+    category: Prompting
+    description: Verification through active testing, not passive listing
+    text: |
+      After completing the task, you must write tests that verify your output is correct.
+      These are not illustrative examples — they are actual verification tests that you
+      must execute and evaluate yourself. Run each test, observe the result, and confirm
+      it passes. If any test fails, identify the root cause, fix the underlying issue in
+      your output, and re-run the test before proceeding.
+
+      Do not ask me to run the tests. Do not say "you can verify this by...". The testing
+      and verification is entirely your responsibility.
+
+      When every requirement has been met and all tests pass, output the following as the
+      absolute final line of your response, with nothing after it:
+
+      ✅ TASK COMPLETE
+
+      Ultrathink.
+  - name: DEPTH OVER SPEED
+    category: Prompting
+    description: For tasks where shallow answers are the failure mode
+    text: |
+      Do not produce a surface-level answer. If this task has layers — edge cases, failure
+      modes, nuances, tradeoffs, or implicit complexity — explore them fully. A response
+      that is technically correct but ignores important depth is an incomplete response.
+
+      Take the time to reason carefully through the hard parts. If something is genuinely
+      complex, show your reasoning rather than jumping to a conclusion. A longer, more
+      thorough response is always preferred over a short, shallow one for this task.
+
+      Ultrathink.
+  - name: CHAIN OF DRAFT
+    category: Prompting
+    description: For tasks requiring reasoning before output — forces a scratchpad
+    text: |
+      Before producing your final output, work through the problem in a clearly marked
+      scratchpad section under the heading ## REASONING. Use this space to think out loud,
+      explore approaches, identify potential issues, and reason through your solution fully.
+
+      Only after your reasoning is complete should you produce the final output under
+      a separate heading: ## RESULT
+
+      The reasoning section can be as long and exploratory as needed. The result section
+      should be clean, final, and ready to use — no hedging, no "as I mentioned above".
+
+      Ultrathink.
+  - name: ADVERSARIAL REVIEW
+    category: Prompting
+    description: Self-critique before finalizing — catches weak spots
+    text: |
+      After completing your initial output, adopt the perspective of a critical expert
+      reviewing your work for the first time. Actively look for:
+      - Logical errors or gaps in reasoning
+      - Missing edge cases or failure modes
+      - Statements that are vague where they should be specific
+      - Anything that could be misunderstood or misimplemented
+
+      Write your critique under ## SELF-REVIEW, then revise the output to address every
+      issue you identified. The final deliverable should be the post-critique version.
+
+      Ultrathink.
+  - name: NO SILENT ASSUMPTIONS
+    category: Prompting
+    description: For complex tasks where hidden assumptions cause silent failures
+    text: |
+      Every assumption you make must be stated explicitly before you act on it.
+      Do not silently assume things about the environment, the codebase, the user's intent,
+      or missing context. Each assumption should be listed under ## ASSUMPTIONS at the
+      start of your response.
+
+      If an assumption turns out to be incorrect, the entire downstream work built on it
+      may be wrong — so surface them all upfront rather than burying them in footnotes.
+
+      Ultrathink.
