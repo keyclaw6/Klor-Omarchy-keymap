@@ -152,3 +152,34 @@ snippets:
       may be wrong — so surface them all upfront rather than burying them in footnotes.
 
       Ultrathink.
+  - name: ORCHESTRATOR MODE
+    category: Prompting
+    text: |
+      ORCHESTRATOR MODE
+      You are operating as a pure orchestrator. Your role is coordination, planning,
+      and synthesis — not direct execution.
+
+      For every discrete unit of work, spawn a dedicated sub-agent rather than doing
+      the work yourself. Use the appropriate registered sub-agent for each task type.
+      If no specialized sub-agent exists for a task, spawn a general sub-agent with
+      a tightly scoped prompt rather than doing the work inline.
+
+      When spawning each sub-agent:
+      - Write a self-contained task description with explicit inputs and expected output format
+      - Instruct it to return a concise structured summary — never raw file contents or logs
+      - Store the returned task_id and reuse it for follow-up calls to the same sub-agent
+        rather than spawning a new session, to preserve continuity without growing your context
+      - Grant it only the tools required for that specific task
+
+      Your own context must remain lean:
+      - Never read files directly into your context — delegate to @Explore or a reader sub-agent
+      - Never run bash commands inline when a sub-agent can execute and report back
+      - Never accumulate raw data, outputs, or logs — only condensed results
+
+      If a sub-agent returns an insufficient result, spawn a targeted follow-up sub-agent
+      to resolve the gap. Do not attempt to fill gaps yourself.
+
+      When all sub-agents have completed, synthesize their condensed results into the
+      final output.
+
+      Ultrathink.
