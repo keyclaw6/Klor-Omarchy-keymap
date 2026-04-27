@@ -88,9 +88,9 @@ The **right rotary encoder** controls monitor brightness:
 - **Clockwise** — brightness up
 - **Counter-clockwise** — brightness down
 
-The firmware sends standard media keycodes (`KC_BRIU` / `KC_BRID`) directly — the OS handles brightness natively without bridge involvement.
+The firmware sends standard media keycodes (`KC_BRIU` / `KC_BRID`) directly. On Omarchy external-monitor setups, `setup.sh` installs a Hyprland override that routes those media keys through `~/.config/hypr/brightness-display-ddc.sh`, using DDC/CI instead of Omarchy's default laptop-backlight helper.
 
-The bridge daemon includes a `brightnessctl`/`ddcutil` brightness chain (action IDs `0x11`/`0x12`) for future use, but the current firmware uses media keys instead.
+The bridge daemon also handles Raw HID brightness action IDs (`0x11`/`0x12`) by calling the same DDC helper when present, then falls back to Omarchy media-key shortcuts.
 
 The left encoder remains volume control.
 

@@ -368,9 +368,11 @@ The current Linux prompt picker behavior is verified working and locked. Do not 
 
 ### Brightness Control (encoder)
 
-The right rotary encoder uses custom keycodes `BRIGHT_UP` / `BRIGHT_DOWN` (defined as `QK_KB_0` / `QK_KB_1`), handled in `process_record_user`. Each tick taps `KC_BRIU` / `KC_BRID` — standard media brightness keycodes. The OS processes these directly; the bridge is not involved.
+The right rotary encoder uses custom keycodes `BRIGHT_UP` / `BRIGHT_DOWN` (defined as `QK_KB_0` / `QK_KB_1`), handled in `process_record_user`. Each tick taps `KC_BRIU` / `KC_BRID` — standard media brightness keycodes.
 
-The bridge daemon does have a brightness handler for action IDs `0x11` (`ACTION_BRIGHTNESS_UP`) / `0x12` (`ACTION_BRIGHTNESS_DOWN`), including a `brightnessctl`/`ddcutil` chain on Linux and WMI on Windows. This path is available for future use but is not triggered by the current firmware.
+On Omarchy external-monitor setups, `setup.sh` installs `~/.config/hypr/brightness-display-ddc.sh` plus Hyprland media-key overrides so those standard brightness keys adjust DDC/CI brightness instead of Omarchy's default laptop-backlight helper.
+
+The bridge daemon also handles brightness action IDs `0x11` (`ACTION_BRIGHTNESS_UP`) / `0x12` (`ACTION_BRIGHTNESS_DOWN`) by calling the same DDC helper when present, then falling back to Omarchy media-key shortcuts.
 
 **Configuration** (`config.yml`):
 ```yaml

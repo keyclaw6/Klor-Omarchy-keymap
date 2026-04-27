@@ -239,9 +239,9 @@ default-timeout=5000
 
 ## Brightness Control
 
-The right rotary encoder sends standard media brightness keycodes (`KC_BRID` / `KC_BRIU`). The OS handles brightness natively — Hyprland routes these to the kernel display driver without bridge involvement.
+The right rotary encoder sends standard media brightness keycodes (`KC_BRID` / `KC_BRIU`). On Omarchy external-monitor setups, `setup.sh` installs a Hyprland override that routes those media keys through `~/.config/hypr/brightness-display-ddc.sh`, using DDC/CI instead of Omarchy's default laptop-backlight helper.
 
-For external monitor control via DDC/CI, the bridge has a `brightnessctl`/`ddcutil` chain available (action IDs `0x11`/`0x12`), but the current firmware sends media keys instead. If you need DDC/CI control, you would need to change the encoder to send Raw HID brightness packets and configure `ddcutil` with I2C bus access:
+The bridge also handles Raw HID brightness action IDs (`0x11`/`0x12`) by calling the same DDC helper when present. DDC/CI access still requires I2C permissions:
 
 ```bash
 sudo usermod -aG i2c $USER

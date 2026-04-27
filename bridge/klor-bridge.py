@@ -302,6 +302,24 @@ class Platform:
         )
         await proc.wait()
 
+    async def tap_key(self, key: str) -> bool:
+        """Tap a named key via the configured Wayland key simulator."""
+        if not shutil.which(self.key_sim):
+            log.warning("Key simulator not found: %s", self.key_sim)
+            return False
+
+        proc = await asyncio.create_subprocess_exec(
+            self.key_sim, "-k", key,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            detail = stderr.decode("utf-8", errors="replace").strip()
+            log.warning("Key simulator failed for %s: %s", key, detail or f"rc={proc.returncode}")
+            return False
+        return True
+
     async def launch_hyprland_exec(self, command: str) -> bool:
         """Launch a command via Hyprland so layer-shell UI inherits compositor context."""
         if not shutil.which("hyprctl"):
@@ -1534,22 +1552,44 @@ class KlorBridge:
     # ── Brightness Control ────────────────────────────────────────
 
     async def _handle_brightness(self, direction: int) -> None:
-        """Adjust monitor brightness.
+        """Adjust monitor brightness through the Omarchy DDC helper."""
+        if await self._brightness_omarchy_ddc(direction):
+            return
 
-        Uses brightnessctl for backlight devices and ddcutil for external
-        monitors via DDC/CI.  direction: +1 = up, -1 = down.
-        """
-        step = self._brightness_step
-        sign = "+" if direction > 0 else "-"
+        key = "XF86MonBrightnessUp" if direction > 0 else "XF86MonBrightnessDown"
+        if await self.platform.tap_key(key):
+            log.debug("Triggered Omarchy brightness shortcut: %s", key)
 
-        try:
-            if self._brightness_tool == "ddcutil":
-                await self._brightness_ddcutil(direction, step)
-            else:
-                await self._brightness_brightnessctl(direction, step)
-        except Exception as e:
-            log.error("Brightness control failed: %s", e)
-            # Silently fail for encoder — don't spam notifications
+    async def _brightness_omarchy_ddc(self, direction: int) -> bool:
+        """Use the local Omarchy DDC brightness helper when present."""
+        script = Path.home() / ".config" / "hypr" / "brightness-display-ddc.sh"
+        if not script.exists():
+            return False
+
+        step = str(self._brightness_step).rstrip("%")
+        if not step.isdigit():
+            step = "5"
+        arg = "up" if direction > 0 else "down"
+
+        env = os.environ.copy()
+        omarchy_bin = str(Path.home() / ".local" / "share" / "omarchy" / "bin")
+        env["PATH"] = f"{omarchy_bin}:{env.get('PATH', '')}"
+
+        command = [str(script), arg, step] if os.access(script, os.X_OK) else ["bash", str(script), arg, step]
+        proc = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            detail = stderr.decode("utf-8", errors="replace").strip()
+            log.warning("Omarchy DDC brightness helper failed: %s", detail or f"rc={proc.returncode}")
+            return False
+
+        log.debug("Omarchy DDC brightness: %s %s", arg, step)
+        return True
 
     async def _brightness_brightnessctl(self, direction: int, step: int) -> None:
         """Adjust brightness via brightnessctl (works for backlight + some DDC)."""
