@@ -1,0 +1,783 @@
+/*
+ * ZYNEX GROUP - Klor Keyboard Firmware
+ * Custom keymap for Raspberry Pi Pico 2040
+ * Wired split, 42-key Polydactyl layout
+ *
+ * Plain QMK version derived from the existing KLOR keymap.
+ *
+ * Changes from zynex keymap:
+ *   - LOWER/RAISE custom keycodes → MO() + TRI_LAYER_ENABLE
+ *   - Screenshot key on LOWER uses plain KC_PSCR for host-native Print Screen
+ *   - COMBO_COUNT removed
+ *   - encoder_update_user → encoder_map
+ *   - OLED code removed (not installed on this board)
+ *   - Danish characters (æ ø å) only on the RAISE layer via Unicode Map
+ *   - Plain left shift on left thumb (KC_LSFT)
+ *   - Restored RGUI home-row mod on semicolon
+ */
+
+#include QMK_KEYBOARD_H
+#include "klor.h"
+#include "raw_hid.h"
+#include "host.h"
+
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ D E F I N I T I O N S                                                                                                                      │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+// ┌───────────────────────────────────────────────────────────┐
+// │ h o m e   r o w   m o d s   ( G A C S )                   │
+// └───────────────────────────────────────────────────────────┘
+
+// Left hand: GUI / ALT / CTL / SFT (pinky → index)
+#define HRM_A  LGUI_T(KC_A)
+#define HRM_S  LALT_T(KC_S)
+#define HRM_D  LCTL_T(KC_D)
+#define HRM_F  LSFT_T(KC_F)
+
+// Right hand: SFT / CTL / ALT (index → ring)
+// NOTE: HRM_L uses LALT (not RALT) to avoid AltGr conflicts on the RAISE layer
+#define HRM_J    RSFT_T(KC_J)
+#define HRM_K    RCTL_T(KC_K)
+#define HRM_L    LALT_T(KC_L)
+#define HRM_SCLN RGUI_T(KC_SCLN)
+
+// ┌───────────────────────────────────────────────────────────┐
+// │ d e f i n e   l a y e r s                                 │
+// └───────────────────────────────────────────────────────────┘
+
+enum klor_layers {
+    _QWERTY,
+    _LOWER,
+    _RAISE,
+    _ADJUST,
+    _NAV,
+};
+
+// ┌───────────────────────────────────────────────────────────┐
+// │ c u s t o m   k e y c o d e s                                 │
+// └───────────────────────────────────────────────────────────┘
+
+// Keep screenshot on plain KC_PSCR to avoid depending on dynamic custom-keycode state.
+enum custom_keycodes {
+    BRIGHT_UP = QK_KB_0,  // Brightness increase (emits standard media brightness key)
+    BRIGHT_DOWN,          // Brightness decrease (emits standard media brightness key)
+};
+
+enum internal_nav_keycodes {
+    NAV_LEFT = SAFE_RANGE,
+    NAV_DOWN,
+    NAV_UP,
+    NAV_RIGHT,
+};
+
+// ┌───────────────────────────────────────────────────────────┐
+// │ b r i d g e   p r o t o c o l   ( R a w   H I D )         │
+// └───────────────────────────────────────────────────────────┘
+
+// Command IDs: our protocol uses 0x20–0x3F (VIA uses 0x01–0x0F)
+#define CMD_BRIDGE_ACTION    0x20  // byte[1] = action_id, byte[2] = param
+#define CMD_BRIDGE_STATUS    0x21  // host → keyboard: byte[1] = status_code
+#define CMD_BRIDGE_HEARTBEAT 0x22  // bidirectional ping
+#define CMD_BRIDGE_CONFIG    0x23  // byte[1] = config_key, bytes[2+] = value
+
+// Action IDs (sent as byte[1] of CMD_BRIDGE_ACTION)
+// ASCII uppercase scheme: each letter A-Z maps to its ASCII code (0x41-0x5A).
+// The bridge daemon's actions.yml decides what each letter does.
+// To assign a new action, just add an entry in actions.yml — no firmware change needed.
+#define ACTION_STT              0x10  // Special: byte[2] = depth (1-3), triggered by T key
+#define ACTION_BRIGHTNESS_UP    0x11  // Brightness increase (from right encoder)
+#define ACTION_BRIGHTNESS_DOWN  0x12  // Brightness decrease (from right encoder)
+
+// ┌───────────────────────────────────────────────────────────┐
+// │ u n i c o d e   m a p   ( D a n i s h   æ ø å )           │
+// └───────────────────────────────────────────────────────────┘
+
+enum unicode_names {
+    U_AA_L,  // å  U+00E5
+    U_AA_U,  // Å  U+00C5
+    U_AE_L,  // æ  U+00E6
+    U_AE_U,  // Æ  U+00C6
+    U_OE_L,  // ø  U+00F8
+    U_OE_U,  // Ø  U+00D8
+};
+
+const uint32_t PROGMEM unicode_map[] = {
+    [U_AA_L] = 0x00E5,  // å
+    [U_AA_U] = 0x00C5,  // Å
+    [U_AE_L] = 0x00E6,  // æ
+    [U_AE_U] = 0x00C6,  // Æ
+    [U_OE_L] = 0x00F8,  // ø
+    [U_OE_U] = 0x00D8,  // Ø
+};
+
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ K E Y M A P S                                                                                                                              │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
+
+ /*
+   ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
+
+   ┌───────────────────────────────────────────────────────────┐
+   │ q w e r t y   ( h o m e   r o w   m o d s )               │
+   └───────────────────────────────────────────────────────────┘
+             ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
+             │    Q    │    W    │    E    │    R    │    T    │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │    Y    │    U    │    I    │    O    │  P / å  │
+   ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
+   │   TAB   │  GUI/A  │  ALT/S  │  CTL/D  │  SFT/F  │    G    ├─╯                ╰─┤    H    │  SFT/J  │  CTL/K  │  ALT/L  │  ; / æ  │  ' / ø  │
+   ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
+   │ CMD/WIN │    Z    │    X    │    C    │    V    │    B    ││  MUTE  ││PLY/PSE ││    N    │    M    │    ,    │    .    │    /    │   NAV   │
+   └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
+                                  │  CTRL   │  LOWER  │  SPACE  │  LSHIFT ││  R ALT  │  ENTER  │  RAISE  │ BSPACE  │
+                                  └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘ */
+
+   [_QWERTY] = LAYOUT_polydactyl(
+ //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
+              KC_Q,     KC_W,     KC_E,     KC_R,     KC_T,                          KC_Y,     KC_U,     KC_I,     KC_O,     KC_P,
+    KC_TAB,   HRM_A,    HRM_S,    HRM_D,    HRM_F,    KC_G,                          KC_H,     HRM_J,    HRM_K,    HRM_L,    HRM_SCLN, KC_QUOT,
+    KC_LGUI,  KC_Z,     KC_X,     KC_C,     KC_V,     KC_B,     KC_MUTE,   KC_MPLY,  KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,  MO(_NAV),
+                                  KC_LCTL,  TL_LOWR,   KC_SPC,  KC_LSFT,       KC_RALT,  KC_ENT,   TL_UPPR,   KC_BSPC
+ ),
+
+ /*
+   ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
+
+   ┌───────────────────────────────────────────────────────────┐
+   │ l o w e r                                                 │
+   └───────────────────────────────────────────────────────────┘
+             ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
+             │ CAPSLCK │  HOME   │    ↑    │    =    │    {    │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │    }    │    7    │    8    │    9    │    +    │
+   ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
+   │   ESC   │   DEL   │    ←    │    ↓    │    →    │    [    ├─╯                ╰─┤    ]    │    4    │    5    │    6    │    -    │    _    │
+   ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
+   │  PRTSC  │   END   │   PG↑   │  SAVE   │   PG↓   │    (    ││  MUTE  ││PLY/PSE ││    )    │    1    │    2    │    3    │    *    │    ▼    │
+   └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
+                                 │    ▼    │    ▼    │    ▼    │    ▼    ││    ▼    │    ▼    │    ▼    │    0    │
+                                 └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘ */
+
+   [_LOWER] = LAYOUT_polydactyl(
+ //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
+              KC_CAPS,  KC_HOME,  KC_UP,    KC_EQL,   KC_LCBR,                       KC_RCBR,  KC_7,    KC_8,    KC_9,    KC_PPLS,
+    KC_ESC,   KC_DEL,   KC_LEFT,  KC_DOWN,  KC_RGHT,  KC_LBRC,                       KC_RBRC,  KC_4,    KC_5,    KC_6,    KC_MINS,  KC_UNDS,
+    KC_PSCR,   KC_END,   KC_PGUP,  C(KC_S),  KC_PGDN,  KC_LPRN,  KC_MUTE,   KC_MPLY,  KC_RPRN,  KC_1,    KC_2,    KC_3,    KC_PAST,  _______,
+                                  _______,  _______,  _______,  _______,   _______,  _______,  _______,  KC_0
+ ),
+
+ /*
+   ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
+
+   ┌───────────────────────────────────────────────────────────┐
+   │ r a i s e                                                 │
+   └───────────────────────────────────────────────────────────┘
+             ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
+             │    !    │    @    │    #    │    $    │    %    │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │    ^    │    &    │    \    │    °    │   å/Å   │
+   ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
+   │  AF13   │  AF14   │  AF15   │  AF16   │  AF17   │   SZ    ├─╯                ╰─┤    ¥    │    €    │    £    │    ≈    │   æ/Æ   │   ø/Ø   │
+   ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
+   │  AF18   │  AF19   │  AF20   │  AF21   │  AF22   │  AF23   ││  MUTE  ││PLY/PSE ││    ≤    │    ≥    │   CUE   │    ~    │    `    │    ▼    │
+   └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
+                                 │    ▼    │    ▼    │    ▼    │    ▼    ││    ▼    │    ▼    │    ▼    │    ▼    │
+                                 └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘ */
+
+   [_RAISE] = LAYOUT_polydactyl(
+ //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
+              KC_EXLM,  KC_AT,    KC_HASH,  KC_DLR,   KC_PERC,                       KC_CIRC,  KC_AMPR,  KC_BSLS,RALT(KC_3),UP(U_AA_L, U_AA_U),
+  LALT(KC_F13),LALT(KC_F14),LALT(KC_F15),LALT(KC_F16),LALT(KC_F17),RALT(KC_S),      RALT(KC_Y),RALT(KC_5),RALT(KC_4),RALT(KC_EQL),  UP(U_AE_L, U_AE_U), UP(U_OE_L, U_OE_U),
+  LALT(KC_F18),LALT(KC_F19),LALT(KC_F20),LALT(KC_F21),LALT(KC_F22),LALT(KC_F23),KC_MUTE,KC_MPLY,RALT(KC_COMM),RALT(KC_DOT),  RALT(KC_C), LSFT(KC_GRV),   KC_GRV,  _______,
+                                  _______,  _______,  _______,  _______,   _______,  _______,  _______,  _______
+ ),
+
+ /*
+   ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
+
+   ┌───────────────────────────────────────────────────────────┐
+   │ a d j u s t                                               │
+   └───────────────────────────────────────────────────────────┘
+             ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
+             │   F15   │   F16   │   F17   │   F18   │   F19   │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │         │   F7    │   F8    │   F9    │   F14   │
+   ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
+   │   F20   │   F21   │   F22   │   F23   │   F24   │   APP   ├─╯                ╰─┤         │   F4    │   F5    │   F6    │   F12   │   F13   │
+   ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
+   │  RESET  │         │         │         │         │         ││  MUTE  ││PLY/PSE ││         │   F1    │   F2    │   F3    │   F10   │   F11   │
+   └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┴─────────┴─────────┴─────────┘
+                                 │    ▼    │    ▼    │    ▼    │    ▼    ││    ▼    │    ▼    │    ▼    │ BSPACE  │
+                                 └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘
+*/
+
+   [_ADJUST] = LAYOUT_polydactyl(
+ //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
+              KC_F15,   KC_F16,   KC_F17,   KC_F18,   KC_F19,                        XXXXXXX,  KC_F7,    KC_F8,    KC_F9,    KC_F14,
+    KC_F20,   KC_F21,   KC_F22,   KC_F23,   KC_F24,   KC_APP,                        XXXXXXX,  KC_F4,    KC_F5,    KC_F6,    KC_F12,   KC_F13,
+    QK_BOOT,  AC_TOGG,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_MUTE,   KC_MPLY,  XXXXXXX,  KC_F1,    KC_F2,    KC_F3,    KC_F10,   KC_F11,
+                                  _______,  _______,  _______,  _______,   _______,  _______,  _______,  KC_BSPC
+ ),
+
+ /*
+     ╺━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╸
+
+     ┌───────────────────────────────────────────────────────────┐
+     │ n a v   ( O m a r c h y / H y p r l a n d   W M )         │
+     └───────────────────────────────────────────────────────────┘
+     Navigation-only Omarchy bindings. Keep only window/workspace navigation,
+     movement, grouping, and resize behavior on this layer.
+
+     Compose with thumb SHIFT / CTRL / ALT for the full navigation tree:
+       +Shift      = swap window / move-to-workspace / previous workspace
+       +Ctrl       = resize on arrows / former workspace on WS-TAB
+       +Alt        = move into group / group-window 1-5 / next group tab
+       +Shift+Alt  = move workspace to monitor / move window silently
+
+               ┌─────────┬─────────┬─────────┬─────────┬─────────┐                    ┌─────────┬─────────┬─────────┬─────────┬─────────┐
+               │         │ GUI+CTL←│  GUI+↑  │ GUI+CTL→│         │ ╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮╭╮ │         │  GUI+7  │  GUI+8  │  GUI+9  │         │
+     ┌─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤ │╰╯╰╯╰╯╰╯╰╯╰╯╰╯╰╯│ ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┐
+     │ GUI+TAB │         │  GUI+←  │  GUI+↓  │  GUI+→  │ GUI+G ⊞ ├─╯                ╰─┤         │  GUI+4  │  GUI+5  │  GUI+6  │         │         │
+     ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤╭────────╮╭────────╮├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┤
+     │         │         │         │         │         │         ││  MUTE  ││PLY/PSE ││         │  GUI+1  │  GUI+2  │  GUI+3  │         │   NAV   │
+     └─────────┴─────────┴─────────┼─────────┼─────────┼─────────┼╰────────╯╰────────╯┼─────────┼─────────┼─────────┼─────────┴─────────┴─────────┘
+                                   │  CTRL   │         │         │  SHIFT  ││   ALT   │         │         │  GUI+0  │
+                                   └─────────┴─────────┴─────────┴─────────┘└─────────┴─────────┴─────────┴─────────┘
+
+     Key reference (all with NAV held):
+       ↑←↓→       = focus window             +Shift = swap window
+       +Ctrl      = resize                   +Alt = move into group
+       +Shift+Alt = move workspace to monitor
+       1-9, 0     = workspace                +Shift = move win to ws
+                                             +Shift+Alt = move silently
+                                             +Alt + 1-5 = activate group window 1-5
+       G          = toggle group             +Alt+G = move out of group
+       WS-TAB     = next workspace           +Shift = previous workspace
+                                             +Ctrl = former workspace
+                                             +Alt = next in group
+                                             +Shift+Alt = previous in group
+ */
+
+   [_NAV] = LAYOUT_polydactyl(
+ //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
+              XXXXXXX, LCTL(LGUI(KC_LEFT)), NAV_UP,        LCTL(LGUI(KC_RGHT)), XXXXXXX,   XXXXXXX,      LGUI(KC_7), LGUI(KC_8), LGUI(KC_9), XXXXXXX,
+   LGUI(KC_TAB), XXXXXXX,           NAV_LEFT,      NAV_DOWN,      NAV_RIGHT,      LGUI(KC_G), XXXXXXX,   LGUI(KC_4), LGUI(KC_5), LGUI(KC_6), XXXXXXX, XXXXXXX,
+   XXXXXXX,      XXXXXXX,           XXXXXXX,       XXXXXXX,       XXXXXXX,        XXXXXXX,    KC_MUTE, KC_MPLY, XXXXXXX,      LGUI(KC_1), LGUI(KC_2), LGUI(KC_3), XXXXXXX, _______,
+                                   KC_LCTL, XXXXXXX, XXXXXXX, KC_LSFT,   KC_LALT, XXXXXXX, XXXXXXX, LGUI(KC_0)
+  ),
+};
+
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ C H O R D A L   H O L D   L A Y O U T                                                                                                      │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+// 'L' = left hand, 'R' = right hand, '*' = thumb / exempt (allows same-hand thumb+mod chords)
+const char chordal_hold_layout[MATRIX_ROWS][MATRIX_COLS] PROGMEM =
+    LAYOUT_polydactyl(
+        'L', 'L', 'L', 'L', 'L',                     'R', 'R', 'R', 'R', 'R',
+        'L', 'L', 'L', 'L', 'L', 'L',                'R', 'R', 'R', 'R', 'R', 'R',
+        'L', 'L', 'L', 'L', 'L', 'L', '*', '*',      'R', 'R', 'R', 'R', 'R', 'R',
+                            '*', '*', '*', '*',        '*', '*', '*', '*'
+    );
+
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ E N C O D E R   M A P                                                                                                                       │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+#if defined(ENCODER_MAP_ENABLE)
+const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
+    //                Left encoder (volume)                Right encoder (brightness media keys)
+    [_QWERTY] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
+    [_LOWER]  = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
+    [_RAISE]  = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
+    [_ADJUST] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(BRIGHT_DOWN, BRIGHT_UP) },
+    // NAV: both encoders scroll workspaces (CCW = prev ws, CW = next ws)
+    [_NAV]    = { ENCODER_CCW_CW(LSG(KC_TAB), LGUI(KC_TAB)), ENCODER_CCW_CW(LSG(KC_TAB), LGUI(KC_TAB)) },
+};
+#endif
+
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ S T A T I C   K E Y   O V E R R I D E S                                                                                                     │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+// Shift+Backspace → Delete
+const key_override_t bspc_del_override = ko_make_basic(MOD_MASK_SHIFT, KC_BSPC, KC_DEL);
+
+const key_override_t *key_overrides[] = {
+    &bspc_del_override,
+    NULL,
+};
+
+
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ C O M M A N D   M O D E   ( d o u b l e - t a p   A L T )                                                                                  │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+// State machine for the AI bridge command mode.
+// Double-tap right ALT enters command mode. Next keypress dispatches an action
+// via Raw HID to the Python bridge daemon.
+// While STT is recording, a single press of RALT or T stops it.
+
+#define COMMAND_MODE_TIMEOUT 3000  // Exit command mode after 3s of no input
+#define STT_TAP_WINDOW       300  // Window for counting T-key taps for STT depth
+
+static bool     cmd_mode_active = false;
+static uint16_t cmd_mode_timer  = 0;
+
+// STT tap counting state
+static bool     stt_counting    = false;
+static uint8_t  stt_tap_count   = 0;
+static uint16_t stt_tap_timer   = 0;
+
+// STT session state: true while we believe the bridge is recording.
+// While active, a single RALT press or T press stops recording.
+static bool     stt_session_active = false;
+
+// Send a bridge action packet via Raw HID (32 bytes, zero-padded)
+static void bridge_send_action(uint8_t action_id, uint8_t param) {
+    uint8_t data[32] = {0};
+    data[0] = CMD_BRIDGE_ACTION;
+    data[1] = action_id;
+    data[2] = param;
+    host_raw_hid_send(data, sizeof(data));
+}
+
+// Finalize and send the STT action with accumulated tap count.
+// Toggles stt_session_active: first call = start (keep cmd_mode),
+// second call = stop (exit cmd_mode).
+static void stt_finalize(void) {
+    if (stt_counting) {
+        bridge_send_action(ACTION_STT, stt_tap_count);
+        stt_counting  = false;
+        stt_tap_count = 0;
+
+        // Toggle session: start → keep cmd_mode alive, stop → exit
+        stt_session_active = !stt_session_active;
+        if (stt_session_active) {
+            // Recording started — keep command mode alive for the stop press.
+            // Reset timer (timeout is suppressed while stt_session_active, but
+            // this keeps the timer fresh in case the flag is cleared externally).
+            cmd_mode_timer = timer_read();
+        } else {
+            // Recording stopped — exit command mode
+            cmd_mode_active = false;
+        }
+    }
+}
+
+// Map a keycode to an action ID during command mode.
+// All 26 base-layer letters are mapped to their ASCII uppercase code (0x41-0x5A).
+// T key returns 0xFF sentinel to trigger the STT tap-counting path.
+// Returns 0 if the key is not a mappable letter.
+// Handles mod-tap wrappers (e.g., LGUI_T(KC_A)) by extracting the base keycode.
+static uint8_t cmd_action_for_key(uint16_t keycode) {
+    // Strip mod-tap / layer-tap wrapper to get the base keycode
+    if ((keycode >= QK_MOD_TAP && keycode <= QK_MOD_TAP_MAX) ||
+        (keycode >= QK_LAYER_TAP && keycode <= QK_LAYER_TAP_MAX)) {
+        keycode = keycode & 0xFF;
+    }
+
+    switch (keycode) {
+        case KC_A: return 0x41;
+        case KC_B: return 0x42;
+        case KC_C: return 0x43;
+        case KC_D: return 0x44;
+        case KC_E: return 0x45;
+        case KC_F: return 0x46;
+        case KC_G: return 0x47;
+        case KC_H: return 0x48;
+        case KC_I: return 0x49;
+        case KC_J: return 0x4A;
+        case KC_K: return 0x4B;
+        case KC_L: return 0x4C;
+        case KC_M: return 0x4D;
+        case KC_N: return 0x4E;
+        case KC_O: return 0x4F;
+        case KC_P: return 0x50;
+        case KC_Q: return 0x51;
+        case KC_R: return 0x52;
+        case KC_S: return 0x53;
+        case KC_T: return 0xFF;  // sentinel: STT uses tap counting, handled separately
+        case KC_U: return 0x55;
+        case KC_V: return 0x56;
+        case KC_W: return 0x57;
+        case KC_X: return 0x58;
+        case KC_Y: return 0x59;
+        case KC_Z: return 0x5A;
+        default:   return 0;
+    }
+}
+
+// Process a keypress while command mode is active.
+// Returns false to consume the key, true to pass through.
+static bool process_command_mode(uint16_t keycode, keyrecord_t *record) {
+    if (!record->event.pressed) return false;  // only act on press
+
+    // If we're in the STT tap-counting window
+    if (stt_counting) {
+        if (keycode == KC_T) {
+            stt_tap_count++;
+            if (stt_tap_count >= 3) {
+                stt_finalize();  // max depth reached
+            } else {
+                stt_tap_timer = timer_read();
+            }
+            return false;
+        } else {
+            // Different key pressed during STT counting — finalize with current count
+            stt_finalize();
+            // Fall through to let the key be processed normally
+            return true;
+        }
+    }
+
+    // ESC cancels command mode (and stops STT if recording)
+    if (keycode == KC_ESC) {
+        if (stt_session_active) {
+            // Send a stop command to the bridge before exiting
+            bridge_send_action(ACTION_STT, 0);
+            stt_session_active = false;
+        }
+        cmd_mode_active = false;
+        return false;
+    }
+
+    uint8_t action = cmd_action_for_key(keycode);
+
+    if (action == 0xFF) {
+        // T key: start STT tap counting
+        stt_counting  = true;
+        stt_tap_count = 1;
+        stt_tap_timer = timer_read();
+        return false;
+    }
+
+    if (action > 0) {
+        // If STT is recording and user presses a different command key,
+        // stop STT first before dispatching the new action.
+        if (stt_session_active) {
+            bridge_send_action(ACTION_STT, 0);
+            stt_session_active = false;
+        }
+        bridge_send_action(action, 0);
+        cmd_mode_active = false;
+        return false;
+    }
+
+    // Unmapped key: exit command mode (and stop STT if active)
+    if (stt_session_active) {
+        bridge_send_action(ACTION_STT, 0);
+        stt_session_active = false;
+    }
+    cmd_mode_active = false;
+    return true;
+}
+
+// ┌───────────────────────────────────────────────────────────┐
+// │ d o u b l e - t a p   R A L T   s t a t e   m a c h i n e │
+// └───────────────────────────────────────────────────────────┘
+
+// Manual double-tap detection for KC_RALT → enter Command Mode.
+// Manual detection keeps RALT available as a normal modifier when held.
+// Two quick completed taps enter Command Mode, while normal hold behavior is
+// preserved so RALT still works as a regular modifier.
+// While STT is recording, a single RALT press stops recording immediately.
+
+#define RALT_TAP_WINDOW  350  // ms window for double-tap detection
+
+static uint8_t  ralt_tap_count  = 0;
+static uint16_t ralt_tap_timer  = 0;
+static uint16_t ralt_press_timer = 0;
+static bool     ralt_held       = false;
+static bool     ralt_interrupted = false;
+
+// Called from process_record_user on KC_RALT press/release.
+// Returns false to consume the event, true to pass through.
+static bool process_ralt_tap(keyrecord_t *record) {
+    if (record->event.pressed) {
+        ralt_held = true;
+        ralt_interrupted = false;
+        ralt_press_timer = timer_read();
+
+        // While STT is recording, a single RALT press stops it immediately
+        if (stt_session_active) {
+            bridge_send_action(ACTION_STT, 0);
+            stt_session_active = false;
+            cmd_mode_active = false;
+            ralt_tap_count = 0;
+            return false;
+        }
+
+        register_code(KC_RALT);
+        return false;
+    } else {
+        ralt_held = false;
+        unregister_code(KC_RALT);
+
+        if (ralt_interrupted || timer_elapsed(ralt_press_timer) > RALT_TAP_WINDOW) {
+            ralt_tap_count = 0;
+            return false;
+        }
+
+        if (ralt_tap_count > 0 && timer_elapsed(ralt_tap_timer) <= RALT_TAP_WINDOW) {
+            // Second quick tap achieved — enter command mode and swallow RALT.
+            ralt_tap_count  = 0;
+            cmd_mode_active = true;
+            cmd_mode_timer  = timer_read();
+            return false;
+        }
+
+        // First completed tap: start the double-tap window.
+        ralt_tap_count = 1;
+        ralt_tap_timer = timer_read();
+        return false;
+    }
+}
+
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ R a w   H I D   b r i d g e   p r o t o c o l                                                                                              │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+// Standard QMK Raw HID receive hook for the bridge protocol (0x20–0x3F).
+// Plain QMK receives bridge packets directly, so send responses directly here.
+void raw_hid_receive(uint8_t *data, uint8_t length) {
+    uint8_t command_id = data[0];
+
+    if (command_id >= 0x20 && command_id <= 0x3F) {
+        switch (command_id) {
+            case CMD_BRIDGE_STATUS:
+                // Host sent a status update — acknowledge
+                // (future: update LED state, etc.)
+                data[1] = 0x01;  // ACK
+                break;
+
+            case CMD_BRIDGE_HEARTBEAT:
+                // Respond to heartbeat ping
+                data[1] = 0x01;  // alive
+                break;
+
+            case CMD_BRIDGE_CONFIG:
+                // Host sent a config update — acknowledge
+                data[1] = 0x01;  // ACK
+                break;
+
+            default:
+                // Unknown bridge command
+                data[1] = 0x00;  // NACK
+                break;
+        }
+        raw_hid_send(data, length);
+        return;
+    }
+}
+
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ M A C R O S                                                                                                                                │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+// Enable autocorrect by default on startup.
+// QMK ships autocorrect OFF by default — it must be toggled on via AC_TOGG.
+// This ensures it's always active without needing a manual toggle.
+void keyboard_post_init_user(void) {
+    autocorrect_enable();
+}
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    // ── Command Mode interception (highest priority) ──
+    // When active, intercept the next keypress as an action command.
+    if (cmd_mode_active) {
+        bool pass_through = process_command_mode(keycode, record);
+        if (!pass_through) return false;
+        // If pass_through is true, command mode exited and key should be processed normally
+    }
+
+    // ── Double-tap RALT → Command Mode / single RALT stops STT ──
+    if (keycode == KC_RALT) {
+        return process_ralt_tap(record);
+    }
+    // Any other key pressed while RALT is held means the key is being used as
+    // a real modifier, so it must not arm command mode on release.
+    if (record->event.pressed && keycode != KC_RALT && ralt_held) {
+        ralt_interrupted = true;
+    }
+
+    // Any other key pressed cancels a pending single-RALT tap window.
+    if (record->event.pressed && keycode != KC_RALT && ralt_tap_count > 0) {
+        ralt_tap_count = 0;
+    }
+
+    // ── Existing macros ──
+    switch (keycode) {
+        case NAV_LEFT:
+        case NAV_DOWN:
+        case NAV_UP:
+        case NAV_RIGHT: {
+            if (!record->event.pressed) {
+                return false;
+            }
+
+            uint8_t mods = get_mods() | get_oneshot_mods();
+            bool shift = mods & MOD_MASK_SHIFT;
+            bool ctrl  = mods & MOD_MASK_CTRL;
+            bool alt   = mods & MOD_MASK_ALT;
+
+            uint16_t key = KC_NO;
+            switch (keycode) {
+                case NAV_LEFT:  key = KC_LEFT; break;
+                case NAV_DOWN:  key = KC_DOWN; break;
+                case NAV_UP:    key = KC_UP;   break;
+                case NAV_RIGHT: key = KC_RGHT; break;
+            }
+
+            if (ctrl && alt && !shift && (key == KC_LEFT || key == KC_RGHT)) {
+                tap_code16(LCTL(LGUI(key)));
+                return false;
+            }
+
+            if (ctrl && !shift && !alt) {
+                switch (key) {
+                    case KC_LEFT: tap_code16(LGUI(KC_MINS)); break;
+                    case KC_RGHT: tap_code16(LGUI(KC_EQL)); break;
+                    case KC_UP:   tap_code16(LSG(KC_MINS));  break;
+                    case KC_DOWN: tap_code16(LSG(KC_EQL));   break;
+                }
+                return false;
+            }
+
+            if (shift && alt) {
+                tap_code16(S(A(LGUI(key))));
+                return false;
+            }
+
+            if (shift) {
+                tap_code16(S(LGUI(key)));
+                return false;
+            }
+
+            if (alt) {
+                tap_code16(A(LGUI(key)));
+                return false;
+            }
+
+            tap_code16(LGUI(key));
+            return false;
+        }
+
+        // ── Brightness encoder → standard brightness media keys ──
+        case BRIGHT_UP:
+            if (record->event.pressed) {
+                tap_code16(KC_BRIU);
+            }
+            return false;
+
+        case BRIGHT_DOWN:
+            if (record->event.pressed) {
+                tap_code16(KC_BRID);
+            }
+            return false;
+    }
+    return true;
+}
+
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ B O O T L O A D E R   C O M B O   ( 5 ×   a l l   t h u m b   k e y s )                                                                      │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+// Press all 4 thumb keys on one half simultaneously, 5 times in a row, to enter
+// UF2 bootloader. Works per-half (each half can enter bootloader independently
+// even when disconnected from the other half).
+//
+// Matrix positions (from LAYOUT_polydactyl macro):
+//   Left  thumbs: row 3, cols 1-4 (L31, L32, L33, L34)
+//   Right thumbs: row 7, cols 1-4 (R31, R32, R33, R34)
+
+#define BOOT_COMBO_COUNT    5     // Number of all-thumbs presses required
+#define BOOT_COMBO_WINDOW   3000  // ms — must complete all 5 within this window
+
+// Left thumb matrix: row 3, cols 1-4
+#define LEFT_THUMB_ROW   3
+#define LEFT_THUMB_COL0  1
+#define LEFT_THUMB_COL3  4
+
+// Right thumb matrix: row 7, cols 1-4
+#define RIGHT_THUMB_ROW  7
+#define RIGHT_THUMB_COL0 1
+#define RIGHT_THUMB_COL3 4
+
+static uint8_t  boot_combo_count  = 0;
+static uint16_t boot_combo_timer  = 0;
+static bool     boot_combo_held   = false;  // true while all 4 thumbs are currently down
+
+// Check if all 4 thumb keys on either half are currently pressed by reading
+// the live key matrix directly. Returns true if all 4 are down on at least
+// one half.
+static bool all_thumbs_pressed(void) {
+    // Check left half (row 3, cols 1-4)
+    bool left_all = true;
+    for (uint8_t c = LEFT_THUMB_COL0; c <= LEFT_THUMB_COL3; c++) {
+        if (!matrix_is_on(LEFT_THUMB_ROW, c)) {
+            left_all = false;
+            break;
+        }
+    }
+    if (left_all) return true;
+
+    // Check right half (row 7, cols 1-4)
+    bool right_all = true;
+    for (uint8_t c = RIGHT_THUMB_COL0; c <= RIGHT_THUMB_COL3; c++) {
+        if (!matrix_is_on(RIGHT_THUMB_ROW, c)) {
+            right_all = false;
+            break;
+        }
+    }
+    return right_all;
+}
+
+// Called from matrix_scan_user() every ~1ms.
+static void boot_combo_tick(void) {
+    bool thumbs_down = all_thumbs_pressed();
+
+    if (thumbs_down && !boot_combo_held) {
+        // Transition: thumbs just pressed together
+        boot_combo_held = true;
+
+        if (boot_combo_count == 0 || timer_elapsed(boot_combo_timer) > BOOT_COMBO_WINDOW) {
+            // First press or window expired — restart
+            boot_combo_count = 1;
+            boot_combo_timer = timer_read();
+        } else {
+            boot_combo_count++;
+        }
+
+        if (boot_combo_count >= BOOT_COMBO_COUNT) {
+            // 5 presses achieved — enter bootloader
+            reset_keyboard();
+        }
+    } else if (!thumbs_down && boot_combo_held) {
+        // Transition: thumbs released
+        boot_combo_held = false;
+    }
+}
+
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ M A T R I X   S C A N   ( p e r i o d i c   t a s k s )                                                                                    │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+void matrix_scan_user(void) {
+    // Command mode timeout (3 seconds, suppressed during active STT session)
+    if (cmd_mode_active && !stt_counting && !stt_session_active &&
+        timer_elapsed(cmd_mode_timer) > COMMAND_MODE_TIMEOUT) {
+        cmd_mode_active = false;
+    }
+
+    // STT tap-counting window timeout (300ms)
+    if (stt_counting && timer_elapsed(stt_tap_timer) > STT_TAP_WINDOW) {
+        stt_finalize();
+    }
+
+    // Bootloader combo: 5× all thumbs on one half
+    boot_combo_tick();
+}
+
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ T R I - L A Y E R   C O N F I G                                                                                                            │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+// TRI_LAYER_ENABLE in rules.mk works with TL_LOWR / TL_UPPR to activate ADJUST(3)
+// when LOWER(1) + RAISE(2) are both held. Our enum matches the default tri-layer
+// layer numbering exactly.
