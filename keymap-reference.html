@@ -165,7 +165,7 @@
 <!-- ════ HEADER ════ -->
 <div class="hd">
   <h1>KLOR AI Writing Workstation &mdash; Keymap Reference</h1>
-  <span class="sub">KLOR Polydactyl &middot; 42-key split &middot; RP2040 &middot; QMK / Vial &middot; Double-tap RALT &rarr; Command Mode &middot; All results &rarr; clipboard</span>
+  <span class="sub">KLOR Polydactyl &middot; 42-key split &middot; RP2040 &middot; QMK / plain &middot; Double-tap RALT &rarr; Command Mode &middot; All results &rarr; clipboard</span>
 </div>
 
 <div class="mg">
@@ -176,7 +176,7 @@
 <div class="lc s2">
   <div class="lh">
     <span class="ln ln-q">Layer 0 &mdash; QWERTY</span>
-    <span class="la">Default base layer &middot; Home Row Mods (GACS) &middot; Danish Hold Keys &middot; One-Shot Shift</span>
+    <span class="la">Default base layer &middot; Home Row Mods (GACS) &middot; Plain P/;/&apos; &middot; KC_LSFT thumb</span>
   </div>
   <div class="kb">
     <!-- Row 0: 5 + 5 -->
@@ -192,7 +192,7 @@
       <div class="k"><span class="m">U</span></div>
       <div class="k"><span class="m">I</span></div>
       <div class="k"><span class="m">O</span></div>
-      <div class="k dk"><span class="m">P</span><span class="h">hold &rarr; &aring;/&Aring;</span></div>
+      <div class="k"><span class="m">P</span></div>
     </div>
     <!-- Row 1: 6 + 6 -->
     <div class="kr">
@@ -207,8 +207,8 @@
       <div class="k hrm"><span class="m">J</span><span class="a">SFT</span></div>
       <div class="k hrm"><span class="m">K</span><span class="a">CTL</span></div>
       <div class="k hrm"><span class="m">L</span><span class="a">ALT</span></div>
-      <div class="k dk"><span class="m">;</span><span class="h">&aelig; / &AElig;</span><span class="a">+ L-hand = GUI</span></div>
-      <div class="k dk"><span class="m">&apos;</span><span class="h">hold &rarr; &oslash;/&Oslash;</span></div>
+      <div class="k hrm"><span class="m">;</span><span class="a">GUI</span></div>
+      <div class="k"><span class="m">&apos;</span></div>
     </div>
     <!-- Row 2: 6 + enc + enc + 6 -->
     <div class="kr">
@@ -221,7 +221,7 @@
       <div class="eg"></div>
       <div class="k enc"><span class="m" style="font-size:11px">MUTE</span><span class="s">Vol &plusmn;</span></div>
       <div class="eg"></div>
-      <div class="k enc"><span class="m" style="font-size:11px">PLAY</span><span class="s">Vol &plusmn;</span></div>
+      <div class="k enc"><span class="m" style="font-size:11px">PLAY</span><span class="s">Bright &plusmn;</span></div>
       <div class="eg"></div>
       <div class="k"><span class="m">N</span></div>
       <div class="k"><span class="m">M</span></div>
@@ -236,7 +236,7 @@
       <div class="k th"><span class="m">CTRL</span></div>
       <div class="k th ly"><span class="m">LOWER</span><span class="s">hold &rarr; L1</span></div>
       <div class="k th"><span class="m">SPACE</span></div>
-      <div class="k th sp"><span class="m">OSM &uArr;</span><span class="s">One-Shot Shift</span></div>
+      <div class="k th"><span class="m">LSHIFT</span></div>
       <div class="tg"></div>
       <div class="k th sp"><span class="m">RALT</span><span class="s">2&times; &rarr; CMD mode</span></div>
       <div class="k th"><span class="m">ENTER</span></div>
@@ -285,7 +285,7 @@
       <div class="k"><span class="m">_</span></div>
     </div>
     <div class="kr">
-      <div class="k sp"><span class="m">SNAP</span><span class="s">&#8679;Gui+S</span></div>
+      <div class="k sp"><span class="m">PRTSC</span><span class="s">KC_PSCR</span></div>
       <div class="k"><span class="m">END</span></div>
       <div class="k"><span class="m">PgUp</span></div>
       <div class="k sp"><span class="m">SAVE</span><span class="s">Ctrl+S</span></div>
@@ -294,7 +294,7 @@
       <div class="eg"></div>
       <div class="k enc"><span class="m" style="font-size:10px">VOL</span></div>
       <div class="eg"></div>
-      <div class="k enc"><span class="m" style="font-size:10px">VOL</span></div>
+      <div class="k enc"><span class="m" style="font-size:10px">BRI</span></div>
       <div class="eg"></div>
       <div class="k"><span class="m">)</span></div>
       <div class="k"><span class="m">1</span></div>
@@ -366,7 +366,7 @@
       <div class="eg"></div>
       <div class="k enc"><span class="m" style="font-size:10px">VOL</span></div>
       <div class="eg"></div>
-      <div class="k enc"><span class="m" style="font-size:10px">VOL</span></div>
+      <div class="k enc"><span class="m" style="font-size:10px">BRI</span></div>
       <div class="eg"></div>
       <div class="k"><span class="m">&le;</span></div>
       <div class="k"><span class="m">&ge;</span></div>
@@ -438,7 +438,7 @@
       <div class="eg"></div>
       <div class="k enc"><span class="m" style="font-size:10px">VOL</span></div>
       <div class="eg"></div>
-      <div class="k enc"><span class="m" style="font-size:10px">VOL</span></div>
+      <div class="k enc"><span class="m" style="font-size:10px">BRI</span></div>
       <div class="eg"></div>
       <div class="k bl"></div>
       <div class="k"><span class="m">F1</span></div>
@@ -508,9 +508,9 @@
       <div class="k tr"><span class="m">&darr;</span></div>
       <div class="k tr"><span class="m">&darr;</span></div>
       <div class="eg"></div>
-      <div class="k enc" style="opacity:.22"></div>
+      <div class="k enc"><span class="m" style="font-size:10px">WS</span><span class="s">Prev/Next</span></div>
       <div class="eg"></div>
-      <div class="k enc" style="opacity:.22"></div>
+      <div class="k enc"><span class="m" style="font-size:10px">WS</span><span class="s">Prev/Next</span></div>
       <div class="eg"></div>
       <div class="k tr"><span class="m">&darr;</span></div>
       <div class="k nv"><span class="m">1</span><span class="s">GUI+1</span></div>
@@ -556,7 +556,7 @@
         <div class="k ca"><span class="m">U</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
         <div class="k cx"><span class="m">I</span><span class="s" style="color:var(--rd)">Improve</span></div>
         <div class="k ca"><span class="m">O</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
-        <div class="k ca"><span class="m">P</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k cx"><span class="m">P</span><span class="s" style="color:var(--rd)">Picker</span></div>
       </div>
       <div class="kr">
         <div class="k ca"><span class="m">A</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
@@ -589,6 +589,7 @@
         <tr><td><span class="kb2">G</span></td><td>Grammar</td><td>Fix spelling, grammar, punctuation only</td></tr>
         <tr><td><span class="kb2">I</span></td><td>Improve</td><td>Improve writing quality and clarity</td></tr>
         <tr><td><span class="kb2">R</span></td><td>Email Writer</td><td>Rewrite as Danish/Nordic professional email</td></tr>
+        <tr><td><span class="kb2">P</span></td><td>Prompt Picker</td><td>Open searchable prompt snippet popup</td></tr>
         <tr><td><span class="kb2">S</span></td><td>Summarize</td><td>Condense to key points</td></tr>
         <tr><td><span class="kb2">D</span></td><td>DA &rarr; EN</td><td>Translate Danish to English</td></tr>
         <tr><td><span class="kb2">N</span></td><td>EN &rarr; DA</td><td>Translate English to Danish</td></tr>
@@ -621,7 +622,7 @@
     <h3>Legend</h3>
     <div class="leg">
       <div class="li"><div class="ls ls-h"></div>Home Row Mod &mdash; tap = letter, cross-hand = mod</div>
-      <div class="li"><div class="ls ls-d"></div>Danish Hold Key &mdash; tap = key, hold 200ms = char</div>
+      <div class="li"><div class="ls ls-d"></div>Danish Unicode Map &mdash; RAISE layer &aring;/&aelig;/&oslash; with Shift variants</div>
       <div class="li"><div class="ls ls-t"></div>Thumb Cluster Key</div>
       <div class="li"><div class="ls ls-l"></div>Layer Activation Key (hold to activate)</div>
       <div class="li"><div class="ls ls-s"></div>Special Function (AF keys, screenshot)</div>
@@ -633,26 +634,26 @@
   <div class="bp">
     <h3>Features &amp; Behavior</h3>
     <ul class="qr">
-      <li><strong>Home Row Mods:</strong> GACS order (GUI, ALT, CTL, SFT). Chordal hold &mdash; mod activates only on cross-hand chords.</li>
-      <li><strong>Danish chars:</strong> Hold P/;/&apos; for &aring;/&aelig;/&oslash;. Also on RAISE layer via Unicode Map.</li>
-      <li><strong>DK_SC_AE chord:</strong> Hold ; + any left-hand key = RGUI modifier (for Hyprland shortcuts).</li>
-      <li><strong>One-shot shift:</strong> Tap OSM thumb &rarr; next key is shifted. Double-tap &rarr; caps lock. 3s timeout.</li>
+      <li><strong>Home Row Mods:</strong> GACS order (GUI, ALT, CTL, SFT). 250ms tapping term; chordal hold uses cross-hand chords.</li>
+      <li><strong>Danish chars:</strong> RAISE layer Unicode Map keys output &aring;/&aelig;/&oslash; with Shift variants.</li>
+      <li><strong>Semicolon HRM:</strong> ; taps normally and holds as RGUI; L uses LALT to avoid AltGr conflicts.</li>
+      <li><strong>Left shift thumb:</strong> Plain <code>KC_LSFT</code>; base thumb is normal left-shift only.</li>
       <li><strong>Autocorrect:</strong> 4,200+ entries, active by default. Toggle: ADJUST layer &rarr; AC key.</li>
-      <li><strong>Encoders:</strong> Rotation = Volume &plusmn; on all layers. Button = MUTE (left), PLAY/PAUSE (right). Vial-remappable.</li>
+      <li><strong>Encoders:</strong> Left = volume; right = brightness on QWERTY/LOWER/RAISE/ADJUST; NAV = workspace scroll.</li>
       <li><strong>AF keys:</strong> LALT+F13&ndash;F23 on RAISE layer &mdash; bind to Hyprland/Omarchy actions.</li>
     </ul>
   </div>
   <div class="bp">
     <h3>Quick Reference</h3>
     <ul class="qr">
-      <li><strong>Enter command mode:</strong> Double-tap Right Alt (250ms window)</li>
+      <li><strong>Enter command mode:</strong> Double-tap Right Alt (350ms window)</li>
       <li><strong>Stop STT recording:</strong> Press RALT or T again</li>
       <li><strong>All results:</strong> Copied to clipboard &rarr; paste with Ctrl+V</li>
-      <li><strong>Caps lock:</strong> Double-tap OSM shift thumb</li>
+      <li><strong>Caps lock:</strong> LOWER layer &rarr; CAPS key</li>
       <li><strong>Bootloader (combo):</strong> 5&times; all 4 thumbs on one half (&lt;3s)</li>
       <li><strong>Bootloader (key):</strong> LOWER+RAISE &rarr; bottom-left (BOOT)</li>
-      <li><strong>Vial unlock:</strong> Hold Q + P simultaneously</li>
-      <li><strong>Build:</strong> <code style="font-size:11px;color:var(--cy)">make -C ~/vial-qmk geigeigeist/klor/2040:vial</code></li>
+      <li><strong>Firmware:</strong> Plain QMK only.</li>
+      <li><strong>Build:</strong> <code style="font-size:11px;color:var(--cy)">qmk compile -kb geigeigeist/klor/2040 -km plain</code></li>
     </ul>
   </div>
 </div>
