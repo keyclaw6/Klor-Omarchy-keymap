@@ -151,7 +151,7 @@ The semicolon key is restored as a normal `RGUI_T(KC_SCLN)` home-row mod.
 
 > [!WARNING]
 > The LOWER screenshot key is locked.
-> Do not convert it back to a custom Vial keycode or custom macro unless the user explicitly asks.
+> Do not convert it to a custom dynamic keycode or custom macro unless the user explicitly asks.
 
 The LOWER layer's bottom-left key sends a standard `Print Screen` keypress.
 
@@ -162,6 +162,8 @@ bindd = , PRINT, Screenshot, exec, omarchy-cmd-screenshot
 ```
 
 This makes the key platform-neutral while still using Omarchy's default screenshot flow.
+
+Firmware note: this repository supports the plain QMK `keymaps/plain` firmware path only. Omarchy behavior should be documented against the stock QMK build and the standard `Print Screen` key.
 
 ## Unicode Input Method
 
