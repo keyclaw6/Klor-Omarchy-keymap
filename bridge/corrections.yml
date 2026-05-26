@@ -17,9 +17,6 @@ corrections:
   - pattern: "\\bQ\\.?M\\.?K\\.?\\b"
     replace: "QMK"
 
-  - pattern: "\\bvial\\b"
-    replace: "Vial"
-
   - pattern: "\\bhyperland\\b"
     replace: "Hyprland"
     ignorecase: true
