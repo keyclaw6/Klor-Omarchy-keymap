@@ -8,15 +8,20 @@
 /* ── Encoders ── */
 #define ENCODER_RESOLUTION 2
 
-/* ── Tap-hold: Home Row Mods (Flow Tap + Chordal Hold + HOOKE) ── */
-#define TAPPING_TERM 200
+/* ── Tap-hold: Home Row Mods (canonical article baseline) ── */
+#define TAPPING_TERM 250
+#ifndef PERMISSIVE_HOLD
+#    define PERMISSIVE_HOLD
+#endif
 #define QUICK_TAP_TERM 0
 #ifndef CHORDAL_HOLD
 #    define CHORDAL_HOLD
 #endif
-#define HOLD_ON_OTHER_KEY_PRESS
 #ifndef FLOW_TAP_TERM
 #    define FLOW_TAP_TERM 150
+#endif
+#ifndef SPECULATIVE_HOLD
+#    define SPECULATIVE_HOLD
 #endif
 
 /* ── Auto Shift (not enabled in rules.mk — retained for future use) ── */
