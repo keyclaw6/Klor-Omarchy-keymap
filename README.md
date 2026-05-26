@@ -1,6 +1,6 @@
 # KLOR AI Writing Workstation
 
-Custom QMK/Vial firmware and AI bridge daemon for the [KLOR split keyboard](https://github.com/GEIGEIGEIST/KLOR) (RP2040, Polydactyl layout). Transforms a mechanical keyboard into an AI-powered writing tool with on-device command dispatch, LLM text transformations, speech-to-text, Danish character support on the RAISE layer, and 4,200+ autocorrect entries.
+Custom plain QMK firmware and AI bridge daemon for the [KLOR split keyboard](https://github.com/GEIGEIGEIST/KLOR) (RP2040, Polydactyl layout). Transforms a mechanical keyboard into an AI-powered writing tool with on-device command dispatch, LLM text transformations, speech-to-text, Danish character support on the RAISE layer, and 4,200+ autocorrect entries.
 
 Built for daily use on Arch Linux / [Omarchy](https://omarchy.com) (Hyprland/Wayland). Windows support included.
 
@@ -16,7 +16,7 @@ The system has two parts:
 ┌─────────────┐    Raw HID (USB)     ┌──────────────┐
 │  KLOR Kbd   │ ──────────────────> │ Bridge Daemon │
 │  (RP2040)   │   32-byte packets    │  (Python)     │
-│  QMK/Vial   │ <────────────────── │  asyncio      │
+│  QMK/plain  │ <────────────────── │  asyncio      │
 └─────────────┘    status/heartbeat  └──────┬───────┘
                                             │
                               ┌──────────────┼──────────────┐
@@ -134,10 +134,11 @@ Locked layer contract:
 | Index | SFT / F | SFT / J |
 
 Tuned for reliable typing with minimal misfires:
-- `TAPPING_TERM 200` — hold threshold
+- `TAPPING_TERM 250` — hold threshold
+- `PERMISSIVE_HOLD` — resolves intentional rolls into holds sooner
 - `CHORDAL_HOLD` — mod only activates on cross-hand chords
-- `HOLD_ON_OTHER_KEY_PRESS` — immediate hold resolution on interrupt
 - `FLOW_TAP_TERM 150` — fast typing pass-through
+- `SPECULATIVE_HOLD` — improves hold responsiveness without replacing native mod-taps
 - `QUICK_TAP_TERM 0` — no quick-tap repeat
 
 ## Autocorrect
@@ -179,30 +180,33 @@ Toggle on/off: ADJUST layer (LOWER+RAISE), second key from bottom-left (`AC_TOGG
 
 ## Quick Start
 
-### 1. Flash Firmware
-
-Enter bootloader mode (thumb combo or QK_BOOT), then copy the UF2:
-
-```bash
-cp firmware/geigeigeist_klor_2040_vial.uf2 /run/media/$USER/RPI-RP2/
-```
-
-### 2. Run Setup
+### 1. Clone Repository
 
 ```bash
 git clone https://github.com/keyclaw6/Klor-Omarchy-keymap.git
 cd Klor-Omarchy-keymap
+```
+
+### 2. Build and Flash Firmware
+
+Build the plain keymap in a stock QMK checkout (default `~/qmk_firmware`; see [Building Firmware from Source](#building-firmware-from-source)), enter bootloader mode (thumb combo or QK_BOOT), then copy the UF2:
+
+```bash
+cp ~/qmk_firmware/.build/geigeigeist_klor_2040_plain.uf2 /run/media/$USER/RPI-RP2/
+```
+
+### 3. Run Setup
+
+```bash
 bash setup.sh
 ```
 
 Windows:
 ```powershell
-git clone https://github.com/keyclaw6/Klor-Omarchy-keymap.git
-cd Klor-Omarchy-keymap
 .\setup-windows.ps1
 ```
 
-### 3. Set API Keys
+### 4. Set API Keys
 
 Stored in your OS keyring — never in config files.
 
@@ -220,7 +224,7 @@ EOF
 
 Or via environment variables: `KLOR_OPENROUTER_KEY`, `KLOR_ELEVENLABS_KEY`.
 
-### 4. Start the Bridge
+### 5. Start the Bridge
 
 ```bash
 systemctl --user enable --now klor-bridge
@@ -287,45 +291,45 @@ llm:
 Edit the source dictionary, regenerate the trie, compile, and flash:
 ```bash
 # Edit the dictionary
-vim keyboards/geigeigeist/klor/keymaps/vial/autocorrect.txt
+vim keyboards/geigeigeist/klor/keymaps/plain/autocorrect.txt
 
-# Copy to vial-qmk build tree
-cp -r keyboards/geigeigeist ~/vial-qmk/keyboards/
-
-# Regenerate trie + compile
-cd ~/vial-qmk
+# Regenerate trie + compile in stock QMK
 qmk generate-autocorrect-data \
-    keyboards/geigeigeist/klor/keymaps/vial/autocorrect.txt \
-    -kb geigeigeist/klor/2040 -km vial
-make -C ~/vial-qmk geigeigeist/klor/2040:vial
+    keyboards/geigeigeist/klor/keymaps/plain/autocorrect.txt \
+    -kb geigeigeist/klor/2040 -km plain
+qmk compile -kb geigeigeist/klor/2040 -km plain
 
 # Flash
-cp ~/vial-qmk/.build/geigeigeist_klor_2040_vial.uf2 /run/media/$USER/RPI-RP2/
+cp ~/qmk_firmware/.build/geigeigeist_klor_2040_plain.uf2 /run/media/$USER/RPI-RP2/
 ```
 
 ## Building Firmware from Source
 
+Run these commands from the repository root with a normal stock QMK checkout. The examples below assume QMK lives at `~/qmk_firmware`; substitute your own QMK path if needed.
+
 ```bash
-# Clone vial-qmk (one-time)
-git clone https://github.com/vial-kb/vial-qmk.git ~/vial-qmk
-cd ~/vial-qmk && make git-submodule
+# Copy keymap source into your stock QMK tree
+cp -r keyboards/geigeigeist ~/qmk_firmware/keyboards/
+cd ~/qmk_firmware
 
-# Copy keymap source into build tree
-cp -r Klor-Omarchy-keymap/keyboards/geigeigeist ~/vial-qmk/keyboards/
+# Generate autocorrect data if the dictionary changed
+qmk generate-autocorrect-data \
+    keyboards/geigeigeist/klor/keymaps/plain/autocorrect.txt \
+    -kb geigeigeist/klor/2040 -km plain
 
-# Compile (use make, not qmk compile)
-make -C ~/vial-qmk geigeigeist/klor/2040:vial
+# Compile the plain keymap
+qmk compile -kb geigeigeist/klor/2040 -km plain
 
-# Output: ~/vial-qmk/.build/geigeigeist_klor_2040_vial.uf2
+# Output: ~/qmk_firmware/.build/geigeigeist_klor_2040_plain.uf2
 ```
 
-**Important:** Use `make -C ~/vial-qmk`, not `qmk compile`. The `qmk` CLI resolves to `~/qmk_firmware` which lacks Vial declarations and will fail.
+**Important:** Use the stock QMK tree and `qmk compile`; `keymaps/plain` is the only supported firmware path.
 
-## Vial Compatibility
+## Plain QMK Only
 
-This firmware is fully [Vial](https://get.vial.today/)-compatible. You can remap keys, combos, tap dances, and key overrides through the Vial GUI while all custom features (Danish characters, command mode, autocorrect, bootloader combo) remain active.
+This firmware uses the canonical `keymaps/plain` path and stock QMK build commands only. There is no supported dynamic GUI keymap path.
 
-The bridge daemon coexists with Vial's protocol through the `raw_hid_receive_kb()` hook — our commands use IDs 0x20-0x3F while VIA/Vial uses 0x01-0x0F.
+The bridge daemon talks over the plain keymap's standard `raw_hid_receive()` hook. Firmware-initiated action packets use `host_raw_hid_send()`, and bridge command IDs stay reserved in the 0x20-0x3F range.
 
 ## Repository Structure
 
@@ -341,15 +345,12 @@ Klor-Omarchy-keymap/
 │   ├── lexicon.yml                  # Domain vocabulary for STT
 │   └── corrections.yml             # Regex corrections for STT
 ├── keyboards/                       # QMK firmware source
-│   └── geigeigeist/klor/keymaps/vial/
-│       ├── keymap.c                 # Main firmware (788 lines)
-│       ├── config.h                 # QMK/Vial configuration
-│       ├── rules.mk                # Build feature flags
-│       ├── vial.json                # Vial GUI descriptor
+│   └── geigeigeist/klor/keymaps/plain/
+│       ├── keymap.c                 # Main firmware
+│       ├── config.h                 # QMK configuration
+│       ├── rules.mk                 # Build feature flags
 │       ├── autocorrect.txt          # Autocorrect dictionary (4,200+ entries)
 │       └── autocorrect_data.h       # Generated trie (65 KB)
-├── firmware/                        # Pre-built firmware
-│   └── geigeigeist_klor_2040_vial.uf2
 ├── systemd/                         # Linux service files
 │   ├── klor-bridge.service          # systemd user service
 │   └── 99-klor-hid.rules           # udev rule for HID access

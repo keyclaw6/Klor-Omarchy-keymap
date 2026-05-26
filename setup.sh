@@ -338,7 +338,7 @@ main() {
     fi
     echo ""
     echo "  Next steps:"
-    echo "    1. Flash firmware: cp geigeigeist_klor_2040_vial.uf2 /run/media/$USER/RPI-RP2/"
+    echo "    1. Build/flash firmware from stock QMK: cp ~/qmk_firmware/.build/geigeigeist_klor_2040_plain.uf2 /run/media/$USER/RPI-RP2/"
     echo "    2. Start bridge:  systemctl --user enable --now klor-bridge"
     echo "    3. Check logs:    journalctl --user -u klor-bridge -f"
     echo "    4. Manual test:   python3 ~/.config/klor-bridge/klor-bridge.py --verbose"
