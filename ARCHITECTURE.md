@@ -6,7 +6,7 @@ Technical reference for the KLOR AI Writing Workstation. Covers the firmware, br
 
 The system has two halves that communicate over USB Raw HID:
 
-1. **Firmware** (RP2040, QMK/Vial) — Handles typing, layers, home row mods, Danish characters, autocorrect, and command mode detection. When a command action is triggered, it sends a 32-byte HID packet to the host.
+1. **Firmware** (RP2040, plain QMK) — Handles typing, layers, home row mods, Danish characters, autocorrect, and command mode detection. When a command action is triggered, it sends a 32-byte HID packet to the host.
 
 2. **Bridge daemon** (Python, asyncio) — Listens for HID packets, dispatches to OpenRouter LLM or ElevenLabs STT, and writes results to the clipboard via platform tools (wl-clipboard on Linux, pyperclip on Windows). Results are never auto-pasted — the user pastes manually with Ctrl+V.
 
@@ -47,7 +47,7 @@ The system has two halves that communicate over USB Raw HID:
 
 ## Firmware Architecture
 
-**Source:** `keyboards/geigeigeist/klor/keymaps/vial/keymap.c` (788 lines)
+**Source:** `keyboards/geigeigeist/klor/keymaps/plain/keymap.c` (plain keymap)
 
 ### Layers
 
@@ -79,11 +79,12 @@ Right hand (index to ring): SFT / CTL / ALT on J / K / L.
 The right pinky (semicolon position) is restored as `RGUI_T(KC_SCLN)`. HRM_L uses `LALT_T` (not RALT) to avoid AltGr conflicts on the RAISE layer.
 
 Tuning:
-- `TAPPING_TERM 200` — hold duration before mod activates
+- `TAPPING_TERM 250` — hold duration before mod activates
+- `PERMISSIVE_HOLD` — resolves intentional rolls into holds sooner
 - `QUICK_TAP_TERM 0` — disables quick-tap repeat
 - `CHORDAL_HOLD` — only activates mod when keys are on opposite hands
-- `HOLD_ON_OTHER_KEY_PRESS` — resolves hold immediately when another key is pressed
 - `FLOW_TAP_TERM 150` — flow-tap threshold for rapid typing
+- `SPECULATIVE_HOLD` — improves hold responsiveness while keeping native QMK mod-taps
 
 ### Danish Characters
 
@@ -107,8 +108,8 @@ State machine detects rising edges (all 4 pressed where they weren't before), co
 
 QMK's built-in autocorrect feature with a trie-based dictionary (~4,200 entries, 65 KB).
 
-- Source dictionary: `keyboards/geigeigeist/klor/keymaps/vial/autocorrect.txt`
-- Generated trie: `keyboards/geigeigeist/klor/keymaps/vial/autocorrect_data.h`
+- Source dictionary: `keyboards/geigeigeist/klor/keymaps/plain/autocorrect.txt`
+- Generated trie: `keyboards/geigeigeist/klor/keymaps/plain/autocorrect_data.h`
 - Triggers are alpha-only (a-z) and apostrophe, minimum 5 characters to avoid false positives
 - Corrections can contain any character (uses `send_string`)
 - `:` prefix in the source file marks word-boundary-only matches
@@ -131,18 +132,17 @@ Sources merged into the dictionary:
 
 Regenerate after editing:
 ```bash
-cd ~/vial-qmk
 qmk generate-autocorrect-data \
-    keyboards/geigeigeist/klor/keymaps/vial/autocorrect.txt \
-    -kb geigeigeist/klor/2040 -km vial
-make -C ~/vial-qmk geigeigeist/klor/2040:vial
+    keyboards/geigeigeist/klor/keymaps/plain/autocorrect.txt \
+    -kb geigeigeist/klor/2040 -km plain
+qmk compile -kb geigeigeist/klor/2040 -km plain
 ```
 
 ## Command Mode & HID Protocol
 
 ### Entering Command Mode
 
-Double-tap right ALT within 350ms (`RALT_TAP_WINDOW`). Manual state machine in `process_ralt_tap()` — QMK's `tap_dance_actions[]` cannot be used because Vial owns that array.
+Double-tap right ALT within 350ms (`RALT_TAP_WINDOW`). Manual state machine in `process_ralt_tap()` — QMK's `tap_dance_actions[]` cannot be used, so the keymap handles the taps explicitly.
 
 - 1 tap: normal RALT (registered on press, unregistered on release)
 - 2 taps: enter command mode (second tap is consumed, RALT not registered)
@@ -219,7 +219,7 @@ Depth meanings:
 
 ### HID Packet Format
 
-All packets are 32 bytes, zero-padded. Protocol uses command IDs 0x20-0x3F; VIA/Vial uses 0x01-0x0F, so they coexist without conflict.
+All packets are 32 bytes, zero-padded. The bridge uses command IDs 0x20-0x3F and stays outside normal QMK control traffic.
 
 **Firmware → Host (action dispatch):**
 ```
@@ -235,22 +235,22 @@ byte[0] = 0x21 (CMD_BRIDGE_STATUS) or 0x22 (CMD_BRIDGE_HEARTBEAT)
 byte[1..31] = payload
 ```
 
-**Firmware response (via via.c auto-send):**
+**Firmware response from the plain Raw HID hook:**
 ```
 byte[0] = original command ID
 byte[1] = 0x01 (ACK) or 0x00 (NACK)
 byte[2..31] = 0x00
 ```
 
-### Vial Coexistence
+### Raw HID Bridge Contract
 
-The bridge protocol hooks into `raw_hid_receive_kb()`, which vial-qmk's `via.c` calls for unrecognized command IDs. Key rules:
+The bridge protocol hooks into `raw_hid_receive()`, which the plain keymap uses for bridge packets. Key rules:
 
-- Do NOT call `raw_hid_send()` inside `raw_hid_receive_kb()` — `via.c` calls it automatically after the hook returns
-- Modify `data[]` in-place to set the response
-- Use `host_raw_hid_send()` (from `host.h`) for firmware-initiated packets — `raw_hid_send()` is not visible when `keymap_introspection.c` includes `keymap.c`
-- Command IDs 0x20-0x3F are ours; VIA uses 0x01-0x0F
-- Unrecognized IDs set `data[0] = id_unhandled`
+- `raw_hid_receive()` handles host-initiated bridge packets and returns immediate ACK/NACK responses with `raw_hid_send()`
+- Modify `data[]` in place before the immediate response
+- Use `host_raw_hid_send()` (from `host.h`) only for firmware-initiated action packets
+- Command IDs 0x20-0x3F are ours
+- Unrecognized IDs are ignored
 
 ## Bridge Daemon Architecture
 
@@ -433,42 +433,46 @@ Arch Linux ships `python-hid` (required by QMK) which provides `hid.Device`. Mos
 
 ### Prerequisites
 
-- `vial-qmk` fork cloned to `~/vial-qmk` (NOT `~/qmk_firmware` — the vanilla QMK tree lacks Vial declarations)
+- Stock QMK tree cloned to `~/qmk_firmware` or another maintained local QMK checkout
 - QMK CLI tools installed
-- Build target: `geigeigeist/klor/2040` with keymap `vial`
+- Build target: `geigeigeist/klor/2040` with keymap `plain`
 
 ### Build Commands
 
 ```bash
-# Sync keymap source to vial-qmk
-cp -r keyboards/geigeigeist ~/vial-qmk/keyboards/
+# Sync keymap source to the stock QMK tree
+cp -r keyboards/geigeigeist ~/qmk_firmware/keyboards/
+cd ~/qmk_firmware
 
 # Regenerate autocorrect trie (if dictionary changed)
 qmk generate-autocorrect-data \
-    keyboards/geigeigeist/klor/keymaps/vial/autocorrect.txt \
-    -kb geigeigeist/klor/2040 -km vial
+    keyboards/geigeigeist/klor/keymaps/plain/autocorrect.txt \
+    -kb geigeigeist/klor/2040 -km plain
 
-# Compile (use make, not qmk compile — avoids ~/qmk_firmware resolution)
-make -C ~/vial-qmk geigeigeist/klor/2040:vial
+# Compile the plain keymap
+qmk compile -kb geigeigeist/klor/2040 -km plain
 
-# Copy UF2 to firmware/
-cp ~/vial-qmk/.build/geigeigeist_klor_2040_vial.uf2 firmware/
+# Copy UF2 to your flash volume
+cp ~/qmk_firmware/.build/geigeigeist_klor_2040_plain.uf2 /run/media/$USER/RPI-RP2/
 ```
 
 ### Build Rules
 
-- `COMBO_ENABLE = yes` and `KEY_OVERRIDE_ENABLE = yes` are **required** in `rules.mk`. Setting them to `no` causes `unknown type name 'vial_combo_entry_t'` build errors because Vial's `keymap_introspection.c` depends on these being enabled.
-- `RAW_ENABLE = yes` is explicitly set for clarity, though VIA already implies it.
+- `TRI_LAYER_ENABLE = yes` keeps LOWER+RAISE = ADJUST.
+- `KEY_OVERRIDE_ENABLE = yes` remains enabled for the keymap's overrides.
+- `RAW_ENABLE = yes` is explicitly set for the bridge protocol.
 - `PIN_COMPATIBLE = promicro` is a board-level directive inherited from the KLOR PCB config.
 
 ### Known Build Warnings
 
-- `CONVERT_TO=promicro_rp2040` deprecation — harmless, comes from KLOR board config
-- `LAYOUT` redefinition — harmless, Polydactyl layout macro
+- `LTO_ENABLE in rules.mk is overwriting build.lto in info.json` - harmless board configuration overlap.
+- `Feature audio is specified in both info.json ... and rules.mk (True). The rules.mk value wins.` - harmless board configuration overlap.
+- `Invalid keyboard.json location detected: keyboards/geigeigeist/klor/keyboard.json.` - inherited KLOR tree layout warning from current QMK metadata validation.
+- `LAYOUT` redefinition - harmless Polydactyl layout macro alias.
 
 ### Firmware Size
 
-The compiled UF2 is ~252 KB. The RP2040 has 2 MB flash, so there is ample room. The autocorrect trie accounts for ~65 KB of this.
+The current plain UF2 is 228,352 bytes (223 KiB). The RP2040 has 2 MB flash, so there is ample room. The autocorrect trie accounts for ~65 KB of this.
 
 ## System Integration
 
@@ -531,7 +535,7 @@ If you need behavior beyond `llm_text`, `stt_toggle`, and `prompt_picker`:
 
 ### Adding Autocorrect Entries
 
-Edit `keyboards/geigeigeist/klor/keymaps/vial/autocorrect.txt`, regenerate the trie, and reflash. Rules:
+Edit `keyboards/geigeigeist/klor/keymaps/plain/autocorrect.txt`, regenerate the trie, and reflash. Rules:
 - Triggers: alpha only (a-z) and apostrophe, 5+ characters recommended
 - `:` prefix for word-boundary-only matches
 - No substring conflicts between triggers
