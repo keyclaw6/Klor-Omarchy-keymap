@@ -75,7 +75,7 @@ enum internal_nav_keycodes {
 // │ b r i d g e   p r o t o c o l   ( R a w   H I D )         │
 // └───────────────────────────────────────────────────────────┘
 
-// Command IDs: our protocol uses 0x20–0x3F (VIA uses 0x01–0x0F)
+// Command IDs: our protocol uses 0x20–0x3F and avoids the reserved low range.
 #define CMD_BRIDGE_ACTION    0x20  // byte[1] = action_id, byte[2] = param
 #define CMD_BRIDGE_STATUS    0x21  // host → keyboard: byte[1] = status_code
 #define CMD_BRIDGE_HEARTBEAT 0x22  // bidirectional ping

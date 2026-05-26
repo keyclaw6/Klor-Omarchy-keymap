@@ -2,9 +2,9 @@
 """
 KLOR Bridge — AI writing assistant daemon for the KLOR split keyboard.
 
-Listens for Raw HID commands from the KLOR keyboard (via raw_hid_receive_kb() hook),
-dispatches actions to OpenRouter LLM and ElevenLabs STT, and injects results
-back at the cursor via wtype/wl-clipboard.
+Listens for Raw HID commands from the KLOR keyboard through the plain QMK
+raw_hid_receive() hook, dispatches actions to OpenRouter LLM and ElevenLabs
+STT, and writes results to the clipboard via wtype/wl-clipboard.
 
 Usage:
     python klor-bridge.py              # run in foreground
