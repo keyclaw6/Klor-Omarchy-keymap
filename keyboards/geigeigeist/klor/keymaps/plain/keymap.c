@@ -14,6 +14,27 @@
  *   - Danish characters (æ ø å) only on the RAISE layer via Unicode Map
  *   - Plain left shift on left thumb (KC_LSFT)
  *   - Restored RGUI home-row mod on semicolon
+ *
+ * ── Training Mode (toggle on ADJUST → TRAIN_TOGG, replaces KC_F19) ──
+ * Optional practice mode for forcing home-row-mod usage. When ON:
+ *   - KC_LGUI on lower-left pinky is consumed (no Super)
+ *   - KC_LCTL on leftmost left thumb is consumed (no Ctrl)
+ *   - KC_LSFT on rightmost left thumb is consumed (no Shift)
+ *   - KC_RALT on leftmost right thumb: double-tap → command mode still works,
+ *     but the held-Alt modifier is NOT registered
+ *   - MO(_NAV) on lower-right pinky is consumed (no direct NAV trigger)
+ *   - On the NAV layer, the thumb modifiers KC_LCTL / KC_LSFT / KC_LALT
+ *     are also consumed (so NAV chords must come via home-row mods)
+ * Always on (regardless of training mode):
+ *   - G is LT(_NAV, KC_G): tap = G, hold = NAV layer
+ *   - H is LT(_NAV, KC_H): tap = H, hold = NAV layer
+ * Training mode is volatile — resets to OFF on every keyboard power-up.
+ *
+ * NAV usage in training mode: start with a cross-hand chord — press the
+ * home-row modifier first, then hold G or H on the OPPOSITE hand for the
+ * NAV layer, then press the NAV binding. CHORDAL_HOLD requires the
+ * cross-hand initiation for the mod-tap to resolve as a held modifier;
+ * once it's registered, it persists across the layer switch.
  */
 
 #include QMK_KEYBOARD_H
@@ -42,6 +63,12 @@
 #define HRM_L    LALT_T(KC_L)
 #define HRM_SCLN RGUI_T(KC_SCLN)
 
+// Inner index columns: layer-tap → NAV layer on hold, letter on tap.
+// Used so the NAV layer is reachable via home-row-style chords (especially in
+// Training Mode, when the lower-right pinky NAV trigger is silenced).
+#define LT_G_NAV LT(_NAV, KC_G)
+#define LT_H_NAV LT(_NAV, KC_H)
+
 // ┌───────────────────────────────────────────────────────────┐
 // │ d e f i n e   l a y e r s                                 │
 // └───────────────────────────────────────────────────────────┘
@@ -62,6 +89,7 @@ enum klor_layers {
 enum custom_keycodes {
     BRIGHT_UP = QK_KB_0,  // Brightness increase (emits standard media brightness key)
     BRIGHT_DOWN,          // Brightness decrease (emits standard media brightness key)
+    TRAIN_TOGG,           // Toggle training mode (silences non-home-row-mod modifiers)
 };
 
 enum internal_nav_keycodes {
@@ -136,7 +164,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
    [_QWERTY] = LAYOUT_polydactyl(
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
               KC_Q,     KC_W,     KC_E,     KC_R,     KC_T,                          KC_Y,     KC_U,     KC_I,     KC_O,     KC_P,
-    KC_TAB,   HRM_A,    HRM_S,    HRM_D,    HRM_F,    KC_G,                          KC_H,     HRM_J,    HRM_K,    HRM_L,    HRM_SCLN, KC_QUOT,
+    KC_TAB,   HRM_A,    HRM_S,    HRM_D,    HRM_F,    LT_G_NAV,                      LT_H_NAV, HRM_J,    HRM_K,    HRM_L,    HRM_SCLN, KC_QUOT,
     KC_LGUI,  KC_Z,     KC_X,     KC_C,     KC_V,     KC_B,     KC_MUTE,   KC_MPLY,  KC_N,     KC_M,     KC_COMM,  KC_DOT,   KC_SLSH,  MO(_NAV),
                                   KC_LCTL,  TL_LOWR,   KC_SPC,  KC_LSFT,       KC_RALT,  KC_ENT,   TL_UPPR,   KC_BSPC
  ),
@@ -208,7 +236,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
    [_ADJUST] = LAYOUT_polydactyl(
  //╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷╷         ╷         ╷         ╷         ╷         ╷         ╷         ╷
-              KC_F15,   KC_F16,   KC_F17,   KC_F18,   KC_F19,                        XXXXXXX,  KC_F7,    KC_F8,    KC_F9,    KC_F14,
+              KC_F15,   KC_F16,   KC_F17,   KC_F18,   TRAIN_TOGG,                    XXXXXXX,  KC_F7,    KC_F8,    KC_F9,    KC_F14,
     KC_F20,   KC_F21,   KC_F22,   KC_F23,   KC_F24,   KC_APP,                        XXXXXXX,  KC_F4,    KC_F5,    KC_F6,    KC_F12,   KC_F13,
     QK_BOOT,  AC_TOGG,  XXXXXXX,  XXXXXXX,  XXXXXXX,  XXXXXXX,  KC_MUTE,   KC_MPLY,  XXXXXXX,  KC_F1,    KC_F2,    KC_F3,    KC_F10,   KC_F11,
                                   _______,  _______,  _______,  _______,   _______,  _______,  _______,  KC_BSPC
@@ -303,6 +331,18 @@ const key_override_t *key_overrides[] = {
     NULL,
 };
 
+
+// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+// │ T R A I N I N G   M O D E                                                                                                                  │
+// └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+// When true, the firmware silences specific non-home-row-mod modifier keys to
+// force home-row-mod usage. Volatile — resets to false on every power-up.
+// Toggle via the TRAIN_TOGG keycode (ADJUST layer, position formerly KC_F19).
+//
+// See the file header for the full list of silenced keys and the NAV cross-hand
+// chord pattern for composing modifiers with the NAV layer in training mode.
+static bool training_mode = false;
 
 // ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 // │ C O M M A N D   M O D E   ( d o u b l e - t a p   A L T )                                                                                  │
@@ -503,11 +543,14 @@ static bool process_ralt_tap(keyrecord_t *record) {
             return false;
         }
 
-        register_code(KC_RALT);
+        // Training Mode: skip held-Alt modifier registration, but keep the
+        // rest of the double-tap state machine running so the double-tap →
+        // command mode trigger still works.
+        if (!training_mode) register_code(KC_RALT);
         return false;
     } else {
         ralt_held = false;
-        unregister_code(KC_RALT);
+        if (!training_mode) unregister_code(KC_RALT);
 
         if (ralt_interrupted || timer_elapsed(ralt_press_timer) > RALT_TAP_WINDOW) {
             ralt_tap_count = 0;
@@ -584,6 +627,42 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         bool pass_through = process_command_mode(keycode, record);
         if (!pass_through) return false;
         // If pass_through is true, command mode exited and key should be processed normally
+    }
+
+    // ── Training Mode: toggle ──
+    // TRAIN_TOGG is on the ADJUST layer (formerly KC_F19). It only changes
+    // the in-memory flag — no EEPROM persistence, no notification.
+    if (keycode == TRAIN_TOGG) {
+        if (record->event.pressed) {
+            training_mode = !training_mode;
+        }
+        return false;
+    }
+
+    // ── Training Mode: silence non-home-row-mod modifiers ──
+    // When ON, consume specific bare modifier keycodes on the QWERTY base
+    // layer and the NAV layer so the user must rely on home-row mods.
+    // Scoping to _QWERTY / _NAV preserves thumb-modifier composition on
+    // LOWER / RAISE / ADJUST, whose thumb positions are transparent
+    // (`_______`) and rely on the QWERTY thumb bindings. Also consumes
+    // MO(_NAV) so the lower-right pinky NAV trigger is silenced; use
+    // LT(_NAV, KC_G/KC_H) for NAV access instead. The held-Alt modifier
+    // for the leftmost right thumb is suppressed in process_ralt_tap so
+    // the double-tap → command mode trigger still works.
+    if (training_mode) {
+        if (keycode == MO(_NAV)) {
+            return false;
+        }
+        uint8_t hi = get_highest_layer(layer_state);
+        if (hi == _QWERTY || hi == _NAV) {
+            switch (keycode) {
+                case KC_LGUI:
+                case KC_LCTL:
+                case KC_LSFT:
+                case KC_LALT:
+                    return false;
+            }
+        }
     }
 
     // ── Double-tap RALT → Command Mode / single RALT stops STT ──
