@@ -26,10 +26,8 @@ async def run() -> None:
     async def mark(msg: str) -> None:
         lines.append(msg)
 
-    await mark("TEST 1: STT start -> processing -> complete -> clear")
+    await mark("TEST 1: STT processing -> complete -> clear")
     await platform.begin_notification_flow("klor-stt")
-    await platform.notify_flow_step("klor-stt", "Recording...", "Smoke test STT start", urgent=True, timeout=30000)
-    await asyncio.sleep(0.5)
     await platform.notify_flow_step("klor-stt", "Processing transcription...", "Smoke test STT processing", timeout=2000)
     await asyncio.sleep(0.5)
     await platform.notify_flow_step("klor-stt", "Transcription complete", "Smoke test STT complete", timeout=1500)
@@ -58,8 +56,6 @@ async def run() -> None:
     await mark("TEST 4: Repeated STT lifecycle twice")
     for idx in range(2):
         await platform.begin_notification_flow("klor-stt")
-        await platform.notify_flow_step("klor-stt", "Recording...", f"Repeat {idx + 1}", urgent=True, timeout=30000)
-        await asyncio.sleep(0.3)
         await platform.notify_flow_step("klor-stt", "Processing transcription...", f"Repeat {idx + 1}", timeout=1000)
         await asyncio.sleep(0.3)
         await platform.notify_flow_step("klor-stt", "Transcription complete", f"Repeat {idx + 1}", timeout=1000)

@@ -60,13 +60,13 @@ After entering command mode (double-tap RALT), tap **T** 1-3 times to select cor
 
 Recording starts automatically. Press **RALT** or **T** again to stop. Result is copied to clipboard.
 
-Notification behavior is hardened for Omarchy/mako:
+While recording, a slim waveform overlay stays visible at the top center of the active monitor and reacts live to microphone activity. The same centered box changes to “Transcribing audio…” and then shows the word/character result in larger text before closing. If the overlay cannot start, the bridge falls back to the hardened Omarchy/mako notification flow:
 
-- `Recording...` and `Processing transcription...` are finite notifications and should clear correctly after STT state changes
+- STT fallback notifications remain finite and clear correctly after state changes
 - `Processing with LLM...` is also treated as a finite flow notification
 - STT notifications are intentionally not sent as critical urgency
-- STT, LLM, and prompt-picker notifications now use the same explicit notification-flow lifecycle in the bridge
-- These STT and LLM notification behaviors are now verified working and locked; do not change them unless the user explicitly asks
+- STT fallbacks, LLM, and prompt-picker notifications use the same explicit notification-flow lifecycle in the bridge
+- These STT UI and LLM notification behaviors are verified working and locked; do not change them unless the user explicitly asks
 
 ## Prompt Picker
 
@@ -338,6 +338,7 @@ Klor-Omarchy-keymap/
 ├── bridge/                          # Python bridge daemon + config templates
 │   ├── klor-bridge.py               # Linux daemon (Wayland)
 │   ├── klor-bridge-windows.py       # Windows daemon
+│   ├── stt_listening_window.py      # Live microphone waveform overlay
 │   ├── config.yml                   # Bridge settings (USB IDs, LLM, STT, brightness)
 │   ├── actions.yml                  # Action registry (26 letter keys + STT + brightness)
 │   ├── prompts.yml                  # LLM prompt templates

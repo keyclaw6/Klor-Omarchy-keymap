@@ -309,7 +309,7 @@ First trigger (start recording):
 1. Store depth parameter (1-3)
 2. Open sounddevice InputStream (16kHz, mono, float32)
 3. Buffer audio chunks in callback
-4. Show "Recording..." notification
+4. Launch `stt_listening_window.py`, a slim top-center GTK layer-shell overlay with a live microphone waveform
 
 Second trigger (stop + process):
 1. Stop and close audio stream
@@ -318,19 +318,18 @@ Second trigger (stop + process):
 4. Layer 2 (if depth >= 2): regex corrections + fuzzy lexicon matching
 5. Layer 3 (if depth >= 3): LLM post-processing via stt_postprocess prompt
 6. Write result to clipboard
-7. Show "Transcription complete" notification
+7. Change the same overlay to "Transcription complete" with word and character counts
 
 Notification robustness contract:
 
 - STT notifications are tagged with `klor-stt`
 - LLM notifications are tagged with `klor-llm`
 - Prompt picker notifications are tagged with `klor-picker`
-- STT start/progress notifications must remain finite and must not use critical urgency
-- Multi-step notifications use an explicit begin/step/end flow lifecycle in the bridge
-- Before each state transition, the bridge clears the previous tagged notification via `makoctl` by ID and falls back to dismissing the current mako group
-- User mako config in `~/.config/mako/config` forces `KLOR Bridge` `Recording...` and `Processing transcription...` notifications to expire and skip history
-- User mako config also forces `Processing with LLM...` notifications to expire and skip history
-- Do not simplify this back to plain `notify-send` replacement only; that was not reliable enough on the main 4K monitor
+- The bridge streams dB-scaled microphone RMS frames to the listening overlay over stdin every 50 ms
+- The listening overlay remains open across listening, transcription, and completion/error states, then exits after the terminal state delay
+- If the overlay is unavailable, STT falls back to finite non-critical notifications
+- Fallback STT and other multi-step notifications use an explicit begin/step/end lifecycle in the bridge
+- Notification state transitions clear stale tagged notifications via `makoctl` by ID and fall back to dismissing the current mako group
 - The current STT and LLM notification behavior is verified working and locked. Do not change it unless the user explicitly requests it.
 
 Verified by session-level smoke tests in `bridge/notification_smoke_test.py`, with results logged to `~/.cache/klor-bridge-notification-smoke.log`.

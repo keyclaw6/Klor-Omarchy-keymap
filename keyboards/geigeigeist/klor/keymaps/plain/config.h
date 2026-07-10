@@ -9,7 +9,7 @@
 #define ENCODER_RESOLUTION 2
 
 /* ── Tap-hold: Home Row Mods (canonical article baseline) ── */
-#define TAPPING_TERM 250
+#define TAPPING_TERM 180
 #ifndef PERMISSIVE_HOLD
 #    define PERMISSIVE_HOLD
 #endif
@@ -18,7 +18,7 @@
 #    define CHORDAL_HOLD
 #endif
 #ifndef FLOW_TAP_TERM
-#    define FLOW_TAP_TERM 150
+#    define FLOW_TAP_TERM 120
 #endif
 #ifndef SPECULATIVE_HOLD
 #    define SPECULATIVE_HOLD

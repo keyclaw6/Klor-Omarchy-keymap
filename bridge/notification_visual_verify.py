@@ -98,7 +98,7 @@ async def verify_monitor(mon: dict, platform) -> dict:
   capture(baseline, mon)
 
   tests = [
-    ("stt", "Recording...", "Processing transcription...", "Transcription complete"),
+    ("stt", "Processing transcription...", "Transcription complete", "Transcription complete"),
     ("llm", "E - Copying selection...", "E - Processing with LLM...", "E - Result ready"),
     ("picker", "Snippet: Smoke Test", "Snippet: Smoke Test", "Snippet: Smoke Test"),
   ]
