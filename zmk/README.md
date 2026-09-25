@@ -44,14 +44,15 @@ RX/TX jack contacts. GP1 is the PIO one-wire driver; GP4 is forced input-only.
 
 ## ZMK source
 
-`config/west.yml` currently points at the working single-wire ZMK mirror:
+`config/west.yml` pins the public ZMK fork containing the validated
+single-wire transport:
 
-- repository: `keyclaw6/zz-scratch-probe-20260902`
+- repository: `keyclaw6/zmk` (fork of `zmkfirmware/zmk`)
 - branch: `feature/single-wire-wired-split`
+- validated branch head: `c7172fd6eabbca9f3e05564e91d353d0211d4675`
 
-Once the native fork is created/renamed to
-`keyclaw6/zmk-single-wire-wired-split`, only the manifest repository path
-needs to change.
+The KLOR-specific firmware remains in this repository; the ZMK fork contains
+only the generic single-wire transport work.
 
 ## Raw HID compatibility
 

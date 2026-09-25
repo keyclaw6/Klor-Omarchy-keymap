@@ -5,7 +5,7 @@ manifest:
   projects:
     - name: zmk
       remote: zmk-single-wire
-      repo-path: zz-scratch-probe-20260902
+      repo-path: zmk
       revision: feature/single-wire-wired-split
       import: app/west.yml
   self:
