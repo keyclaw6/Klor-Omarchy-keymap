@@ -132,7 +132,7 @@ unit address, and an ELF RWX load segment.
 
 | Artifact | UF2 bytes | FLASH / RAM used | SHA-256 |
 | --- | ---: | --- | --- |
-| left central | 108032 | 53684 / 18687 bytes | `bac490a0d6fe03284bec1569dc72ad3f52c87630fd7c84c86dc36c413ef613cf` |
+| left central | 108032 | 53684 / 18687 bytes | `a0ff20cb6f5b783073e70f940fd0408f2e27d65694627fd3172344cce065f849` |
 | right peripheral | 64000 | 31688 / 9548 bytes | `59a1fdbd4b745ca07a04424fd665cc56c5d0dc29e5e8bfa376725a122c8d643a` |
 
 ## QMK parity audit
@@ -149,7 +149,7 @@ layers were compared, including the two encoder pushes and transparent thumbs.
 | Training | Volatile flag, no hidden layer. Bare GUI/Ctrl/Shift on BASE and Ctrl/Shift/Alt on NAV are suppressed. Transparent LOWER/RAISE/ADJUST thumb modifiers continue working. Direct NAV is suppressed on every layer; RAlt still double-taps but sends no held modifier. Release matching prevents stuck keys when toggled while a key is down. |
 | Command mode | No hidden layer. Uses the currently resolved key binding, unwraps home-row/layer taps, times out after 3 s except during STT. Unmapped keys exit and retain their normal behavior; consumed presses have consumed releases. |
 | STT | T tap depth 1/2/3, 300 ms window, third tap finalizes immediately. Active-session T uses the same depth/toggle protocol. RAlt or an unmapped key stops with parameter 0. A different key during counting finalizes first and passes its original behavior through, as QMK does. |
-| Escape | Consumed while command mode is active; cancels a pending STT count or stops recording. This also applies during counting, following the explicit port requirement rather than QMK's counting-first edge case. |
+| Escape | Matches QMK ordering: normally consumed to cancel command mode or stop recording. If pressed inside the 300 ms T-tap counting window, the count finalizes first and Escape passes through normally while the newly started recording remains active. |
 | NAV arrows | Same modifier-dependent actions, including Ctrl resize and Ctrl+Alt horizontal workspace actions. Existing held modifiers remain in the report, as in QMK. |
 | Danish Unicode | Linux Ctrl+Shift+U, unmodified hexadecimal, Space; Shift XOR Caps Lock selects case. Caps temporarily disabled/restored; existing modifiers and keys restored. 10 ms report spacing. |
 | Encoders | Left volume, right brightness, both workspace navigation on NAV; two quadrature edges per event, matching QMK resolution 2. |

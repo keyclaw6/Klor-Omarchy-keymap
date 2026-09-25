@@ -215,19 +215,32 @@ static void test_command(void) {
     }
     for (unsigned session = 0; session < 3; session++) {
         reset_state();
-        layers[0][10] = BIND("kp", KEY(41), 0);
+        layers[0][10] = BIND("kp", KEY(41), 0); /* ESC */
         command_activate(&config);
         stt_counting = session == 1;
+        stt_tap_count = stt_counting ? 1 : 0;
         stt_session_active = session == 2;
         if (stt_counting)
             k_work_reschedule(&stt_finalize_work, 300);
-        assert(physical(10, true) == ZMK_EV_EVENT_HANDLED);
-        assert(!command_active && !stt_counting && !stt_session_active && !key_count);
-        assert(physical(10, false) == ZMK_EV_EVENT_HANDLED);
-        if (session)
-            assert_action(0, 0x10, 0);
-        else
-            assert(packet_count == 0);
+
+        int press_result = physical(10, true);
+        if (session == 1) {
+            /* QMK finalizes the T depth first, then lets ESC pass through. */
+            assert(press_result == ZMK_EV_EVENT_BUBBLE);
+            assert(command_active && !stt_counting && stt_session_active);
+            assert_action(0, 0x10, 1);
+            assert(key_count == 1 && keys[0].down);
+            assert(physical(10, false) == ZMK_EV_EVENT_BUBBLE);
+            assert(key_count == 2 && !keys[1].down);
+        } else {
+            assert(press_result == ZMK_EV_EVENT_HANDLED);
+            assert(!command_active && !stt_counting && !stt_session_active && !key_count);
+            assert(physical(10, false) == ZMK_EV_EVENT_HANDLED);
+            if (session == 2)
+                assert_action(0, 0x10, 0);
+            else
+                assert(packet_count == 0);
+        }
         time_passes(310);
         assert(packet_count == (session ? 1u : 0u));
     }
@@ -243,8 +256,8 @@ static void test_command(void) {
     command_activate(&config);
     physical(36, false);
     assert(key_count == 2 && !keys[1].down); /* A mode switch must not strand an earlier key. */
-    puts("PASS command: 26 letters x7 behavior types, current layer, all unmapped kinds, ESC "
-         "cancel, timeout, release pairing");
+    puts("PASS command: 26 letters x7 behavior types, current layer, all unmapped kinds, QMK "
+         "ESC/counting order, timeout, release pairing");
 }
 
 static void test_stt(void) {

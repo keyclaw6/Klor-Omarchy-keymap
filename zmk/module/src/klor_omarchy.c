@@ -487,19 +487,19 @@ static int position_listener(const zmk_event_t *eh) {
     bool eat = false;
 
     if (command_active) {
-        /* ESC always cancels, including an unfinalized STT tap window. */
-        if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_ESCAPE)) {
-            stop_stt_and_exit();
-            eat = true;
-        } else if (stt_counting) {
+        /* QMK checks the STT tap-counting window before its ESC cancel path.
+         * Any different key (including ESC) finalizes the count, then passes
+         * the original behavior through while the new recording stays active. */
+        if (stt_counting) {
             if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_T)) {
                 handle_stt_press();
                 eat = true;
             } else {
-                /* Finalize then pass the original behavior through, including
-                 * its hold/release semantics. QMK leaves recording active. */
                 stt_finalize();
             }
+        } else if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_ESCAPE)) {
+            stop_stt_and_exit();
+            eat = true;
         } else if (key >= ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_A) &&
                    key <= ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_Z)) {
             if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_T)) {
