@@ -11,8 +11,38 @@ on:
 
 jobs:
   build:
-    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@9ebbeff0a8b69a42f14aec022cdf16c7a107b9e0
-    with:
-      build_matrix_path: zmk-single-wire/build.yaml
-      config_path: zmk-single-wire/config
-      archive_name: klor-zmk-single-wire
+    runs-on: ubuntu-latest
+    container:
+      image: zmkfirmware/zmk-build-arm:stable
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Initialize ZMK workspace
+        working-directory: zmk-single-wire
+        run: |
+          west init -l config
+          west update --fetch-opt=--filter=tree:0
+          west zephyr-export
+
+      - name: Build left half
+        working-directory: zmk-single-wire
+        run: |
+          west build -s zmk/app -d build/left -b sparkfun_pro_micro_rp2040//zmk -- \
+            -DZMK_CONFIG="$GITHUB_WORKSPACE/zmk-single-wire/config" \
+            -DSHIELD=klor_left
+          mkdir -p artifacts
+          cp build/left/zephyr/zmk.uf2 artifacts/klor-left-single-wire.uf2
+
+      - name: Build right half
+        working-directory: zmk-single-wire
+        run: |
+          west build -s zmk/app -d build/right -b sparkfun_pro_micro_rp2040//zmk -- \
+            -DZMK_CONFIG="$GITHUB_WORKSPACE/zmk-single-wire/config" \
+            -DSHIELD=klor_right
+          cp build/right/zephyr/zmk.uf2 artifacts/klor-right-single-wire.uf2
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v7
+        with:
+          name: klor-zmk-single-wire
+          path: zmk-single-wire/artifacts/*.uf2
