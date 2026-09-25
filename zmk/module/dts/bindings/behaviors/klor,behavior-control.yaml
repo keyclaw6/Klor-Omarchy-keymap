@@ -1,0 +1,34 @@
+description: KLOR Omarchy stateful control behavior
+
+compatible: "klor,behavior-control"
+
+include: two_param.yaml
+
+properties:
+  command-layer:
+    type: int
+    required: true
+  training-layer:
+    type: int
+    required: true
+  lower-layer:
+    type: int
+    required: true
+  raise-layer:
+    type: int
+    required: true
+  adjust-layer:
+    type: int
+    required: true
+  nav-layer:
+    type: int
+    required: true
+  command-timeout-ms:
+    type: int
+    default: 3000
+  ralt-tap-window-ms:
+    type: int
+    default: 350
+  stt-tap-window-ms:
+    type: int
+    default: 300

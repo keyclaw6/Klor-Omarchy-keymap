@@ -1,0 +1,14 @@
+menuconfig KLOR_OMARCHY
+    bool "KLOR Omarchy custom firmware support"
+    default y
+    depends on ZMK
+
+if KLOR_OMARCHY
+
+config KLOR_OMARCHY_RAW_HID
+    bool "QMK-compatible KLOR bridge Raw HID interface"
+    default y if ZMK_USB
+    depends on ZMK_USB
+    select USB_DEVICE_HID
+
+endif

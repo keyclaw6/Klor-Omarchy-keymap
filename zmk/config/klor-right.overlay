@@ -1,0 +1,9 @@
+#include "klor-common.overlay"
+
+&klor_transform {
+    row-offset = <4>;
+};
+
+&right_encoder {
+    status = "okay";
+};

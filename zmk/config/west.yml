@@ -1,0 +1,12 @@
+manifest:
+  remotes:
+    - name: zmk-single-wire
+      url-base: https://github.com/keyclaw6
+  projects:
+    - name: zmk
+      remote: zmk-single-wire
+      repo-path: zz-scratch-probe-20260902
+      revision: feature/single-wire-wired-split
+      import: app/west.yml
+  self:
+    path: config
