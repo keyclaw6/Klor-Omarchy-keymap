@@ -5,21 +5,6 @@ compatible: "klor,behavior-control"
 include: two_param.yaml
 
 properties:
-  command-layer:
-    type: int
-    required: true
-  training-layer:
-    type: int
-    required: true
-  lower-layer:
-    type: int
-    required: true
-  raise-layer:
-    type: int
-    required: true
-  adjust-layer:
-    type: int
-    required: true
   nav-layer:
     type: int
     required: true

@@ -1,11 +1,10 @@
 #pragma once
 
-#define KLOR_CTRL_ACTION          1
-#define KLOR_CTRL_STT             2
 #define KLOR_CTRL_RALT            3
 #define KLOR_CTRL_TRAIN_TOGGLE    4
 #define KLOR_CTRL_TRAIN_MOD       5
 #define KLOR_CTRL_NAV             6
+#define KLOR_CTRL_DIRECT_NAV      7
 
 #define KLOR_NAV_LEFT  0
 #define KLOR_NAV_DOWN  1

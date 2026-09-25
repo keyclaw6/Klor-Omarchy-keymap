@@ -17,8 +17,6 @@
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <zephyr/retention/bootmode.h>
-#include <zephyr/sys/reboot.h>
 #include <zephyr/sys/util.h>
 
 #include <drivers/behavior.h>
@@ -27,6 +25,7 @@
 #include <zmk/events/keycode_state_changed.h>
 #include <zmk/events/position_state_changed.h>
 #include <zmk/hid.h>
+#include <zmk/matrix.h>
 #include <zmk/keymap.h>
 
 #include <dt-bindings/zmk/hid_usage.h>
@@ -46,11 +45,6 @@ LOG_MODULE_REGISTER(klor_omarchy, CONFIG_ZMK_LOG_LEVEL);
 #define KLOR_RALT ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_RIGHTALT)
 
 struct klor_control_config {
-    uint8_t command_layer;
-    uint8_t training_layer;
-    uint8_t lower_layer;
-    uint8_t raise_layer;
-    uint8_t adjust_layer;
     uint8_t nav_layer;
     uint16_t command_timeout_ms;
     uint16_t ralt_tap_window_ms;
@@ -72,7 +66,9 @@ static uint8_t ralt_tap_count;
 static int64_t ralt_press_started;
 static int64_t ralt_first_tap_at;
 
-static bool training_mod_forwarded[64];
+static bool consumed[ZMK_KEYMAP_LEN];
+static bool ralt_forwarded;
+static bool training_forwarded[ZMK_KEYMAP_LEN];
 
 static void command_timeout_work_cb(struct k_work *work);
 static void stt_finalize_work_cb(struct k_work *work);
@@ -83,6 +79,9 @@ K_WORK_DELAYABLE_DEFINE(stt_finalize_work, stt_finalize_work_cb);
 
 static const struct device *raw_hid_dev;
 K_SEM_DEFINE(raw_hid_tx_sem, 1, 1);
+K_MSGQ_DEFINE(raw_hid_tx_queue, KLOR_PACKET_SIZE, 16, 1);
+static void raw_hid_tx_work_cb(struct k_work *work);
+K_WORK_DEFINE(raw_hid_tx_work, raw_hid_tx_work_cb);
 
 static const uint8_t raw_hid_report_desc[] = {
     0x06, 0x60, 0xFF, /* Usage Page (Vendor Defined 0xFF60) */
@@ -100,7 +99,11 @@ static const uint8_t raw_hid_report_desc[] = {
     0xC0              /* End Collection */
 };
 
-static void raw_hid_in_ready(const struct device *dev) { k_sem_give(&raw_hid_tx_sem); }
+static void raw_hid_in_ready(const struct device *dev) {
+    ARG_UNUSED(dev);
+    k_sem_give(&raw_hid_tx_sem);
+    k_work_submit(&raw_hid_tx_work);
+}
 
 static void raw_hid_out_ready(const struct device *dev) {
     uint8_t packet[KLOR_PACKET_SIZE] = {0};
@@ -135,23 +138,54 @@ static const struct hid_ops raw_hid_ops = {
     .int_out_ready = raw_hid_out_ready,
 };
 
+/* USB callbacks must never wait for an IN completion on their own thread.
+ * Serialize actions and ACKs in a bounded FIFO and resume on completion. */
+static void raw_hid_tx_work_cb(struct k_work *work) {
+    ARG_UNUSED(work);
+    while (k_sem_take(&raw_hid_tx_sem, K_NO_WAIT) == 0) {
+        uint8_t packet[KLOR_PACKET_SIZE];
+        if (k_msgq_get(&raw_hid_tx_queue, packet, K_NO_WAIT) < 0) {
+            k_sem_give(&raw_hid_tx_sem);
+            return;
+        }
+        uint32_t written = 0;
+        int ret = hid_int_ep_write(raw_hid_dev, packet, sizeof(packet), &written);
+        if (ret == 0 && written == sizeof(packet)) {
+            return;
+        }
+        /* Disconnected/not configured: discard this report and keep draining. */
+        k_sem_give(&raw_hid_tx_sem);
+        LOG_DBG("Raw HID report unavailable: %d", ret);
+    }
+}
+
 int klor_bridge_send_packet(const uint8_t packet[KLOR_PACKET_SIZE]) {
     if (raw_hid_dev == NULL) {
         return -ENODEV;
     }
-
-    if (k_sem_take(&raw_hid_tx_sem, K_MSEC(20)) < 0) {
-        return -EBUSY;
+    int ret = k_msgq_put(&raw_hid_tx_queue, packet, K_NO_WAIT);
+    if (ret == 0) {
+        k_work_submit(&raw_hid_tx_work);
+    } else {
+        LOG_WRN("Raw HID transmit queue full");
     }
+    return ret;
+}
 
-    uint32_t written = 0;
-    int ret = hid_int_ep_write(raw_hid_dev, packet, KLOR_PACKET_SIZE, &written);
-    if (ret < 0 || written != KLOR_PACKET_SIZE) {
+static void (*raw_hid_original_status_cb)(struct usb_cfg_data *, enum usb_dc_status_code,
+                                          const uint8_t *);
+
+static void raw_hid_status_cb(struct usb_cfg_data *cfg, enum usb_dc_status_code status,
+                              const uint8_t *param) {
+    if (raw_hid_original_status_cb) {
+        raw_hid_original_status_cb(cfg, status, param);
+    }
+    if (status == USB_DC_RESET || status == USB_DC_DISCONNECTED || status == USB_DC_ERROR) {
+        /* A cancelled IN transfer need not complete. Do not strand the FIFO
+         * across USB reset/reconnect, or replay old actions to a new host. */
+        k_msgq_purge(&raw_hid_tx_queue);
         k_sem_give(&raw_hid_tx_sem);
-        return ret < 0 ? ret : -EIO;
     }
-
-    return 0;
 }
 
 static int raw_hid_init(void) {
@@ -160,6 +194,14 @@ static int raw_hid_init(void) {
         LOG_ERR("HID_1 not found; KLOR bridge disabled");
         return -ENODEV;
     }
+
+    /* Zephyr's boot-protocol Kconfig initializes every HID subclass to 1.
+     * Only HID_0 is a boot keyboard; keep the vendor interface subclass 0. */
+    struct usb_cfg_data *usb_cfg = (struct usb_cfg_data *)raw_hid_dev->config;
+    struct usb_if_descriptor *interface = usb_cfg->interface_descriptor;
+    interface->bInterfaceSubClass = 0;
+    raw_hid_original_status_cb = usb_cfg->cb_usb_status;
+    usb_cfg->cb_usb_status = raw_hid_status_cb;
 
     usb_hid_register_device(raw_hid_dev, raw_hid_report_desc, sizeof(raw_hid_report_desc),
                             &raw_hid_ops);
@@ -194,9 +236,6 @@ int klor_bridge_send_action(uint8_t action_id, uint8_t param) {
 }
 
 static void command_deactivate(void) {
-    if (active_cfg != NULL) {
-        (void)zmk_keymap_layer_deactivate(active_cfg->command_layer, false);
-    }
     command_active = false;
     k_work_cancel_delayable(&command_timeout_work);
 }
@@ -216,7 +255,6 @@ static void stop_stt_and_exit(void) {
 static void command_activate(const struct klor_control_config *cfg) {
     active_cfg = cfg;
     command_active = true;
-    (void)zmk_keymap_layer_activate(cfg->command_layer, false);
     k_work_reschedule(&command_timeout_work, K_MSEC(cfg->command_timeout_ms));
 }
 
@@ -251,14 +289,6 @@ static void stt_finalize_work_cb(struct k_work *work) {
     stt_finalize();
 }
 
-static uint32_t ascii_action_to_key(uint8_t action) {
-    if (action < 0x41 || action > 0x5A) {
-        return 0;
-    }
-
-    return ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_A + (action - 0x41));
-}
-
 static void tap_encoded(uint32_t encoded, int64_t timestamp) {
     if (encoded == 0) {
         return;
@@ -268,56 +298,8 @@ static void tap_encoded(uint32_t encoded, int64_t timestamp) {
     (void)raise_zmk_keycode_state_changed_from_encoded(encoded, false, timestamp);
 }
 
-static void passthrough_custom_press(int64_t timestamp) {
-    ARG_UNUSED(timestamp);
-
-    if (!command_active) {
-        return;
-    }
-
-    if (stt_counting) {
-        stt_finalize();
-        return;
-    }
-
-    if (stt_session_active) {
-        stop_stt_and_exit();
-        return;
-    }
-
-    command_deactivate();
-}
-
-static int handle_bridge_action(uint8_t action, int64_t timestamp) {
-    if (stt_counting) {
-        /*
-         * QMK finalizes the pending STT tap count, then lets the different
-         * letter pass through normally instead of dispatching a second action.
-         */
-        stt_finalize();
-        tap_encoded(ascii_action_to_key(action), timestamp);
-        return ZMK_BEHAVIOR_OPAQUE;
-    }
-
-    if (stt_session_active) {
-        (void)klor_bridge_send_action(KLOR_ACTION_STT, 0);
-        stt_session_active = false;
-    }
-
-    (void)klor_bridge_send_action(action, 0);
-    command_deactivate();
-    return ZMK_BEHAVIOR_OPAQUE;
-}
-
 static int handle_stt_press(void) {
     if (active_cfg == NULL) {
-        return ZMK_BEHAVIOR_OPAQUE;
-    }
-
-    if (stt_session_active) {
-        (void)klor_bridge_send_action(KLOR_ACTION_STT, 0);
-        stt_session_active = false;
-        command_deactivate();
         return ZMK_BEHAVIOR_OPAQUE;
     }
 
@@ -340,12 +322,10 @@ static int handle_stt_press(void) {
 
 static int handle_ralt(bool pressed, struct zmk_behavior_binding_event event,
                        const struct klor_control_config *cfg) {
-    active_cfg = cfg;
-
     if (pressed) {
-        if (stt_counting) {
-            stt_finalize();
-        }
+        ralt_held = true;
+        ralt_interrupted = false;
+        ralt_press_started = event.timestamp;
 
         if (stt_session_active) {
             stop_stt_and_exit();
@@ -353,40 +333,29 @@ static int handle_ralt(bool pressed, struct zmk_behavior_binding_event event,
             return ZMK_BEHAVIOR_OPAQUE;
         }
 
-        if (command_active) {
-            command_deactivate();
-        }
-
-        ralt_held = true;
-        ralt_interrupted = false;
-        ralt_press_started = event.timestamp;
-
-        if (!training_mode) {
+        ralt_forwarded = !training_mode;
+        if (ralt_forwarded) {
             (void)raise_zmk_keycode_state_changed_from_encoded(KLOR_RALT, true, event.timestamp);
         }
-
         return ZMK_BEHAVIOR_OPAQUE;
     }
 
     ralt_held = false;
-    if (!training_mode) {
+    if (ralt_forwarded) {
+        ralt_forwarded = false;
         (void)raise_zmk_keycode_state_changed_from_encoded(KLOR_RALT, false, event.timestamp);
     }
-
     if (ralt_interrupted || event.timestamp - ralt_press_started > cfg->ralt_tap_window_ms) {
         ralt_tap_count = 0;
         return ZMK_BEHAVIOR_OPAQUE;
     }
-
-    if (ralt_tap_count > 0 &&
-        event.timestamp - ralt_first_tap_at <= cfg->ralt_tap_window_ms) {
+    if (ralt_tap_count > 0 && event.timestamp - ralt_first_tap_at <= cfg->ralt_tap_window_ms) {
         ralt_tap_count = 0;
         command_activate(cfg);
-        return ZMK_BEHAVIOR_OPAQUE;
+    } else {
+        ralt_tap_count = 1;
+        ralt_first_tap_at = event.timestamp;
     }
-
-    ralt_tap_count = 1;
-    ralt_first_tap_at = event.timestamp;
     return ZMK_BEHAVIOR_OPAQUE;
 }
 
@@ -424,23 +393,21 @@ static void handle_nav(uint32_t dir, int64_t timestamp) {
     if (ctrl && !shift && !alt) {
         switch (dir) {
         case KLOR_NAV_LEFT:
-            tap_encoded(LG(ZMK_HID_USAGE(HID_USAGE_KEY,
-                                         HID_USAGE_KEY_KEYBOARD_MINUS_AND_UNDERSCORE)),
-                        timestamp);
+            tap_encoded(
+                LG(ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_MINUS_AND_UNDERSCORE)),
+                timestamp);
             return;
         case KLOR_NAV_RIGHT:
-            tap_encoded(LG(ZMK_HID_USAGE(HID_USAGE_KEY,
-                                         HID_USAGE_KEY_KEYBOARD_EQUAL_AND_PLUS)),
+            tap_encoded(LG(ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_EQUAL_AND_PLUS)),
                         timestamp);
             return;
         case KLOR_NAV_UP:
-            tap_encoded(LS(LG(ZMK_HID_USAGE(HID_USAGE_KEY,
-                                            HID_USAGE_KEY_KEYBOARD_MINUS_AND_UNDERSCORE))),
-                        timestamp);
+            tap_encoded(
+                LS(LG(ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_MINUS_AND_UNDERSCORE))),
+                timestamp);
             return;
         case KLOR_NAV_DOWN:
-            tap_encoded(LS(LG(ZMK_HID_USAGE(HID_USAGE_KEY,
-                                            HID_USAGE_KEY_KEYBOARD_EQUAL_AND_PLUS))),
+            tap_encoded(LS(LG(ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_EQUAL_AND_PLUS))),
                         timestamp);
             return;
         }
@@ -457,59 +424,142 @@ static void handle_nav(uint32_t dir, int64_t timestamp) {
     }
 }
 
-static bool training_modifier_should_forward(const struct klor_control_config *cfg) {
-    if (zmk_keymap_layer_active(cfg->nav_layer)) {
-        return false;
+/* Resolve precisely the binding ZMK will use, including transparent thumbs.
+ * There are only the five user layers; mode flags never change their priority.
+ */
+static const struct zmk_behavior_binding *binding_at(uint32_t position) {
+    for (int layer = ZMK_KEYMAP_LAYERS_LEN - 1; layer >= 0; layer--) {
+        if (!zmk_keymap_layer_active(layer)) {
+            continue;
+        }
+        const struct zmk_behavior_binding *binding =
+            zmk_keymap_get_layer_binding_at_idx(layer, position);
+        if (binding && binding->behavior_dev &&
+            strcmp(binding->behavior_dev, DEVICE_DT_NAME(DT_NODELABEL(trans))) != 0) {
+            return binding;
+        }
+    }
+    return NULL;
+}
+
+static bool is_behavior(const struct zmk_behavior_binding *binding, const char *name) {
+    return binding && binding->behavior_dev && strcmp(binding->behavior_dev, name) == 0;
+}
+
+/* QMK command mode unwraps mod-taps and layer-taps, but not modified keys. */
+static uint32_t command_key(const struct zmk_behavior_binding *binding) {
+    if (is_behavior(binding, DEVICE_DT_NAME(DT_NODELABEL(kp)))) {
+        return binding->param1;
+    }
+    if (is_behavior(binding, DEVICE_DT_NAME(DT_NODELABEL(hml))) ||
+        is_behavior(binding, DEVICE_DT_NAME(DT_NODELABEL(hmr))) ||
+        is_behavior(binding, DEVICE_DT_NAME(DT_NODELABEL(hml_fast))) ||
+        is_behavior(binding, DEVICE_DT_NAME(DT_NODELABEL(hmr_fast))) ||
+        is_behavior(binding, DEVICE_DT_NAME(DT_NODELABEL(nav_l))) ||
+        is_behavior(binding, DEVICE_DT_NAME(DT_NODELABEL(nav_r)))) {
+        return binding->param2;
+    }
+    return 0;
+}
+
+static bool is_ralt_binding(const struct zmk_behavior_binding *binding) {
+    return is_behavior(binding, DEVICE_DT_NAME(DT_NODELABEL(klor_ctrl))) &&
+           binding->param1 == KLOR_CTRL_RALT;
+}
+
+/* Runs before hold-tap/keymap. Consume both edges only for a consumed press,
+ * so leaving a mode or changing layers never leaks a key or strands a hold.
+ */
+static int position_listener(const zmk_event_t *eh) {
+    const struct zmk_position_state_changed *ev = as_zmk_position_state_changed(eh);
+    if (!ev || ev->position >= ARRAY_SIZE(consumed) || !active_cfg) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+    if (!ev->state) {
+        if (consumed[ev->position]) {
+            consumed[ev->position] = false;
+            return ZMK_EV_EVENT_HANDLED;
+        }
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+    const struct zmk_behavior_binding *binding = binding_at(ev->position);
+    uint32_t key = command_key(binding);
+    bool eat = false;
+
+    if (command_active) {
+        /* ESC always cancels, including an unfinalized STT tap window. */
+        if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_ESCAPE)) {
+            stop_stt_and_exit();
+            eat = true;
+        } else if (stt_counting) {
+            if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_T)) {
+                handle_stt_press();
+                eat = true;
+            } else {
+                /* Finalize then pass the original behavior through, including
+                 * its hold/release semantics. QMK leaves recording active. */
+                stt_finalize();
+            }
+        } else if (key >= ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_A) &&
+                   key <= ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_Z)) {
+            if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_T)) {
+                handle_stt_press();
+            } else {
+                if (stt_session_active) {
+                    (void)klor_bridge_send_action(KLOR_ACTION_STT, 0);
+                    stt_session_active = false;
+                }
+                (void)klor_bridge_send_action(
+                    0x41 + key - ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_A), 0);
+                command_deactivate();
+            }
+            eat = true;
+        } else {
+            stop_stt_and_exit();
+        }
     }
 
-    return zmk_keymap_layer_active(cfg->lower_layer) ||
-           zmk_keymap_layer_active(cfg->raise_layer) ||
-           zmk_keymap_layer_active(cfg->adjust_layer);
+    if (!eat && !is_ralt_binding(binding)) {
+        ralt_interrupted |= ralt_held;
+        ralt_tap_count = 0;
+    }
+    consumed[ev->position] = eat;
+    return eat ? ZMK_EV_EVENT_HANDLED : ZMK_EV_EVENT_BUBBLE;
 }
+
+ZMK_LISTENER(klor_command_listener, position_listener);
+ZMK_SUBSCRIPTION(klor_command_listener, zmk_position_state_changed);
 
 static int on_control_pressed(struct zmk_behavior_binding *binding,
                               struct zmk_behavior_binding_event event) {
     const struct device *dev = zmk_behavior_get_binding(binding->behavior_dev);
     const struct klor_control_config *cfg = dev->config;
-    active_cfg = cfg;
-
     switch (binding->param1) {
-    case KLOR_CTRL_ACTION:
-        return handle_bridge_action((uint8_t)binding->param2, event.timestamp);
-
-    case KLOR_CTRL_STT:
-        return handle_stt_press();
-
     case KLOR_CTRL_RALT:
         return handle_ralt(true, event, cfg);
-
     case KLOR_CTRL_TRAIN_TOGGLE:
         training_mode = !training_mode;
-        if (training_mode) {
-            (void)zmk_keymap_layer_activate(cfg->training_layer, false);
-        } else {
-            (void)zmk_keymap_layer_deactivate(cfg->training_layer, false);
-        }
         return ZMK_BEHAVIOR_OPAQUE;
-
     case KLOR_CTRL_TRAIN_MOD: {
-        passthrough_custom_press(event.timestamp);
-        bool forward = training_modifier_should_forward(cfg);
-        if (event.position < ARRAY_SIZE(training_mod_forwarded)) {
-            training_mod_forwarded[event.position] = forward;
-        }
+        /* Evaluate after hold-tap has resolved any pending layer changes. */
+        uint8_t highest = zmk_keymap_highest_layer_active();
+        bool forward = !training_mode || (highest != 0 && highest != cfg->nav_layer);
+        training_forwarded[event.position] = forward;
         if (forward) {
             (void)raise_zmk_keycode_state_changed_from_encoded(binding->param2, true,
                                                                event.timestamp);
         }
         return ZMK_BEHAVIOR_OPAQUE;
     }
-
+    case KLOR_CTRL_DIRECT_NAV:
+        training_forwarded[event.position] = !training_mode;
+        if (!training_mode) {
+            (void)zmk_keymap_layer_activate(cfg->nav_layer, false);
+        }
+        return ZMK_BEHAVIOR_OPAQUE;
     case KLOR_CTRL_NAV:
-        passthrough_custom_press(event.timestamp);
         handle_nav(binding->param2, event.timestamp);
         return ZMK_BEHAVIOR_OPAQUE;
-
     default:
         return -ENOTSUP;
     }
@@ -517,133 +567,29 @@ static int on_control_pressed(struct zmk_behavior_binding *binding,
 
 static int on_control_released(struct zmk_behavior_binding *binding,
                                struct zmk_behavior_binding_event event) {
-    const struct device *dev = zmk_behavior_get_binding(binding->behavior_dev);
-    const struct klor_control_config *cfg = dev->config;
-
-    switch (binding->param1) {
-    case KLOR_CTRL_RALT:
-        return handle_ralt(false, event, cfg);
-
-    case KLOR_CTRL_TRAIN_MOD:
-        if (event.position < ARRAY_SIZE(training_mod_forwarded) &&
-            training_mod_forwarded[event.position]) {
-            training_mod_forwarded[event.position] = false;
+    if (binding->param1 == KLOR_CTRL_RALT) {
+        const struct device *dev = zmk_behavior_get_binding(binding->behavior_dev);
+        return handle_ralt(false, event, dev->config);
+    }
+    if ((binding->param1 == KLOR_CTRL_TRAIN_MOD || binding->param1 == KLOR_CTRL_DIRECT_NAV) &&
+        training_forwarded[event.position]) {
+        training_forwarded[event.position] = false;
+        if (binding->param1 == KLOR_CTRL_TRAIN_MOD) {
             (void)raise_zmk_keycode_state_changed_from_encoded(binding->param2, false,
                                                                event.timestamp);
-        }
-        return ZMK_BEHAVIOR_OPAQUE;
-
-    default:
-        return ZMK_BEHAVIOR_OPAQUE;
-    }
-}
-
-static int keycode_listener(const zmk_event_t *eh) {
-    const struct zmk_keycode_state_changed *ev = as_zmk_keycode_state_changed(eh);
-    if (ev == NULL || !ev->state) {
-        return ZMK_EV_EVENT_BUBBLE;
-    }
-
-    bool is_ralt = ev->usage_page == HID_USAGE_KEY &&
-                   ev->keycode == HID_USAGE_KEY_KEYBOARD_RIGHTALT;
-
-    if (ralt_held && !is_ralt) {
-        ralt_interrupted = true;
-        ralt_tap_count = 0;
-    }
-
-    if (!command_active || is_ralt) {
-        return ZMK_EV_EVENT_BUBBLE;
-    }
-
-    if (stt_counting) {
-        stt_finalize();
-        return ZMK_EV_EVENT_BUBBLE;
-    }
-
-    if (stt_session_active) {
-        stop_stt_and_exit();
-    } else {
-        command_deactivate();
-    }
-
-    return ZMK_EV_EVENT_BUBBLE;
-}
-
-ZMK_LISTENER(klor_command_listener, keycode_listener);
-ZMK_SUBSCRIPTION(klor_command_listener, zmk_keycode_state_changed);
-
-/*
- * QMK compatibility: pressing all four thumbs on one half together five times
- * within three seconds enters that half's UF2 bootloader. Only LOCAL position
- * events count, so the central never reboots because of the other half and an
- * isolated peripheral can still enter its own bootloader.
- */
-#define KLOR_BOOT_COMBO_WINDOW_MS 3000
-#define KLOR_BOOT_COMBO_COUNT 5
-
-static bool boot_thumb_down[8];
-static bool boot_combo_held;
-static uint8_t boot_combo_count;
-static int64_t boot_combo_started;
-
-static int thumb_slot(uint32_t position) {
-    if (position >= 36 && position <= 43) {
-        return (int)(position - 36);
-    }
-
-    return -1;
-}
-
-static bool thumb_group_all_down(int first) {
-    return boot_thumb_down[first] && boot_thumb_down[first + 1] &&
-           boot_thumb_down[first + 2] && boot_thumb_down[first + 3];
-}
-
-static int boot_combo_listener(const zmk_event_t *eh) {
-    const struct zmk_position_state_changed *ev = as_zmk_position_state_changed(eh);
-    if (ev == NULL || ev->source != ZMK_POSITION_STATE_CHANGE_SOURCE_LOCAL) {
-        return ZMK_EV_EVENT_BUBBLE;
-    }
-
-    int slot = thumb_slot(ev->position);
-    if (slot < 0) {
-        return ZMK_EV_EVENT_BUBBLE;
-    }
-
-    boot_thumb_down[slot] = ev->state;
-    bool all_down = thumb_group_all_down(0) || thumb_group_all_down(4);
-
-    if (all_down && !boot_combo_held) {
-        boot_combo_held = true;
-
-        if (boot_combo_count == 0 ||
-            ev->timestamp - boot_combo_started > KLOR_BOOT_COMBO_WINDOW_MS) {
-            boot_combo_count = 1;
-            boot_combo_started = ev->timestamp;
         } else {
-            boot_combo_count++;
+            const struct device *dev = zmk_behavior_get_binding(binding->behavior_dev);
+            const struct klor_control_config *cfg = dev->config;
+            (void)zmk_keymap_layer_deactivate(cfg->nav_layer, false);
         }
-
-        if (boot_combo_count >= KLOR_BOOT_COMBO_COUNT) {
-            int ret = bootmode_set(BOOT_MODE_TYPE_BOOTLOADER);
-            if (ret < 0) {
-                LOG_ERR("Failed to set UF2 boot mode: %d", ret);
-                boot_combo_count = 0;
-                return ZMK_EV_EVENT_BUBBLE;
-            }
-
-            sys_reboot(SYS_REBOOT_WARM);
-        }
-    } else if (!all_down && boot_combo_held) {
-        boot_combo_held = false;
     }
-
-    return ZMK_EV_EVENT_BUBBLE;
+    return ZMK_BEHAVIOR_OPAQUE;
 }
 
-ZMK_LISTENER(klor_boot_combo_listener, boot_combo_listener);
-ZMK_SUBSCRIPTION(klor_boot_combo_listener, zmk_position_state_changed);
+static int control_init(const struct device *dev) {
+    active_cfg = dev->config;
+    return 0;
+}
 
 static const struct behavior_driver_api klor_control_driver_api = {
     .binding_pressed = on_control_pressed,
@@ -651,19 +597,14 @@ static const struct behavior_driver_api klor_control_driver_api = {
     .locality = BEHAVIOR_LOCALITY_CENTRAL,
 };
 
-#define KLOR_CONTROL_INST(n)                                                                        \
-    static const struct klor_control_config klor_control_config_##n = {                             \
-        .command_layer = DT_INST_PROP(n, command_layer),                                            \
-        .training_layer = DT_INST_PROP(n, training_layer),                                          \
-        .lower_layer = DT_INST_PROP(n, lower_layer),                                                \
-        .raise_layer = DT_INST_PROP(n, raise_layer),                                                \
-        .adjust_layer = DT_INST_PROP(n, adjust_layer),                                              \
-        .nav_layer = DT_INST_PROP(n, nav_layer),                                                    \
-        .command_timeout_ms = DT_INST_PROP(n, command_timeout_ms),                                  \
-        .ralt_tap_window_ms = DT_INST_PROP(n, ralt_tap_window_ms),                                  \
-        .stt_tap_window_ms = DT_INST_PROP(n, stt_tap_window_ms),                                    \
-    };                                                                                              \
-    BEHAVIOR_DT_INST_DEFINE(n, NULL, NULL, NULL, &klor_control_config_##n, POST_KERNEL,             \
+#define KLOR_CONTROL_INST(n)                                                                       \
+    static const struct klor_control_config klor_control_config_##n = {                            \
+        .nav_layer = DT_INST_PROP(n, nav_layer),                                                   \
+        .command_timeout_ms = DT_INST_PROP(n, command_timeout_ms),                                 \
+        .ralt_tap_window_ms = DT_INST_PROP(n, ralt_tap_window_ms),                                 \
+        .stt_tap_window_ms = DT_INST_PROP(n, stt_tap_window_ms),                                   \
+    };                                                                                             \
+    BEHAVIOR_DT_INST_DEFINE(n, control_init, NULL, NULL, &klor_control_config_##n, POST_KERNEL,    \
                             CONFIG_KERNEL_INIT_PRIORITY_DEFAULT, &klor_control_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(KLOR_CONTROL_INST)
