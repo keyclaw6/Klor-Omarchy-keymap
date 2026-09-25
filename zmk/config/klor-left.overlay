@@ -1,0 +1,5 @@
+#include "klor-common.overlay"
+
+&left_encoder {
+    status = "okay";
+};
