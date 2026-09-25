@@ -1,0 +1,18 @@
+name: ZMK single-wire KLOR prototype
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - zmk-single-wire
+    paths:
+      - "zmk-single-wire/**"
+      - ".github/workflows/zmk-single-wire.yml"
+
+jobs:
+  build:
+    uses: zmkfirmware/zmk/.github/workflows/build-user-config.yml@9ebbeff0a8b69a42f14aec022cdf16c7a107b9e0
+    with:
+      build_matrix_path: zmk-single-wire/build.yaml
+      config_path: zmk-single-wire/config
+      archive_name: klor-zmk-single-wire
