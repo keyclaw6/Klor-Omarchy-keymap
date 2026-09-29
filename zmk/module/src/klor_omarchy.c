@@ -43,7 +43,7 @@ LOG_MODULE_REGISTER(klor_omarchy, CONFIG_ZMK_LOG_LEVEL);
 
 #define KLOR_PACKET_SIZE 32
 #define KLOR_RALT ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_RIGHTALT)
-#define KLOR_OPENWHISPR_KEY ZMK_HID_USAGE(HID_USAGE_KEY, 0x41) /* HID Keyboard F8 */
+#define KLOR_OPENWHISPR_DICTATION_KEY ZMK_HID_USAGE(HID_USAGE_KEY, 0x41) /* F8 */\n#define KLOR_OPENWHISPR_CONTEXT_KEY   ZMK_HID_USAGE(HID_USAGE_KEY, 0x42) /* F9 */
 
 struct klor_control_config {
     uint8_t nav_layer;
@@ -258,9 +258,9 @@ static void tap_encoded(uint32_t encoded, int64_t timestamp) {
     (void)raise_zmk_keycode_state_changed_from_encoded(encoded, false, timestamp);
 }
 
-static int handle_openwhispr_press(int64_t timestamp) {
-    // OpenWhispr owns recording/transcription/insertion and its own toggle state.
-    tap_encoded(KLOR_OPENWHISPR_KEY, timestamp);
+static int handle_openwhispr_press(uint32_t hotkey, int64_t timestamp) {
+    // OpenWhispr owns dictation, assistant, screenshot capture and all app state.
+    tap_encoded(hotkey, timestamp);
     command_deactivate();
     return ZMK_BEHAVIOR_OPAQUE;
 }
@@ -432,7 +432,9 @@ static int position_listener(const zmk_event_t *eh) {
         } else if (key >= ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_A) &&
                    key <= ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_Z)) {
             if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_T)) {
-                handle_openwhispr_press(ev->timestamp);
+                handle_openwhispr_press(KLOR_OPENWHISPR_DICTATION_KEY, ev->timestamp);
+            } else if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_C)) {
+                handle_openwhispr_press(KLOR_OPENWHISPR_CONTEXT_KEY, ev->timestamp);
             } else {
                 (void)klor_bridge_send_action(
                     0x41 + key - ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_A), 0);
