@@ -114,7 +114,7 @@ enum internal_nav_keycodes {
 // The bridge daemon's actions.yml decides what each letter does.
 // To assign a new action, just add an entry in actions.yml — no firmware change needed.
 #define ACTION_STT              0x10  // Legacy custom STT bridge action; reserved for rollback
-#define OPENWHISPR_DICTATION_KEY KC_F8 // OpenWhispr toggle hotkey (configured host-side)
+#define OPENWHISPR_DICTATION_KEY KC_F8 // OpenWhispr dictation hotkey\n#define OPENWHISPR_CONTEXT_KEY   KC_F9 // OpenWhispr Voice Assistant + screen context
 #define ACTION_BRIGHTNESS_UP    0x11  // Brightness increase (from right encoder)
 #define ACTION_BRIGHTNESS_DOWN  0x12  // Brightness decrease (from right encoder)
 
@@ -351,8 +351,7 @@ static bool training_mode = false;
 
 // State machine for the AI bridge command mode.
 // Double-tap right ALT enters command mode. Letter actions still go through
-// Raw HID to the Python bridge. Dictation is only a host hotkey: T emits F8
-// and exits command mode; OpenWhispr alone owns recording and dictation state.
+// Raw HID to the Python bridge. OpenWhispr modes are direct host hotkeys:\n// T emits F8 for normal dictation; C emits F9 for Voice Assistant with screen\n// context. Both exit command mode immediately; firmware stores no app state.
 
 #define COMMAND_MODE_TIMEOUT 3000  // Exit command mode after 3s of no input
 
@@ -370,7 +369,7 @@ static void bridge_send_action(uint8_t action_id, uint8_t param) {
 
 // Map a keycode to an action ID during command mode.
 // All 26 base-layer letters are mapped to their ASCII uppercase code (0x41-0x5A).
-// T key returns 0xFF sentinel to toggle OpenWhispr directly.
+// T/C return local sentinels for OpenWhispr hotkeys; nothing is sent over Raw HID.
 // Returns 0 if the key is not a mappable letter.
 // Handles mod-tap wrappers (e.g., LGUI_T(KC_A)) by extracting the base keycode.
 static uint8_t cmd_action_for_key(uint16_t keycode) {
@@ -383,7 +382,7 @@ static uint8_t cmd_action_for_key(uint16_t keycode) {
     switch (keycode) {
         case KC_A: return 0x41;
         case KC_B: return 0x42;
-        case KC_C: return 0x43;
+        case KC_C: return 0xFE;  // OpenWhispr Voice Assistant + screen context
         case KC_D: return 0x44;
         case KC_E: return 0x45;
         case KC_F: return 0x46;
@@ -400,7 +399,7 @@ static uint8_t cmd_action_for_key(uint16_t keycode) {
         case KC_Q: return 0x51;
         case KC_R: return 0x52;
         case KC_S: return 0x53;
-        case KC_T: return 0xFF;  // sentinel: OpenWhispr dictation, handled separately
+        case KC_T: return 0xFF;  // OpenWhispr normal dictation
         case KC_U: return 0x55;
         case KC_V: return 0x56;
         case KC_W: return 0x57;
@@ -423,10 +422,10 @@ static bool process_command_mode(uint16_t keycode, keyrecord_t *record) {
 
     uint8_t action = cmd_action_for_key(keycode);
 
-    if (action == 0xFF) {
-        // OpenWhispr owns the complete dictation lifecycle. Firmware only
-        // sends its configured toggle hotkey and immediately leaves command mode.
-        tap_code(OPENWHISPR_DICTATION_KEY);
+    if (action == 0xFF || action == 0xFE) {
+        // OpenWhispr owns both lifecycles. Firmware emits only the configured
+        // host hotkey: F8 = dictation, F9 = Voice Assistant with screen context.
+        tap_code(action == 0xFF ? OPENWHISPR_DICTATION_KEY : OPENWHISPR_CONTEXT_KEY);
         cmd_mode_active = false;
         return false;
     }
