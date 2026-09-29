@@ -13,7 +13,7 @@
 #
 # Action types:
 #   llm_text      — Copy selected text → LLM transform → copy result to clipboard
-#   stt_toggle    — Start/stop speech-to-text recording
+#   stt_toggle    — LEGACY rollback-only custom STT handler (disabled at runtime)
 #   prompt_picker — Open searchable popup to insert a text snippet from snippets.yml
 #   unconfigured  — Placeholder; bridge logs a notice and does nothing
 #
