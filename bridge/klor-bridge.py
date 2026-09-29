@@ -3,17 +3,20 @@
 KLOR Bridge — AI writing assistant daemon for the KLOR split keyboard.
 
 Listens for Raw HID commands from the KLOR keyboard through the plain QMK
-raw_hid_receive() hook, dispatches actions to OpenRouter LLM and ElevenLabs
-STT, and writes results to the clipboard via wtype/wl-clipboard.
+raw_hid_receive() hook, dispatches non-dictation actions to OpenRouter/helpers,
+and writes results to the clipboard via wtype/wl-clipboard. Dictation is owned
+by OpenWhispr; the legacy custom STT classes below are rollback-only and disabled.
 
 Usage:
     python klor-bridge.py              # run in foreground
     python klor-bridge.py --verbose    # debug logging
 
-Dependencies (Arch):
-    pacman -S python-hid python-openai python-yaml python-keyring python-sounddevice python-numpy python-aiohttp
-Dependencies (pip):
-    pip install hidapi openai pyyaml keyring sounddevice numpy aiohttp
+Active dependencies (Arch):
+    pacman -S python-hid python-openai python-yaml python-keyring
+Active dependencies (pip):
+    pip install hidapi openai pyyaml keyring
+
+Legacy rollback-only STT code additionally used sounddevice, numpy, and aiohttp.
 
 System deps:
     wtype wl-clipboard
