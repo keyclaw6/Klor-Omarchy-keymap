@@ -2,22 +2,18 @@
 
 This branch replaces the active custom KLOR dictation pipeline with [OpenWhispr](https://github.com/OpenWhispr/openwhispr) while keeping the old implementation available for rollback.
 
-## Active path
+## Active paths
 
 ```text
-KLOR firmware
-  └─ double-tap RALT → T
-       └─ emits F8
-            └─ OpenWhispr
-                 ├─ records audio
-                 ├─ POST /audio/transcriptions
-                 │    └─ localhost:8765 adapter
-                 │         └─ ElevenLabs Scribe v2
-                 ├─ OpenWhispr cleanup / dictionary / snippets
-                 └─ inserts text into the focused application
+KLOR command mode
+├─ T ── F8 ──> OpenWhispr normal dictation
+│               ├─ record / transcribe / cleanup / insert
+│               └─ localhost:8765 ──> ElevenLabs Scribe v2
+└─ C ── F9 ──> OpenWhispr Voice Assistant
+                └─ native Share screen context ──> screenshot + spoken command
 ```
 
-The KLOR bridge is not in the audio path. It continues to handle the other command-mode actions.
+The KLOR bridge is in neither voice path. Firmware only emits F8 or F9 and exits command mode. OpenWhispr owns recording state, screenshot capture, cleanup, assistant routing, and insertion/output.
 
 ## Why there is a small adapter
 
@@ -40,7 +36,9 @@ The adapter resolves the key in this order:
 Configure OpenWhispr once:
 
 - Dictation hotkey: **F8**
-- Activation mode: **Toggle**
+- Voice Assistant hotkey: **F9**
+- Voice Assistant → **Share screen context: enabled**
+- Dictation activation mode: **Toggle**
 - Speech to Text provider: **Self-Hosted**
 - Server URL: **http://127.0.0.1:8765**
 - Model: **scribe_v2**
@@ -60,12 +58,12 @@ A healthy adapter reports `ok: true`. `elevenlabs_key_configured` should also be
 ## Keyboard behavior
 
 - Double-tap RALT: enter command mode.
-- T: emit one F8 hotkey tap and immediately exit command mode.
-- To toggle dictation off, enter command mode again and press T again.
-- Firmware stores no OpenWhispr/dictation-active state.
-- RALT, ESC, and other commands keep their normal command-mode behavior; they do not guess whether OpenWhispr is currently recording.
+- **T**: emit F8 once, exit command mode.
+- **C**: emit F9 once, exit command mode.
+- Firmware stores no OpenWhispr mode or recording state.
+- C does not implement screenshot capture itself; it invokes OpenWhispr's Voice Assistant, whose native screen-context setting owns capture.
 
-This deliberate statelessness avoids firmware/app state drift if OpenWhispr stops because of an error, cancellation, timeout, or UI action. QMK and ZMK use the same behavior.
+This is the entire integration at the keyboard boundary. QMK and ZMK use the same two stateless mappings.
 
 ## Rollback material
 
@@ -75,12 +73,10 @@ Rollback is therefore a code/config switch rather than data recovery. Do not mer
 
 ## Acceptance test
 
-1. Start OpenWhispr and both user services.
+1. Start OpenWhispr and both Linux user services.
 2. Confirm `/health` says the ElevenLabs key is configured.
-3. Focus a normal text field.
-4. Double-tap RALT, press T, and dictate Danish and English.
-5. Double-tap RALT and press T again to stop/toggle OpenWhispr.
-6. Confirm OpenWhispr inserts the transcript in the focused field.
-7. Repeat after cancelling/stopping once from OpenWhispr's own UI, then verify the next keyboard toggle still behaves correctly (no firmware state drift).
-8. Add a distinctive word to OpenWhispr's custom dictionary and confirm it reaches Scribe as a keyterm.
-9. Reboot/log in and repeat once to verify autostart/service behavior.
+3. Set F8 = Dictation, F9 = Voice Assistant, and enable Share screen context.
+4. In a text field, RALT×2 → T, dictate, then repeat RALT×2 → T to toggle off. Confirm normal transcript insertion.
+5. RALT×2 → C and issue a command that depends on visible screen content. Confirm OpenWhispr captures screen context and the assistant uses it.
+6. Stop/cancel either mode from OpenWhispr itself, then invoke it again from the keyboard. Confirm there is no firmware state drift.
+7. Reboot/log in and repeat once to verify adapter/service startup.
