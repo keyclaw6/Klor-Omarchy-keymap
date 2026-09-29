@@ -4,46 +4,23 @@ Technical reference for the KLOR AI Writing Workstation. Covers the firmware, br
 
 ## System Overview
 
-The system has two halves that communicate over USB Raw HID:
+The active system has three responsibilities with a deliberately narrow boundary:
 
-1. **Firmware** (RP2040, plain QMK) — Handles typing, layers, home row mods, Danish characters, autocorrect, and command mode detection. When a command action is triggered, it sends a 32-byte HID packet to the host.
+1. **Firmware (QMK or ZMK)** — typing/layers plus command-mode input. Non-dictation actions use the existing 32-byte Raw HID protocol. Dictation never sends audio or STT packets; T emits the OpenWhispr F8 hotkey directly.
+2. **KLOR bridge (Python)** — handles non-dictation actions such as OpenRouter transformations, prompt picker and bridge-side helpers. Legacy custom STT code remains in source for rollback but `LEGACY_STT_ENABLED = False` prevents it from starting.
+3. **OpenWhispr** — owns microphone capture, dictation state, cleanup, custom dictionary, history and text insertion. Its Self-Hosted transcription request goes to a localhost protocol adapter, which forwards the audio to ElevenLabs Scribe v2 using the existing keyring credential.
 
-2. **Bridge daemon** (Python, asyncio) — Listens for HID packets, dispatches to OpenRouter LLM or ElevenLabs STT, and writes results to the clipboard via platform tools (wl-clipboard on Linux, pyperclip on Windows). Results are never auto-pasted — the user pastes manually with Ctrl+V.
-
+```text
+KLOR keyboard
+├─ normal command letter ── Raw HID ──> KLOR bridge ──> OpenRouter / helpers
+└─ command T ────────────── F8 ───────> OpenWhispr
+                                             │
+                                             ├─ record / cleanup / insert
+                                             └─ POST localhost:8765/audio/transcriptions
+                                                    └─ ElevenLabs Scribe v2
 ```
-┌─────────────────────────────────────────┐
-│            KLOR Keyboard (RP2040)        │
-│                                          │
-│  ┌──────────┐  ┌───────────┐  ┌───────┐ │
-│  │ Layers   │  │ Danish    │  │ Auto- │ │
-│  │ HRM/OSM  │  │ Hold Keys │  │ corr. │ │
-│  └──────────┘  └───────────┘  └───────┘ │
-│  ┌──────────────────────────────────────┐│
-│  │ Command Mode State Machine           ││
-│  │ (double-tap RALT → action dispatch)  ││
-│  └──────────────────────────────────────┘│
-│         │ host_raw_hid_send()            │
-└─────────┼────────────────────────────────┘
-          │ USB Raw HID (32-byte packets)
-          │ VID=0x3A3C  PID=0x0001
-          │ usage_page=0xFF60  usage=0x61
-          ▼
-┌─────────┼────────────────────────────────┐
-│         │ HIDConnection.read()           │
-│  ┌──────────────────────────────────────┐│
-│  │ Bridge Daemon (Python asyncio)       ││
-│  │                                      ││
-│  │  ┌──────────┐  ┌──────────┐         ││
-│  │  │ LLMClient│  │STTPipeline│        ││
-│  │  │(OpenRouter)  │(ElevenLabs)│       ││
-│  │  └──────────┘  └──────────┘         ││
-│  │  ┌──────────────────────────┐       ││
-│  │  │ Platform (clipboard)     │       ││
-│  │  └──────────────────────────┘       ││
-│  └──────────────────────────────────────┘│
-│            Host Computer                 │
-└──────────────────────────────────────────┘
-```
+
+See `OPENWHISPR.md` for host configuration, credential reuse, acceptance testing and rollback.
 
 ## Firmware Architecture
 
@@ -149,7 +126,7 @@ Double-tap right ALT within 350ms (`RALT_TAP_WINDOW`). Manual state machine in `
 - Window expiry: tap count resets
 - Any non-RALT keypress: tap count resets
 
-While STT is recording, a single RALT press stops recording immediately (bypasses the double-tap detection).
+While a command-mode OpenWhispr session is active, a single RALT press emits the F8 stop toggle and is consumed without leaking an Alt keystroke or starting a new double-tap.
 
 ### Command Mode Dispatch
 
@@ -187,7 +164,7 @@ P       0x50  prompt_picker
 Q       0x51  unconfigured
 R       0x52  write_email
 S       0x53  summarize
-T       0xFF  → ACTION_STT (0x10) with depth param
+T       0xFF  → OpenWhispr F8 toggle (no Raw HID packet)
 U       0x55  unconfigured
 V       0x56  unconfigured
 W       0x57  unconfigured
@@ -203,19 +180,18 @@ Special (non-command-mode, sent directly by firmware):
 
 Unconfigured IDs are valid in firmware — the bridge logs a notice and does nothing. To assign an action, edit `actions.yml` and `prompts.yml` only (no firmware reflash).
 
-### STT Tap Counting
+### OpenWhispr Dictation State
 
-The T key uses a separate path for selecting STT correction depth:
+The firmware keeps only one boolean mirror of the OpenWhispr toggle so the established command-mode gestures remain coherent:
 
-1. First T press: start counting, `stt_tap_count = 1`, start 300ms window
-2. Additional T presses within window: increment count (max 3)
-3. Window expires OR different key pressed: finalize → `bridge_send_action(ACTION_STT, count)`
-4. Count 3 reached: finalize immediately
+- First T press: emit F8, mark dictation active, cancel the command timeout.
+- Second T press: emit F8, clear dictation state, exit command mode.
+- RALT while active: emit F8 through the RALT state machine, clear state, consume the release without Alt leakage.
+- ESC while active: emit F8, clear state, exit command mode.
+- Another mapped command while active: emit F8 first, then send that command's normal Raw HID packet.
+- Unmapped key while active: emit F8, exit command mode, pass the original key through.
 
-Depth meanings:
-- 1 = Layer 1 only (raw transcription)
-- 2 = L1 + Layer 2 (domain corrections)
-- 3 = L1 + L2 + Layer 3 (LLM post-processing)
+There is no 300 ms T-tap window, no 1/2/3 depth parameter, and no firmware STT packet in the active path.
 
 ### HID Packet Format
 
@@ -302,51 +278,22 @@ A test socket on `127.0.0.1:19378` accepts TCP connections for injecting simulat
 
 Note: The bridge does NOT auto-paste results. This is intentional — it gives the user control over when and where to paste, and avoids focus-stealing issues.
 
-**STT toggle (`stt_toggle` type):**
+### OpenWhispr Dictation Integration
 
-```
-First trigger (start recording):
-1. Store depth parameter (1-3)
-2. Open sounddevice InputStream (16kHz, mono, float32)
-3. Buffer audio chunks in callback
-4. Launch `stt_listening_window.py`, a slim top-center GTK layer-shell overlay with a live microphone waveform
+Dictation is intentionally outside `KlorBridge._dispatch_action()`. Current firmware does not send `ACTION_STT (0x10)`. If a legacy 0x10 packet nevertheless arrives, `stt_toggle` is ignored while `LEGACY_STT_ENABLED = False`.
 
-Second trigger (stop + process):
-1. Stop and close audio stream
-2. Concatenate audio buffer → numpy array
-3. Layer 1: Convert to raw PCM int16 → POST to ElevenLabs Scribe v2
-4. Layer 2 (if depth >= 2): regex corrections + fuzzy lexicon matching
-5. Layer 3 (if depth >= 3): LLM post-processing via stt_postprocess prompt
-6. Write result to clipboard
-7. Change the same overlay to "Transcription complete" with word and character counts
+`bridge/openwhispr_elevenlabs_shim.py` is the only KLOR-owned component on the active dictation data path. It:
 
-Notification robustness contract:
+1. listens only on `127.0.0.1:8765`;
+2. accepts OpenWhispr's Self-Hosted `POST /audio/transcriptions` (or `/v1/audio/transcriptions`) multipart contract;
+3. reads the ElevenLabs key from env or the existing `klor-bridge/elevenlabs_key` keyring slot;
+4. maps OpenWhispr's optional language/model/dictionary prompt to Scribe v2 fields;
+5. forwards the original encoded audio bytes to ElevenLabs; and
+6. returns the OpenAI-style JSON shape `{ "text": "..." }` that OpenWhispr expects.
 
-- STT notifications are tagged with `klor-stt`
-- LLM notifications are tagged with `klor-llm`
-- Prompt picker notifications are tagged with `klor-picker`
-- The bridge streams dB-scaled microphone RMS frames to the listening overlay over stdin every 50 ms
-- The listening overlay remains open across listening, transcription, and completion/error states, then exits after the terminal state delay
-- If the overlay is unavailable, STT falls back to finite non-critical notifications
-- Fallback STT and other multi-step notifications use an explicit begin/step/end lifecycle in the bridge
-- Notification state transitions clear stale tagged notifications via `makoctl` by ID and fall back to dismissing the current mako group
-- The current STT and LLM notification behavior is verified working and locked. Do not change it unless the user explicitly requests it.
+OpenWhispr, not the adapter, performs dictation cleanup and text insertion. Its custom dictionary prompt is translated into repeated ElevenLabs `keyterms[]` fields.
 
-Verified by session-level smoke tests in `bridge/notification_smoke_test.py`, with results logged to `~/.cache/klor-bridge-notification-smoke.log`.
-```
-
-### STT Correction Pipeline
-
-**Layer 1 — Transcription:**
-POST audio as raw PCM (int16, 16kHz, mono, no WAV header) to `https://api.elevenlabs.io/v1/speech-to-text`. Parameters: `model_id=scribe_v2`, auto language detection (no hardcoded language), `no_verbatim=true`, `diarize=false`, `timestamps_granularity=none`, `file_format=pcm_s16le_16`, plus lexicon terms as individual `keyterms[]` form fields for vocabulary biasing. Raw PCM avoids WAV container overhead for faster turnaround on short dictation clips.
-
-**Layer 2 — Domain Corrector:**
-Two-pass correction on the transcript:
-1. Regex substitutions from `corrections.yml` (exact pattern matches, applied in order)
-2. Fuzzy matching against `lexicon.yml` terms using Levenshtein distance (threshold=2, min word length=4)
-
-**Layer 3 — LLM Post-processing:**
-Sends the corrected transcript through the `stt_postprocess` prompt template via OpenRouter.
+The old `STTPipeline`, waveform UI, correction pipeline, lexicon/corrections and flow verifier are retained as rollback material only.
 
 ### Prompt Picker (`prompt_picker` type)
 
@@ -395,12 +342,12 @@ All config is in `~/.config/klor-bridge/`:
 
 | File | Purpose |
 |------|---------|
-| `config.yml` | Bridge settings: USB IDs, LLM params, STT params, platform tools, brightness |
-| `actions.yml` | Action registry: maps action IDs (0x41-0x5A, 0x10-0x12) to behaviors |
+| `config.yml` | Bridge settings: USB IDs, LLM params, platform tools, brightness; legacy STT block retained for rollback |
+| `actions.yml` | Action registry for bridge actions; legacy 0x10 STT entry retained but inactive |
 | `prompts.yml` | LLM prompt templates referenced by `prompt_key` in actions; reloaded live on next use |
 | `snippets.yml` | Prompt snippet library for the Prompt Picker (P key); reloaded live on next picker open |
-| `lexicon.yml` | Domain vocabulary for STT Layer 2 fuzzy matching + ElevenLabs keyterms |
-| `corrections.yml` | Regex substitution rules for STT Layer 2 |
+| `lexicon.yml` | Legacy custom STT vocabulary; use OpenWhispr Custom Dictionary for the active path |
+| `corrections.yml` | Legacy custom STT correction rules; active cleanup belongs to OpenWhispr |
 
 ### Secrets
 
@@ -409,7 +356,7 @@ API keys are stored in the OS keyring (`gnome-keyring` on Linux, Windows Credent
 | Keyring entry | Env var fallback | Service |
 |---------------|-----------------|---------|
 | `klor-bridge/openrouter_key` | `KLOR_OPENROUTER_KEY` | OpenRouter LLM |
-| `klor-bridge/elevenlabs_key` | `KLOR_ELEVENLABS_KEY` | ElevenLabs STT |
+| `klor-bridge/elevenlabs_key` | `KLOR_ELEVENLABS_KEY` (or adapter-only `ELEVENLABS_API_KEY`) | ElevenLabs Scribe via OpenWhispr adapter |
 
 ### HID Library Compatibility
 
@@ -426,7 +373,7 @@ Arch Linux ships `python-hid` (required by QMK) which provides `hid.Device`. Mos
 - `wl-clipboard` → `pyperclip` (clipboard access)
 - `wtype` → `pyautogui` (keyboard simulation for Ctrl+C copy)
 - `notify-send` → PowerShell toast notifications
-- All other logic (HID, LLM, STT pipeline) is identical
+- Non-dictation HID/LLM behavior remains parallel; legacy STT stays disabled on both variants
 
 ## Build System
 
@@ -477,7 +424,7 @@ The current plain UF2 is 228,352 bytes (223 KiB). The RP2040 has 2 MB flash, so 
 
 ### Linux (systemd)
 
-`systemd/klor-bridge.service` runs the bridge as a user service, bound to `graphical-session.target`. Security hardening: `NoNewPrivileges`, `ProtectHome=read-only`, `ProtectSystem=strict`, `PrivateTmp`, CPU/memory limits (512 MB, 50% CPU).
+`systemd/klor-bridge.service` runs the non-dictation bridge as a user service. `systemd/openwhispr-elevenlabs.service` runs the loopback transcription adapter. OpenWhispr itself is the desktop application that owns microphone capture and insertion.
 
 Supported runtime contract:
 
@@ -526,7 +473,7 @@ No firmware change required:
 
 ### Adding a New Action Type
 
-If you need behavior beyond `llm_text`, `stt_toggle`, and `prompt_picker`:
+If you need a new bridge action type beyond `llm_text` and `prompt_picker`:
 
 1. Add a handler method in `KlorBridge` (e.g., `_handle_my_type()`)
 2. Add the dispatch case in `_dispatch_action()`
@@ -541,10 +488,8 @@ Edit `keyboards/geigeigeist/klor/keymaps/plain/autocorrect.txt`, regenerate the 
 - Corrections can contain any character
 - Max trie size: 65,535 bytes (~4,200 entries)
 
-### Changing STT Language
+### Changing Dictation Language
 
-By default, language is auto-detected (ElevenLabs detects Danish, English, and other languages automatically). To force a specific language, edit `config.yml`:
-```yaml
-stt:
-  language: eng  # ISO 639-3 code (dan, eng, deu, fra, etc.)
-```
+Set the preferred/forced transcription language in OpenWhispr. Its Self-Hosted request forwards the selected language to the localhost adapter, which maps it to ElevenLabs `language_code`. Leave OpenWhispr on automatic language selection to let Scribe detect Danish/English dynamically.
+
+Legacy `config.yml -> stt.language` is not consulted by the active OpenWhispr path.
