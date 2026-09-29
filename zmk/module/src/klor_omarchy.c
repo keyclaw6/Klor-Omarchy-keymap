@@ -290,6 +290,7 @@ static int handle_ralt(bool pressed, struct zmk_behavior_binding_event event,
         if (openwhispr_dictation_active) {
             stop_openwhispr_and_exit(event.timestamp);
             ralt_tap_count = 0;
+            ralt_interrupted = true; /* release must not start a new double-tap */
             return ZMK_BEHAVIOR_OPAQUE;
         }
 
@@ -447,7 +448,11 @@ static int position_listener(const zmk_event_t *eh) {
     bool eat = false;
 
     if (command_active) {
-        if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_ESCAPE)) {
+        /* RALT owns its own state machine. Bubble it so handle_ralt() can stop
+         * OpenWhispr without emitting a stray Alt or creating a partial tap. */
+        if (is_ralt_binding(binding) && openwhispr_dictation_active) {
+            /* handled below by the behavior itself */
+        } else if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_ESCAPE)) {
             stop_openwhispr_and_exit(ev->timestamp);
             eat = true;
         } else if (key >= ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_A) &&
