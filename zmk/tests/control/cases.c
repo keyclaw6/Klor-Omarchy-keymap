@@ -170,10 +170,10 @@ static void test_training(void) {
          "HRM/GH, RALT");
 }
 
-static void assert_openwhispr_pair(unsigned offset) {
+static void assert_openwhispr_pair(unsigned offset, uint32_t hotkey) {
     assert(key_count >= offset + 2);
-    assert(keys[offset].key == KLOR_OPENWHISPR_KEY && keys[offset].down);
-    assert(keys[offset + 1].key == KLOR_OPENWHISPR_KEY && !keys[offset + 1].down);
+    assert(keys[offset].key == hotkey && keys[offset].down);
+    assert(keys[offset + 1].key == hotkey && !keys[offset + 1].down);
 }
 
 static void test_command(void) {
@@ -184,10 +184,11 @@ static void test_command(void) {
             layers[0][0] = BIND(wrappers[w], w ? 4 : KEY(4 + letter), w ? KEY(4 + letter) : 0);
             command_activate(&config);
             assert(physical(0, true) == ZMK_EV_EVENT_HANDLED);
-            if (letter == 19) { /* T */
+            if (letter == 19 || letter == 2) { /* T=dictation, C=screen-context assistant */
                 assert(!command_active && !packet_count);
                 assert(key_count == 2);
-                assert_openwhispr_pair(0);
+                assert_openwhispr_pair(
+                    0, letter == 19 ? KLOR_OPENWHISPR_DICTATION_KEY : KLOR_OPENWHISPR_CONTEXT_KEY);
             } else {
                 assert(!command_active);
                 assert_action(0, 0x41 + letter, 0);
@@ -195,7 +196,7 @@ static void test_command(void) {
             active_layers[1] = true;
             layers[1][0] = BIND("kp", KEY(30), 0);
             assert(physical(0, false) == ZMK_EV_EVENT_HANDLED);
-            assert(key_count == (letter == 19 ? 2u : 0u));
+            assert(key_count == ((letter == 19 || letter == 2) ? 2u : 0u));
         }
 
     struct zmk_behavior_binding unmapped[] = {
@@ -241,30 +242,36 @@ static void test_command(void) {
     physical(36, false);
     assert(key_count == 2 && !keys[1].down);
 
-    puts("PASS command: 26 letters x7 behavior types, stateless OpenWhispr T routing, "
+    puts("PASS command: 26 letters x7 behavior types, direct OpenWhispr T/C hotkeys, "
          "current layer, unmapped kinds, ESC, timeout, release pairing");
 }
 
 static void test_dictation(void) {
     reset_state();
     layers[0][4] = BIND("kp", KEY(23), 0); /* T */
+    layers[0][2] = BIND("kp", KEY(6), 0);  /* C */
 
     enter_command();
     tap(4);
     assert(!command_active && !packet_count);
     assert(key_count == 2);
-    assert_openwhispr_pair(0);
+    assert_openwhispr_pair(0, KLOR_OPENWHISPR_DICTATION_KEY);
 
-    /* Toggle again through a fresh command invocation. Firmware deliberately
-     * keeps no dictation-active bit; OpenWhispr is the single source of truth. */
+    key_count = 0;
+    enter_command();
+    tap(2);
+    assert(!command_active && !packet_count);
+    assert(key_count == 2);
+    assert_openwhispr_pair(0, KLOR_OPENWHISPR_CONTEXT_KEY);
+
+    /* Each use is independent: firmware tracks neither mode nor recording state. */
     key_count = 0;
     enter_command();
     tap(4);
     assert(!command_active && !packet_count);
-    assert(key_count == 2);
-    assert_openwhispr_pair(0);
+    assert_openwhispr_pair(0, KLOR_OPENWHISPR_DICTATION_KEY);
 
-    puts("PASS dictation: command+T emits one F8 tap and keeps dictation state in OpenWhispr");
+    puts("PASS dictation: T=F8 dictation, C=F9 screen-context assistant, no firmware state");
 }
 
 static void test_ralt(void) {
