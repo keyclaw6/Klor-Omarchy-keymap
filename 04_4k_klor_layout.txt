@@ -87,8 +87,8 @@
     ┌─────┬───────────────┬──────────────────────────────┐    A  B  F  H  J  K  L  M  O  Q  U  V  W  X  Y  Z
     │ Key │ Type          │ Action                       │
     ├─────┼───────────────┼──────────────────────────────┤    OpenWhispr dictation:
-    │  C  │ host_hotkey   │ Assistant + screen context   │      C = F9 Voice Assistant + screenshot
-    │  D  │ llm_text      │ Translate Danish → English   │      T = F8 normal dictation
+    │  C  │ host_hotkey   │ Assistant + screen context   │      C = Ctrl+Shift+F9 assistant + screenshot
+    │  D  │ llm_text      │ Translate Danish → English   │      T = Ctrl+Shift+F8 normal dictation
     │  E  │ llm_text      │ Prompt Expand                │      No firmware voice state
     │  G  │ llm_text      │ Fix Grammar                  │
     │  I  │ llm_text      │ Improve Writing              │    OpenWhispr owns record/screen/cleanup
@@ -96,7 +96,7 @@
     │  P  │ prompt_picker │ Open Snippet Picker          │
     │  R  │ llm_text      │ Write Email (Nordic style)   │
     │  S  │ llm_text      │ Summarize                    │
-    │  T  │ host_hotkey   │ OpenWhispr normal dictation  │
+    │  T  │ host_hotkey   │ OpenWhispr dictation  │
     └─────┴───────────────┴──────────────────────────────┘
 
   ╔════════════════════════════════════════════════════════════════════════════════════════════════╗
