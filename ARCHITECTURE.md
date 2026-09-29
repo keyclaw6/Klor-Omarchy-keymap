@@ -126,8 +126,6 @@ Double-tap right ALT within 350ms (`RALT_TAP_WINDOW`). Manual state machine in `
 - Window expiry: tap count resets
 - Any non-RALT keypress: tap count resets
 
-While a command-mode OpenWhispr session is active, a single RALT press emits the F8 stop toggle and is consumed without leaking an Alt keystroke or starting a new double-tap.
-
 ### Command Mode Dispatch
 
 Once active, the next letter keypress is intercepted by `process_command_mode()`:
@@ -135,8 +133,8 @@ Once active, the next letter keypress is intercepted by `process_command_mode()`
 1. `cmd_action_for_key(keycode)` maps the keycode to an action ID
 2. Mod-tap wrappers (`LGUI_T(KC_A)` etc.) are stripped to extract the base keycode
 3. All 26 letters return their ASCII uppercase code (0x41-0x5A)
-4. T (KC_T) returns 0xFF sentinel → enters STT tap-counting path
-5. ESC cancels command mode (also stops STT if recording)
+4. T (KC_T) returns 0xFF sentinel → emit one F8 OpenWhispr toggle and exit command mode
+5. ESC cancels command mode
 6. Any unmapped key exits command mode and passes through
 
 Command mode times out after 3 seconds (`COMMAND_MODE_TIMEOUT`).
@@ -172,8 +170,8 @@ X       0x58  unconfigured
 Y       0x59  unconfigured
 Z       0x5A  unconfigured
 
-Special (non-command-mode, sent directly by firmware):
-0x10    ACTION_STT             — Speech-to-text toggle (T key via command mode)
+Special / reserved:
+0x10    ACTION_STT             — legacy custom-STT rollback ID; current firmware does not send it
 0x11    ACTION_BRIGHTNESS_UP   — Right encoder clockwise
 0x12    ACTION_BRIGHTNESS_DOWN — Right encoder counter-clockwise
 ```
@@ -182,16 +180,11 @@ Unconfigured IDs are valid in firmware — the bridge logs a notice and does not
 
 ### OpenWhispr Dictation State
 
-The firmware keeps only one boolean mirror of the OpenWhispr toggle so the established command-mode gestures remain coherent:
+There is deliberately **no firmware-side OpenWhispr state**.
 
-- First T press: emit F8, mark dictation active, cancel the command timeout.
-- Second T press: emit F8, clear dictation state, exit command mode.
-- RALT while active: emit F8 through the RALT state machine, clear state, consume the release without Alt leakage.
-- ESC while active: emit F8, clear state, exit command mode.
-- Another mapped command while active: emit F8 first, then send that command's normal Raw HID packet.
-- Unmapped key while active: emit F8, exit command mode, pass the original key through.
+Each command-mode T press emits exactly one F8 key tap and exits command mode. Starting and stopping are therefore the same stateless operation from the keyboard's perspective. To toggle again, enter command mode again and press T.
 
-There is no 300 ms T-tap window, no 1/2/3 depth parameter, and no firmware STT packet in the active path.
+This keeps OpenWhispr as the single source of truth and prevents drift if recording ends from OpenWhispr's UI, an error, timeout, or any other app-side path. There is no 300 ms T-tap window, no 1/2/3 depth parameter, and no firmware STT packet in the active path.
 
 ### HID Packet Format
 
@@ -200,8 +193,10 @@ All packets are 32 bytes, zero-padded. The bridge uses command IDs 0x20-0x3F and
 **Firmware → Host (action dispatch):**
 ```
 byte[0] = 0x20 (CMD_BRIDGE_ACTION)
-byte[1] = action_id (0x41-0x5A for letters, 0x10 for STT, 0x11/0x12 for brightness)
-byte[2] = param (0 for letters/brightness, 1-3 for STT depth)
+byte[1] = action_id (0x41-0x5A for bridge-routed letters, 0x11/0x12 for brightness)
+byte[2] = param (0 for current actions)
+
+0x10 remains reserved only for the disabled legacy STT rollback path; current firmware does not emit it.
 byte[3..31] = 0x00
 ```
 
@@ -238,7 +233,7 @@ The bridge protocol hooks into `raw_hid_receive()`, which the plain keymap uses 
 KlorBridge (main daemon)
 ├── HIDConnection     — USB Raw HID read/write via hid module (python-hid or hidapi)
 ├── LLMClient         — OpenRouter API via openai SDK (AsyncOpenAI)
-├── STTPipeline       — ElevenLabs Scribe v2 + 3-layer correction
+├── STTPipeline       — legacy rollback-only custom STT code; not instantiated
 └── Platform          — Clipboard (wl-clipboard / pyperclip), key simulation (wtype / pyautogui)
 ```
 
