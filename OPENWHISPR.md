@@ -6,14 +6,14 @@ This branch replaces the active custom KLOR dictation pipeline with [OpenWhispr]
 
 ```text
 KLOR command mode
-├─ T ── F8 ──> OpenWhispr normal dictation
+├─ T ── Ctrl+Shift+F8 ──> OpenWhispr normal dictation
 │               ├─ record / transcribe / cleanup / insert
 │               └─ localhost:8765 ──> ElevenLabs Scribe v2
-└─ C ── F9 ──> OpenWhispr Voice Assistant
+└─ C ── Ctrl+Shift+F9 ──> OpenWhispr Voice Assistant
                 └─ native Share screen context ──> screenshot + spoken command
 ```
 
-The KLOR bridge is in neither voice path. Firmware only emits F8 or F9 and exits command mode. OpenWhispr owns recording state, screenshot capture, cleanup, assistant routing, and insertion/output.
+The KLOR bridge is in neither voice path. Firmware only emits the dedicated Ctrl+Shift+F8/F9 chords and exits command mode. OpenWhispr owns recording state, screenshot capture, cleanup, assistant routing, and insertion/output.
 
 ## Why there is a small adapter
 
@@ -35,8 +35,8 @@ The adapter resolves the key in this order:
 
 Configure OpenWhispr once:
 
-- Dictation hotkey: **F8**
-- Voice Assistant hotkey: **F9**
+- Dictation hotkey: **Control+Shift+F8**
+- Voice Assistant hotkey: **Control+Shift+F9**
 - Voice Assistant → **Share screen context: enabled**
 - Dictation activation mode: **Toggle**
 - Speech to Text provider: **Self-Hosted**
@@ -58,8 +58,8 @@ A healthy adapter reports `ok: true`. `elevenlabs_key_configured` should also be
 ## Keyboard behavior
 
 - Double-tap RALT: enter command mode.
-- **T**: emit F8 once, exit command mode.
-- **C**: emit F9 once, exit command mode.
+- **T**: emit Ctrl+Shift+F8 once, exit command mode.
+- **C**: emit Ctrl+Shift+F9 once, exit command mode.
 - Firmware stores no OpenWhispr mode or recording state.
 - C does not implement screenshot capture itself; it invokes OpenWhispr's Voice Assistant, whose native screen-context setting owns capture.
 
@@ -75,7 +75,7 @@ Rollback is therefore a code/config switch rather than data recovery. Do not mer
 
 1. Start OpenWhispr and both Linux user services.
 2. Confirm `/health` says the ElevenLabs key is configured.
-3. Set F8 = Dictation, F9 = Voice Assistant, and enable Share screen context.
+3. Set Control+Shift+F8 = Dictation, Control+Shift+F9 = Voice Assistant, and enable Share screen context.
 4. In a text field, RALT×2 → T, dictate, then repeat RALT×2 → T to toggle off. Confirm normal transcript insertion.
 5. RALT×2 → C and issue a command that depends on visible screen content. Confirm OpenWhispr captures screen context and the assistant uses it.
 6. Stop/cancel either mode from OpenWhispr itself, then invoke it again from the keyboard. Confirm there is no firmware state drift.
