@@ -50,46 +50,30 @@ install_packages() {
             # python-hid provides the 'hid' module (NOT python-hidapi, which
             # conflicts with python-hid required by qmk). The bridge supports both.
             sudo pacman -S --needed --noconfirm \
-                python python-yaml python-openai python-keyring \
-                python-numpy python-aiohttp python-hid \
+                python python-yaml python-openai python-keyring python-hid \
                 wtype wl-clipboard brightnessctl ddcutil
-
-            # python-sounddevice is AUR-only
-            if ! pacman -Qi python-sounddevice &>/dev/null; then
-                if command -v omarchy-pkg-aur-add &>/dev/null; then
-                    info "Installing python-sounddevice from AUR via omarchy..."
-                    omarchy-pkg-aur-add python-sounddevice
-                elif command -v yay &>/dev/null; then
-                    yay -S --needed --noconfirm python-sounddevice
-                elif command -v paru &>/dev/null; then
-                    paru -S --needed --noconfirm python-sounddevice
-                else
-                    warn "python-sounddevice not found in repos. Install manually from AUR."
-                    warn "  yay -S python-sounddevice  OR  paru -S python-sounddevice"
-                fi
-            fi
             ;;
 
         debian)
             info "Installing Debian/Ubuntu packages..."
             sudo apt update
             sudo apt install -y \
-                python3 python3-pip python3-yaml python3-numpy python3-aiohttp \
+                python3 python3-pip python3-yaml \
                 wtype wl-clipboard libhidapi-hidraw0 brightnessctl ddcutil
-            pip3 install --user openai keyring sounddevice hidapi
+            pip3 install --user openai keyring hidapi
             ;;
 
         fedora)
             info "Installing Fedora packages..."
             sudo dnf install -y \
-                python3 python3-pip python3-pyyaml python3-numpy python3-aiohttp \
+                python3 python3-pip python3-pyyaml \
                 wtype wl-clipboard hidapi brightnessctl ddcutil
-            pip3 install --user openai keyring sounddevice hid
+            pip3 install --user openai keyring hid
             ;;
 
         *)
             error "Unknown distro. Install these manually:"
-            echo "  Python 3.10+, pip, pyyaml, openai, keyring, sounddevice, numpy, aiohttp, hid (or hidapi)"
+            echo "  Python 3.10+, pip, pyyaml, openai, keyring, hid (or hidapi)"
             echo "  System: wtype, wl-clipboard, brightnessctl, ddcutil"
             return 1
             ;;
@@ -104,7 +88,7 @@ deploy_configs() {
     mkdir -p "$CONFIG_DIR"
 
     # Copy config files (don't overwrite existing)
-    for f in config.yml actions.yml prompts.yml lexicon.yml corrections.yml snippets.yml; do
+    for f in config.yml actions.yml prompts.yml snippets.yml; do
         src="$SCRIPT_DIR/bridge/$f"
         dst="$CONFIG_DIR/$f"
         if [[ -f "$src" ]]; then
@@ -119,7 +103,7 @@ deploy_configs() {
     done
 
     # Always overwrite bridge code/helpers (these are code, not user config)
-    for f in klor-bridge.py prompt_picker_helper.py prompt_picker_window.py stt_listening_window.py; do
+    for f in klor-bridge.py prompt_picker_helper.py prompt_picker_window.py openwhispr_elevenlabs_shim.py; do
         src="$SCRIPT_DIR/bridge/$f"
         dst="$CONFIG_DIR/$f"
         if [[ -f "$src" ]]; then
@@ -228,25 +212,25 @@ install_udev() {
 
 # ── Install systemd service ──────────────────────────────────────────────────
 
-install_service() {
-    info "Installing systemd user service..."
+install_services() {
+    info "Installing systemd user services..."
     mkdir -p "$SERVICE_DIR"
 
-    local svc_src="$SCRIPT_DIR/systemd/klor-bridge.service"
-    local svc_dst="$SERVICE_DIR/klor-bridge.service"
-
-    if [[ -f "$svc_src" ]]; then
-        cp "$svc_src" "$svc_dst"
-    elif [[ -f "$CONFIG_DIR/../systemd/user/klor-bridge.service" ]]; then
-        : # already in place
-    else
-        warn "Service file not found. Skipping."
-        return
-    fi
+    for svc in klor-bridge.service openwhispr-elevenlabs.service; do
+        local src="$SCRIPT_DIR/systemd/$svc"
+        local dst="$SERVICE_DIR/$svc"
+        if [[ -f "$src" ]]; then
+            cp "$src" "$dst"
+            info "  Installed $svc"
+        else
+            warn "  $svc not found; skipping."
+        fi
+    done
 
     systemctl --user daemon-reload
-    info "Service installed. Enable with: systemctl --user enable --now klor-bridge"
+    info "Services installed."
 }
+
 
 # ── Configure API keys ───────────────────────────────────────────────────────
 
@@ -273,15 +257,27 @@ PYEOF
         warn "  Skipped OpenRouter key."
     fi
 
-    read -rp "  ElevenLabs API key: " elevenlabs_key
-    if [[ -n "$elevenlabs_key" ]]; then
-        python3 - "$elevenlabs_key" <<'PYEOF'
+    if python3 - <<'PYEOF'
+import keyring, sys
+try:
+    sys.exit(0 if keyring.get_password("klor-bridge", "elevenlabs_key") else 1)
+except Exception:
+    sys.exit(1)
+PYEOF
+    then
+        info "  Existing ElevenLabs key found; OpenWhispr adapter will reuse it."
+    else
+        read -rsp "  ElevenLabs API key: " elevenlabs_key
+        echo ""
+        if [[ -n "$elevenlabs_key" ]]; then
+            python3 - "$elevenlabs_key" <<'PYEOF'
 import sys, keyring
 keyring.set_password("klor-bridge", "elevenlabs_key", sys.argv[1])
 PYEOF
-        info "  ElevenLabs key saved to keyring."
-    else
-        warn "  Skipped ElevenLabs key."
+            info "  ElevenLabs key saved to the existing KLOR keyring slot."
+        else
+            warn "  Skipped ElevenLabs key."
+        fi
     fi
 }
 
@@ -324,7 +320,7 @@ main() {
     echo ""
     install_udev || warn "udev rule installation failed — run with sudo or install manually."
     echo ""
-    install_service
+    install_services
     echo ""
     setup_wayland_env
     echo ""
@@ -338,10 +334,24 @@ main() {
     fi
     echo ""
     echo "  Next steps:"
-    echo "    1. Build/flash firmware from stock QMK: cp ~/qmk_firmware/.build/geigeigeist_klor_2040_plain.uf2 /run/media/$USER/RPI-RP2/"
-    echo "    2. Start bridge:  systemctl --user enable --now klor-bridge"
-    echo "    3. Check logs:    journalctl --user -u klor-bridge -f"
-    echo "    4. Manual test:   python3 ~/.config/klor-bridge/klor-bridge.py --verbose"
+    echo "    1. Install/start the OpenWhispr desktop app (official OpenWhispr release)."
+    echo "    2. In OpenWhispr configure:"
+    echo "         Dictation hotkey       = Control+Shift+F8 (Toggle)"
+    echo "         Voice Assistant hotkey = Control+Shift+F9"
+    echo "         Share screen context   = enabled (use a vision-capable assistant model)"
+    echo "    3. OpenWhispr Speech to Text → Self-Hosted:"
+    echo "         Server URL: http://127.0.0.1:8765"
+    echo "         Model:      scribe_v2"
+    echo "    4. Start services:"
+    echo "         systemctl --user enable --now klor-bridge openwhispr-elevenlabs"
+    echo "    5. Verify adapter/key:"
+    echo "         curl -s http://127.0.0.1:8765/health"
+    echo "    6. Build/flash the firmware from this branch."
+    echo "    7. Test:"
+    echo "         RALT×2 → T = normal dictation"
+    echo "         RALT×2 → C = Voice Assistant + native screen context"
+    echo ""
+    echo "  Neither OpenWhispr mode uses the KLOR bridge action path."
     echo ""
 }
 

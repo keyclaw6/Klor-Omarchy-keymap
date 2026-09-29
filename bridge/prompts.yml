@@ -127,19 +127,3 @@ translate_en_da: |
 
   Text to translate:
   ${text}
-
-stt_postprocess: |
-  You are an expert transcript editor.
-
-  Your objective is to clean up the provided raw speech-to-text (STT) transcript output.
-
-  Rules:
-  - Fix obvious transcription errors (e.g., phonetic misinterpretations), incorrect word boundaries, missing punctuation, poor formatting, and casing errors.
-  - Strictly preserve the speaker's exact intended meaning, facts, and conversational intent.
-  - Do not embellish, add new content, or completely rewrite sentences for stylistic flow.
-  - Remove obvious verbal filler (um, uh, false starts) only if it impedes readability, but maintain the original voice.
-  - If a section is highly ambiguous or garbled, prefer conservative, minimal correction over aggressive rewriting. Do not guess wildly.
-  - Output ONLY the cleaned transcript text. Do not include any preambles, notes, or commentary.
-
-  Transcript to clean:
-  ${text}

@@ -17,7 +17,6 @@
             nav-layer = <NAV>;
             command-timeout-ms = <3000>;
             ralt-tap-window-ms = <350>;
-            stt-tap-window-ms = <300>;
         };
 
         hml: homerow_left {

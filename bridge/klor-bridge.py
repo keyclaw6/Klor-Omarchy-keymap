@@ -3,17 +3,18 @@
 KLOR Bridge — AI writing assistant daemon for the KLOR split keyboard.
 
 Listens for Raw HID commands from the KLOR keyboard through the plain QMK
-raw_hid_receive() hook, dispatches actions to OpenRouter LLM and ElevenLabs
-STT, and writes results to the clipboard via wtype/wl-clipboard.
+raw_hid_receive() hook, dispatches non-dictation actions to OpenRouter/helpers,
+and writes results to the clipboard via wtype/wl-clipboard. OpenWhispr owns
+dictation and screen-context voice actions outside this daemon.
 
 Usage:
     python klor-bridge.py              # run in foreground
     python klor-bridge.py --verbose    # debug logging
 
-Dependencies (Arch):
-    pacman -S python-hid python-openai python-yaml python-keyring python-sounddevice python-numpy python-aiohttp
-Dependencies (pip):
-    pip install hidapi openai pyyaml keyring sounddevice numpy aiohttp
+Active dependencies (Arch):
+    pacman -S python-hid python-openai python-yaml python-keyring
+Active dependencies (pip):
+    pip install hidapi openai pyyaml keyring
 
 System deps:
     wtype wl-clipboard
@@ -26,10 +27,8 @@ import asyncio
 import contextlib
 import json
 import logging
-import math
 import os
 import shlex
-import re
 import shutil
 import sys
 import tempfile
@@ -50,7 +49,6 @@ CMD_BRIDGE_HEARTBEAT = 0x22
 CMD_BRIDGE_CONFIG = 0x23
 
 # Action IDs (must match firmware defines)
-ACTION_STT = 0x10
 ACTION_BRIGHTNESS_UP = 0x11
 ACTION_BRIGHTNESS_DOWN = 0x12
 
@@ -88,21 +86,6 @@ def load_actions() -> dict[int, dict]:
 
 def load_prompts() -> dict[str, str]:
     return load_yaml(CONFIG_DIR / "prompts.yml") or {}
-
-
-def load_lexicon() -> list[str]:
-    """Flatten all lexicon categories into a single list of terms."""
-    raw = load_yaml(CONFIG_DIR / "lexicon.yml")
-    terms = []
-    for category in raw.values():
-        if isinstance(category, list):
-            terms.extend(category)
-    return terms
-
-
-def load_corrections() -> list[dict]:
-    raw = load_yaml(CONFIG_DIR / "corrections.yml")
-    return raw.get("corrections", [])
 
 
 def load_snippets() -> list[dict]:
@@ -564,300 +547,6 @@ class LLMClient:
         return raw_err[:200]
 
 
-class STTError(RuntimeError):
-    pass
-
-
-class STTNoAudioError(STTError):
-    pass
-
-
-class STTNoSpeechError(STTError):
-    pass
-
-
-class STTPostProcessError(STTError):
-    pass
-
-
-def classify_stt_error(exc: Exception) -> str:
-    raw_err = str(exc).strip() or exc.__class__.__name__
-    err_lower = raw_err.lower()
-
-    if isinstance(exc, asyncio.TimeoutError):
-        return "Speech processing took too long. Try a shorter recording or check API connectivity."
-    if isinstance(exc, STTNoAudioError):
-        return "No audio was captured. Check the microphone input and try again."
-    if isinstance(exc, STTNoSpeechError):
-        return "No speech was detected. Try speaking louder or closer to the microphone."
-    if isinstance(exc, STTPostProcessError):
-        return raw_err[:200]
-    if "api key not configured" in err_lower or "401" in err_lower or "unauthorized" in err_lower or "authentication" in err_lower:
-        return "Speech-to-text authentication failed. Check the configured ElevenLabs API key."
-    if "429" in err_lower or "rate limit" in err_lower or "too many requests" in err_lower:
-        return "Rate limited by ElevenLabs. Wait a moment and try again."
-    if "500" in err_lower or "502" in err_lower or "503" in err_lower or "504" in err_lower or "server error" in err_lower:
-        return "ElevenLabs had a server error. Try again shortly."
-    if "connect" in err_lower or "network" in err_lower or "dns" in err_lower or "timed out" in err_lower:
-        return "Network error while contacting ElevenLabs. Check connectivity and try again."
-    return raw_err[:200]
-
-
-# ─── STT Pipeline ─────────────────────────────────────────────────────────────
-
-
-class STTPipeline:
-    """Speech-to-text with 3-layer correction pipeline."""
-
-    def __init__(self, config: dict, llm: LLMClient, prompts: dict):
-        stt_cfg = config.get("stt", {})
-        self.language = stt_cfg.get("language")  # None = auto-detect (ElevenLabs default)
-        self.sample_rate = stt_cfg.get("sample_rate", 16000)
-        self.channels = stt_cfg.get("channels", 1)
-        self.audio_device = stt_cfg.get("audio_device", "default")
-
-        self.el_cfg = stt_cfg.get("elevenlabs", {})
-
-        self.llm = llm
-        self.prompts = prompts
-        self.lexicon = load_lexicon()
-        self.corrections = load_corrections()
-
-        # Recording state
-        self._recording = False
-        self._audio_buffer: list = []
-        self._stream = None
-        self._audio_level = 0.0
-
-    @property
-    def is_recording(self) -> bool:
-        return self._recording
-
-    @property
-    def audio_level(self) -> float:
-        """Latest microphone RMS level in the normalized float32 range."""
-        return self._audio_level
-
-    async def toggle_recording(self, depth: int = 1) -> str | None:
-        """Toggle STT recording. Returns transcribed text when stopping, None when starting."""
-        if self._recording:
-            return await self._stop_and_process(depth)
-        else:
-            self._start_recording()
-            return None
-
-    def _start_recording(self) -> None:
-        """Start capturing audio from microphone."""
-        import sounddevice as sd
-
-        self._audio_buffer = []
-        self._recording = True
-        self._audio_level = 0.0
-
-        device = None if self.audio_device == "default" else self.audio_device
-
-        def callback(indata, frames, time_info, status):
-            if status:
-                log.warning("Audio callback status: %s", status)
-            self._audio_buffer.append(indata.copy())
-            # sounddevice invokes this on its audio thread. A single float
-            # assignment is atomic in CPython and keeps the callback lightweight.
-            self._audio_level = float((indata * indata).mean() ** 0.5)
-
-        try:
-            self._stream = sd.InputStream(
-                samplerate=self.sample_rate,
-                channels=self.channels,
-                dtype="float32",
-                device=device,
-                callback=callback,
-            )
-            self._stream.start()
-        except Exception:
-            self._recording = False
-            self._stream = None
-            raise
-        log.info("STT recording started")
-
-    async def _stop_and_process(self, depth: int) -> str:
-        """Stop recording and run the correction pipeline."""
-        import numpy as np
-
-        self._recording = False
-        self._audio_level = 0.0
-        if self._stream:
-            self._stream.stop()
-            self._stream.close()
-            self._stream = None
-
-        if not self._audio_buffer:
-            log.warning("No audio captured")
-            raise STTNoAudioError("No audio was captured")
-
-        audio = np.concatenate(self._audio_buffer, axis=0)
-        self._audio_buffer = []
-        log.info("STT recording stopped: %.1f seconds", len(audio) / self.sample_rate)
-
-        # Layer 1: Transcription
-        transcript = await self._transcribe(audio)
-        log.info("L1 transcript: %s", transcript[:100])
-
-        if not transcript or transcript.isspace():
-            raise STTNoSpeechError("No speech detected in recording")
-
-        if depth >= 2 and transcript:
-            # Layer 2: Domain corrector
-            transcript = self._domain_correct(transcript)
-            log.info("L2 corrected: %s", transcript[:100])
-
-        if depth >= 3 and transcript:
-            # Layer 3: LLM post-processing
-            template = self.prompts.get("stt_postprocess", "Fix errors:\n${text}")
-            try:
-                transcript = await self.llm.process_text(transcript, template)
-            except Exception as exc:
-                raise STTPostProcessError(f"STT post-process failed: {self.llm.classify_error(exc)}") from exc
-            log.info("L3 post-processed: %s", transcript[:100])
-
-        return transcript
-
-    async def _transcribe(self, audio) -> str:
-        """Run Layer 1 transcription via ElevenLabs Scribe v2."""
-        return await self._transcribe_elevenlabs(audio)
-
-    async def _transcribe_elevenlabs(self, audio) -> str:
-        """Transcribe using ElevenLabs Scribe v2 REST API.
-
-        Sends raw PCM (int16, 16kHz, mono) instead of WAV to avoid container
-        overhead and reduce latency for short dictation clips.
-        """
-        import numpy as np
-
-        api_key = get_secret("elevenlabs_key", "KLOR_ELEVENLABS_KEY")
-        if not api_key:
-            raise RuntimeError("ElevenLabs API key not configured")
-
-        # Convert float32 audio to raw PCM int16 bytes (no WAV header)
-        pcm_bytes = self._audio_to_pcm(audio)
-
-        # Build multipart form data
-        import aiohttp
-
-        url = "https://api.elevenlabs.io/v1/speech-to-text"
-        headers = {"xi-api-key": api_key}
-
-        data = aiohttp.FormData()
-        data.add_field("file", pcm_bytes, filename="audio.pcm", content_type="audio/pcm")
-        data.add_field("model_id", self.el_cfg.get("model_id", "scribe_v2"))
-
-        # Language: auto-detect if not explicitly set
-        if self.language:
-            data.add_field("language_code", self.language)
-
-        # Dictation-optimized settings
-        if self.el_cfg.get("no_verbatim", True):
-            data.add_field("no_verbatim", "true")
-
-        data.add_field("diarize", str(self.el_cfg.get("diarize", False)).lower())
-        data.add_field("timestamps_granularity", self.el_cfg.get("timestamps_granularity", "none"))
-
-        if not self.el_cfg.get("tag_audio_events", False):
-            data.add_field("tag_audio_events", "false")
-
-        # Tell ElevenLabs the audio format (raw PCM int16, 16kHz, mono)
-        data.add_field("file_format", "pcm_s16le_16")
-
-        # Add keyterms for vocabulary biasing — each term as a separate field
-        if self.lexicon:
-            keyterms = self.lexicon[:1000]  # max 1000
-            # Send each keyterm as a repeated form field (not a JSON string)
-            for term in keyterms:
-                data.add_field("keyterms[]", term)
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, data=data) as resp:
-                if resp.status != 200:
-                    body = await resp.text()
-                    raise RuntimeError(f"ElevenLabs API error {resp.status}: {body}")
-                result = await resp.json()
-                return result.get("text", "")
-
-    def _domain_correct(self, text: str) -> str:
-        """Layer 2: Apply regex exact corrections then fuzzy matching."""
-        # Exact regex corrections
-        for rule in self.corrections:
-            pattern = rule.get("pattern", "")
-            replace = rule.get("replace", "")
-            flags = re.IGNORECASE if rule.get("ignorecase") else 0
-            text = re.sub(pattern, replace, text, flags=flags)
-
-        # Fuzzy matching against lexicon (simple Levenshtein for known terms)
-        # This is intentionally lightweight — heavy correction is L3's job
-        if self.lexicon:
-            words = text.split()
-            corrected = []
-            for word in words:
-                match = self._fuzzy_match(word)
-                corrected.append(match if match else word)
-            text = " ".join(corrected)
-
-        return text
-
-    def _fuzzy_match(self, word: str, threshold: int = 2) -> str | None:
-        """Find closest lexicon term within Levenshtein distance threshold."""
-        if len(word) < 4:
-            return None  # don't fuzzy-match short words
-
-        best_term = None
-        best_dist = threshold + 1
-
-        for term in self.lexicon:
-            if abs(len(word) - len(term)) > threshold:
-                continue
-            dist = self._levenshtein(word.lower(), term.lower())
-            if dist < best_dist and dist <= threshold:
-                best_dist = dist
-                best_term = term
-
-        return best_term
-
-    @staticmethod
-    def _levenshtein(s: str, t: str) -> int:
-        """Compute Levenshtein edit distance between two strings."""
-        if len(s) < len(t):
-            return STTPipeline._levenshtein(t, s)
-        if len(t) == 0:
-            return len(s)
-
-        prev_row = list(range(len(t) + 1))
-        for i, c1 in enumerate(s):
-            curr_row = [i + 1]
-            for j, c2 in enumerate(t):
-                cost = 0 if c1 == c2 else 1
-                curr_row.append(min(
-                    curr_row[j] + 1,
-                    prev_row[j + 1] + 1,
-                    prev_row[j] + cost,
-                ))
-            prev_row = curr_row
-        return prev_row[-1]
-
-    def _audio_to_pcm(self, audio) -> bytes:
-        """Convert numpy float32 audio array to raw PCM int16 bytes.
-
-        Output: signed 16-bit little-endian, 16kHz, mono — no WAV header.
-        ElevenLabs Scribe v2 accepts this as pcm_s16le_16 format.
-        """
-        import numpy as np
-
-        # Normalize and convert to int16
-        audio_int16 = (audio * 32767).astype(np.int16)
-        if audio_int16.ndim > 1:
-            audio_int16 = audio_int16[:, 0]
-
-        return audio_int16.tobytes()
-
-
 # ─── HID Connection ───────────────────────────────────────────────────────────
 
 
@@ -984,7 +673,7 @@ class HIDConnection:
 
 
 class KlorBridge:
-    """Main daemon: ties together HID, LLM, STT, and platform layers."""
+    """Main daemon: ties together HID, LLM, prompt tools, and platform helpers."""
 
     def __init__(self):
         self.config = load_config()
@@ -999,14 +688,8 @@ class KlorBridge:
         self.hid = HIDConnection(self.config)
         self.platform = Platform(self.config)
         self.llm = LLMClient(self.config)
-        self.stt = STTPipeline(self.config, self.llm, self.prompts)
         self._llm_action_lock = asyncio.Lock()
         self._llm_action_active = False
-
-        # STT state
-        self._stt_depth = 1
-        self._stt_ui_process: asyncio.subprocess.Process | None = None
-        self._stt_ui_task: asyncio.Task | None = None
 
         # Brightness config
         bright_cfg = self.config.get("brightness", {})
@@ -1165,8 +848,6 @@ class KlorBridge:
         try:
             if action_type == "llm_text":
                 await self._handle_llm_text(action)
-            elif action_type == "stt_toggle":
-                await self._handle_stt_toggle(param)
             elif action_type == "prompt_picker":
                 await self._handle_prompt_picker(action)
             elif action_type == "unconfigured":
@@ -1332,205 +1013,6 @@ class KlorBridge:
             timeout=5000,
         )
         await self.platform.end_notification_flow("klor-llm", delay=5)
-
-    async def _handle_stt_toggle(self, depth: int) -> None:
-        """Toggle recording while keeping one UI through the full STT flow."""
-        depth = max(1, min(3, depth))  # clamp to 1-3
-
-        if self.stt.is_recording:
-            # ── Stop recording & process ──
-            log.info("STT stop → processing with depth=%d", self._stt_depth)
-            if self._stt_depth >= 3:
-                self._reload_prompts_if_changed()
-            if not await self._set_stt_ui_state(
-                "processing",
-                "Transcribing audio…",
-                f"Depth {self._stt_depth}/3 · Please wait",
-            ):
-                await self._notify_stt_fallback(
-                    "Processing transcription...",
-                    f"Depth {self._stt_depth}/3 — please wait",
-                    timeout=30000,
-                )
-
-            try:
-                result = await asyncio.wait_for(
-                    self.stt.toggle_recording(self._stt_depth),
-                    timeout=120,  # 2 minute max for transcription
-                )
-            except asyncio.TimeoutError:
-                log.error("STT processing timed out")
-                await self._show_stt_terminal_state(
-                    "error",
-                    "STT timeout",
-                    classify_stt_error(asyncio.TimeoutError()),
-                    delay=8,
-                )
-                return
-            except Exception as e:
-                log.error("STT processing failed: %s", e, exc_info=True)
-                await self._show_stt_terminal_state(
-                    "error",
-                    "STT error",
-                    classify_stt_error(e),
-                    delay=8,
-                )
-                return
-
-            if result:
-                await self.platform._write_clipboard(result)
-                word_count = len(result.split())
-                log.info("STT copied to clipboard: %d chars, %d words", len(result), word_count)
-                await self._show_stt_terminal_state(
-                    "complete",
-                    "Transcription complete",
-                    f"{word_count} words · {len(result)} characters copied",
-                    delay=5,
-                )
-        else:
-            # ── Start recording ──
-            self._stt_depth = depth
-            try:
-                await self.stt.toggle_recording(depth)
-            except Exception as e:
-                log.error("Failed to start recording: %s", e, exc_info=True)
-                await self._show_stt_terminal_state(
-                    "error",
-                    "Recording failed",
-                    classify_stt_error(e),
-                    delay=8,
-                )
-                return
-
-            log.info("STT recording started (depth=%d)", depth)
-            try:
-                await self._start_stt_ui()
-            except Exception as exc:
-                log.warning("Unable to open STT listening UI: %s", exc)
-                await self._stop_stt_ui()
-                await self._notify_stt_fallback(
-                    "Recording...",
-                    f"Depth {depth}/3. Press RALT or T to stop.",
-                    timeout=30000,
-                )
-
-    @staticmethod
-    def _audio_level_fraction(level: float) -> float:
-        """Map normalized microphone RMS onto a useful dB-scaled UI range."""
-        if not math.isfinite(level):
-            level = 0.0
-        db = 20.0 * math.log10(max(level, 0.00001))
-        return max(0.0, min(1.0, (db + 55.0) / 45.0))
-
-    async def _start_stt_ui(self) -> None:
-        """Launch the dedicated listening overlay and begin streaming levels."""
-        script = CONFIG_DIR / "stt_listening_window.py"
-        if not script.exists():
-            raise FileNotFoundError(f"Listening UI not found: {script}")
-
-        env = os.environ.copy()
-        layer_shell = Path("/usr/lib/libgtk4-layer-shell.so")
-        if layer_shell.exists():
-            current_preload = env.get("LD_PRELOAD", "")
-            env["LD_PRELOAD"] = ":".join(
-                item for item in (str(layer_shell), current_preload) if item
-            )
-
-        process = await asyncio.create_subprocess_exec(
-            sys.executable,
-            str(script),
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
-            env=env,
-        )
-        self._stt_ui_process = process
-        await asyncio.sleep(0.05)
-        if process.returncode is not None:
-            self._stt_ui_process = None
-            raise RuntimeError(f"Listening UI exited with status {process.returncode}")
-        if not await self._write_stt_ui_frame():
-            raise RuntimeError("Listening UI input pipe is unavailable")
-        self._stt_ui_task = asyncio.create_task(self._refresh_stt_ui())
-
-    async def _refresh_stt_ui(self) -> None:
-        """Stream smoothed microphone levels to the listening overlay."""
-        smoothed_level = 0.0
-        try:
-            while self.stt.is_recording:
-                smoothed_level = max(self.stt.audio_level, smoothed_level * 0.72)
-                if not await self._write_stt_ui_frame(smoothed_level):
-                    return
-                await asyncio.sleep(0.05)
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:
-            log.debug("STT listening UI stream stopped: %s", exc)
-
-    async def _write_stt_ui_message(self, message: dict) -> bool:
-        process = self._stt_ui_process
-        if process is None or process.stdin is None or process.returncode is not None:
-            return False
-        try:
-            payload = json.dumps(message, ensure_ascii=False, separators=(",", ":")) + "\n"
-            process.stdin.write(payload.encode())
-            await process.stdin.drain()
-            return True
-        except (BrokenPipeError, ConnectionResetError):
-            return False
-
-    async def _write_stt_ui_frame(self, level: float = 0.0) -> bool:
-        fraction = self._audio_level_fraction(level)
-        return await self._write_stt_ui_message({"type": "level", "value": fraction})
-
-    async def _pause_stt_ui_stream(self) -> None:
-        task = self._stt_ui_task
-        self._stt_ui_task = None
-        if task is not None:
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
-
-    async def _set_stt_ui_state(self, state: str, title: str, body: str) -> bool:
-        await self._pause_stt_ui_stream()
-        return await self._write_stt_ui_message({
-            "type": "state",
-            "state": state,
-            "title": title,
-            "body": body,
-        })
-
-    async def _notify_stt_fallback(self, title: str, body: str, timeout: int) -> None:
-        await self.platform.begin_notification_flow("klor-stt")
-        await self.platform.notify_flow_step(
-            "klor-stt", title, body, timeout=timeout,
-        )
-
-    async def _show_stt_terminal_state(
-        self, state: str, title: str, body: str, delay: float,
-    ) -> None:
-        if await self._set_stt_ui_state(state, title, body):
-            await asyncio.sleep(delay)
-            await self._stop_stt_ui()
-            return
-
-        await self._notify_stt_fallback(title, body, timeout=int(delay * 1000))
-        await self.platform.end_notification_flow("klor-stt", delay=delay)
-
-    async def _stop_stt_ui(self) -> None:
-        await self._pause_stt_ui_stream()
-
-        process = self._stt_ui_process
-        self._stt_ui_process = None
-        if process is None:
-            return
-        if process.stdin is not None:
-            process.stdin.close()
-        try:
-            await asyncio.wait_for(process.wait(), timeout=1.0)
-        except asyncio.TimeoutError:
-            process.terminate()
-            await process.wait()
 
     # ── Prompt Picker ─────────────────────────────────────────────
 
@@ -1811,11 +1293,6 @@ def main():
     except KeyboardInterrupt:
         log.info("Shutting down...")
     finally:
-        # Ensure audio stream is cleaned up
-        if bridge.stt.is_recording:
-            if bridge.stt._stream:
-                bridge.stt._stream.stop()
-                bridge.stt._stream.close()
         bridge.hid.disconnect()
 
 

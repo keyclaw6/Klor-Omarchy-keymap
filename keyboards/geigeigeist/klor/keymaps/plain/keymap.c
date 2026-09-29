@@ -109,11 +109,11 @@ enum internal_nav_keycodes {
 #define CMD_BRIDGE_HEARTBEAT 0x22  // bidirectional ping
 #define CMD_BRIDGE_CONFIG    0x23  // byte[1] = config_key, bytes[2+] = value
 
-// Action IDs (sent as byte[1] of CMD_BRIDGE_ACTION)
-// ASCII uppercase scheme: each letter A-Z maps to its ASCII code (0x41-0x5A).
-// The bridge daemon's actions.yml decides what each letter does.
-// To assign a new action, just add an entry in actions.yml — no firmware change needed.
-#define ACTION_STT              0x10  // Special: byte[2] = depth (1-3), triggered by T key
+// Bridge action IDs use ASCII uppercase codes (0x41-0x5A) for routed letters.
+// T and C are reserved direct OpenWhispr hotkeys and never enter Raw HID.
+// Other command letters are configured in actions.yml without firmware changes.
+#define OPENWHISPR_DICTATION_KEY C(S(KC_F8)) // dedicated host chord; avoids ADJUST-layer F8 collision
+#define OPENWHISPR_CONTEXT_KEY   C(S(KC_F9)) // Voice Assistant + screen context
 #define ACTION_BRIGHTNESS_UP    0x11  // Brightness increase (from right encoder)
 #define ACTION_BRIGHTNESS_DOWN  0x12  // Brightness decrease (from right encoder)
 
@@ -349,24 +349,15 @@ static bool training_mode = false;
 // └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
 // State machine for the AI bridge command mode.
-// Double-tap right ALT enters command mode. Next keypress dispatches an action
-// via Raw HID to the Python bridge daemon.
-// While STT is recording, a single press of RALT or T stops it.
+// Double-tap right ALT enters command mode. Letter actions still go through
+// Raw HID to the Python bridge. OpenWhispr modes bypass it:
+ // T emits Ctrl+Shift+F8 for dictation; C emits Ctrl+Shift+F9 for Voice Assistant
+ // with screen context. Both exit command mode immediately; firmware stores no app state.
 
 #define COMMAND_MODE_TIMEOUT 3000  // Exit command mode after 3s of no input
-#define STT_TAP_WINDOW       300  // Window for counting T-key taps for STT depth
 
 static bool     cmd_mode_active = false;
 static uint16_t cmd_mode_timer  = 0;
-
-// STT tap counting state
-static bool     stt_counting    = false;
-static uint8_t  stt_tap_count   = 0;
-static uint16_t stt_tap_timer   = 0;
-
-// STT session state: true while we believe the bridge is recording.
-// While active, a single RALT press or T press stops recording.
-static bool     stt_session_active = false;
 
 // Send a bridge action packet via Raw HID (32 bytes, zero-padded)
 static void bridge_send_action(uint8_t action_id, uint8_t param) {
@@ -377,32 +368,9 @@ static void bridge_send_action(uint8_t action_id, uint8_t param) {
     host_raw_hid_send(data, sizeof(data));
 }
 
-// Finalize and send the STT action with accumulated tap count.
-// Toggles stt_session_active: first call = start (keep cmd_mode),
-// second call = stop (exit cmd_mode).
-static void stt_finalize(void) {
-    if (stt_counting) {
-        bridge_send_action(ACTION_STT, stt_tap_count);
-        stt_counting  = false;
-        stt_tap_count = 0;
-
-        // Toggle session: start → keep cmd_mode alive, stop → exit
-        stt_session_active = !stt_session_active;
-        if (stt_session_active) {
-            // Recording started — keep command mode alive for the stop press.
-            // Reset timer (timeout is suppressed while stt_session_active, but
-            // this keeps the timer fresh in case the flag is cleared externally).
-            cmd_mode_timer = timer_read();
-        } else {
-            // Recording stopped — exit command mode
-            cmd_mode_active = false;
-        }
-    }
-}
-
 // Map a keycode to an action ID during command mode.
 // All 26 base-layer letters are mapped to their ASCII uppercase code (0x41-0x5A).
-// T key returns 0xFF sentinel to trigger the STT tap-counting path.
+// T/C return local sentinels for OpenWhispr hotkeys; nothing is sent over Raw HID.
 // Returns 0 if the key is not a mappable letter.
 // Handles mod-tap wrappers (e.g., LGUI_T(KC_A)) by extracting the base keycode.
 static uint8_t cmd_action_for_key(uint16_t keycode) {
@@ -415,7 +383,7 @@ static uint8_t cmd_action_for_key(uint16_t keycode) {
     switch (keycode) {
         case KC_A: return 0x41;
         case KC_B: return 0x42;
-        case KC_C: return 0x43;
+        case KC_C: return 0xFE;  // OpenWhispr Voice Assistant + screen context
         case KC_D: return 0x44;
         case KC_E: return 0x45;
         case KC_F: return 0x46;
@@ -432,7 +400,7 @@ static uint8_t cmd_action_for_key(uint16_t keycode) {
         case KC_Q: return 0x51;
         case KC_R: return 0x52;
         case KC_S: return 0x53;
-        case KC_T: return 0xFF;  // sentinel: STT uses tap counting, handled separately
+        case KC_T: return 0xFF;  // OpenWhispr normal dictation
         case KC_U: return 0x55;
         case KC_V: return 0x56;
         case KC_W: return 0x57;
@@ -448,62 +416,27 @@ static uint8_t cmd_action_for_key(uint16_t keycode) {
 static bool process_command_mode(uint16_t keycode, keyrecord_t *record) {
     if (!record->event.pressed) return false;  // only act on press
 
-    // If we're in the STT tap-counting window
-    if (stt_counting) {
-        if (keycode == KC_T) {
-            stt_tap_count++;
-            if (stt_tap_count >= 3) {
-                stt_finalize();  // max depth reached
-            } else {
-                stt_tap_timer = timer_read();
-            }
-            return false;
-        } else {
-            // Different key pressed during STT counting — finalize with current count
-            stt_finalize();
-            // Fall through to let the key be processed normally
-            return true;
-        }
-    }
-
-    // ESC cancels command mode (and stops STT if recording)
     if (keycode == KC_ESC) {
-        if (stt_session_active) {
-            // Send a stop command to the bridge before exiting
-            bridge_send_action(ACTION_STT, 0);
-            stt_session_active = false;
-        }
         cmd_mode_active = false;
         return false;
     }
 
     uint8_t action = cmd_action_for_key(keycode);
 
-    if (action == 0xFF) {
-        // T key: start STT tap counting
-        stt_counting  = true;
-        stt_tap_count = 1;
-        stt_tap_timer = timer_read();
+    if (action == 0xFF || action == 0xFE) {
+        // OpenWhispr owns both lifecycles. These dedicated chords avoid
+        // collisions with the real F8/F9 keys on the ADJUST layer.
+        tap_code16(action == 0xFF ? OPENWHISPR_DICTATION_KEY : OPENWHISPR_CONTEXT_KEY);
+        cmd_mode_active = false;
         return false;
     }
 
     if (action > 0) {
-        // If STT is recording and user presses a different command key,
-        // stop STT first before dispatching the new action.
-        if (stt_session_active) {
-            bridge_send_action(ACTION_STT, 0);
-            stt_session_active = false;
-        }
         bridge_send_action(action, 0);
         cmd_mode_active = false;
         return false;
     }
 
-    // Unmapped key: exit command mode (and stop STT if active)
-    if (stt_session_active) {
-        bridge_send_action(ACTION_STT, 0);
-        stt_session_active = false;
-    }
     cmd_mode_active = false;
     return true;
 }
@@ -516,7 +449,6 @@ static bool process_command_mode(uint16_t keycode, keyrecord_t *record) {
 // Manual detection keeps RALT available as a normal modifier when held.
 // Two quick completed taps enter Command Mode, while normal hold behavior is
 // preserved so RALT still works as a regular modifier.
-// While STT is recording, a single RALT press stops recording immediately.
 
 #define RALT_TAP_WINDOW  350  // ms window for double-tap detection
 
@@ -533,15 +465,6 @@ static bool process_ralt_tap(keyrecord_t *record) {
         ralt_held = true;
         ralt_interrupted = false;
         ralt_press_timer = timer_read();
-
-        // While STT is recording, a single RALT press stops it immediately
-        if (stt_session_active) {
-            bridge_send_action(ACTION_STT, 0);
-            stt_session_active = false;
-            cmd_mode_active = false;
-            ralt_tap_count = 0;
-            return false;
-        }
 
         // Training Mode: skip held-Alt modifier registration, but keep the
         // rest of the double-tap state machine running so the double-tap →
@@ -665,7 +588,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         }
     }
 
-    // ── Double-tap RALT → Command Mode / single RALT stops STT ──
+    // ── Double-tap RALT → Command Mode ──
     if (keycode == KC_RALT) {
         return process_ralt_tap(record);
     }
@@ -838,22 +761,13 @@ static void boot_combo_tick(void) {
 // └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
 void matrix_scan_user(void) {
-    // Command mode timeout (3 seconds, suppressed during active STT session)
-    if (cmd_mode_active && !stt_counting && !stt_session_active &&
-        timer_elapsed(cmd_mode_timer) > COMMAND_MODE_TIMEOUT) {
+    if (cmd_mode_active && timer_elapsed(cmd_mode_timer) > COMMAND_MODE_TIMEOUT) {
         cmd_mode_active = false;
-    }
-
-    // STT tap-counting window timeout (300ms)
-    if (stt_counting && timer_elapsed(stt_tap_timer) > STT_TAP_WINDOW) {
-        stt_finalize();
     }
 
     // Bootloader combo: 5× all thumbs on one half
     boot_combo_tick();
-}
-
-// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+}// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 // │ T R I - L A Y E R   C O N F I G                                                                                                            │
 // └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 

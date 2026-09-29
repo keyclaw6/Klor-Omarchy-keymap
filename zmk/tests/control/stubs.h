@@ -41,6 +41,7 @@
 #define HID_USAGE_KEY 7
 #define ZMK_HID_USAGE(page, key) (((page) << 16) | (key))
 #define HID_USAGE_KEY_KEYBOARD_A 4
+#define HID_USAGE_KEY_KEYBOARD_C 6
 #define HID_USAGE_KEY_KEYBOARD_T 23
 #define HID_USAGE_KEY_KEYBOARD_Z 29
 #define HID_USAGE_KEY_KEYBOARD_ESCAPE 41

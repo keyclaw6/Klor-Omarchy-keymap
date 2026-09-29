@@ -1,6 +1,6 @@
 # KLOR AI Writing Workstation
 
-Custom plain QMK firmware and AI bridge daemon for the [KLOR split keyboard](https://github.com/GEIGEIGEIST/KLOR) (RP2040, Polydactyl layout). Transforms a mechanical keyboard into an AI-powered writing tool with on-device command dispatch, LLM text transformations, speech-to-text, Danish character support on the RAISE layer, and 4,200+ autocorrect entries.
+Custom QMK/ZMK firmware and host tooling for the [KLOR split keyboard](https://github.com/GEIGEIGEIST/KLOR) (RP2040, Polydactyl layout). LLM text actions still use the KLOR bridge; dictation is delegated to OpenWhispr so recording, cleanup, text insertion, history, dictionary and UI live in one maintained application.
 
 Built for daily use on Arch Linux / [Omarchy](https://omarchy.com) (Hyprland/Wayland). Windows support included.
 
@@ -10,7 +10,7 @@ The system has two parts:
 
 1. **Firmware** (runs on the keyboard) — Handles typing, layers, home row mods, Danish characters, autocorrect, and detects command mode activation. When you trigger a command, the keyboard sends a 32-byte USB HID packet to the host.
 
-2. **Bridge daemon** (runs on your computer) — A Python asyncio service that listens for those HID packets, routes them to OpenRouter (LLM) or ElevenLabs (speech-to-text), and writes results to your clipboard. You paste when ready.
+2. **Host** — The KLOR Python bridge handles non-OpenWhispr Raw HID actions (OpenRouter, prompt picker, brightness). **OpenWhispr** owns both voice modes: T emits Ctrl+Shift+F8 for normal dictation; C emits Ctrl+Shift+F9 for the Voice Assistant with native screen context. A tiny localhost adapter lets OpenWhispr keep using the existing ElevenLabs Scribe v2 API key.
 
 ```
 ┌─────────────┐    Raw HID (USB)     ┌──────────────┐
@@ -41,32 +41,35 @@ The system has two parts:
 | **S** | Summarize | Condenses selected text to key points |
 | **D** | DA → EN | Translates Danish to English |
 | **N** | EN → DA | Translates English to Danish |
-| **T** | Speech-to-text | Starts recording; tap 1-3 times for correction depth |
-| **ESC** | Cancel | Exits command mode (stops STT if recording) |
+| **T** | OpenWhispr dictation | Emit Ctrl+Shift+F8 and exit command mode |
+| **C** | OpenWhispr + screen | Emit Ctrl+Shift+F9 Voice Assistant hotkey; OpenWhispr captures screen context |
+| **ESC** | Cancel | Exits command mode |
 
-All 26 letter keys are mapped in firmware. 18 are unconfigured placeholders — assign them to custom prompts by editing `actions.yml` and `prompts.yml`. No firmware reflash needed.
+All 26 letter keys are mapped in firmware. T and C are direct OpenWhispr hotkeys; 16 letters remain unconfigured placeholders that can be assigned in `actions.yml`/`prompts.yml` without reflashing firmware.
 
 **Output behavior:** Results are written to clipboard only. Paste manually with Ctrl+V. This is intentional — it avoids focus-stealing and gives you control over placement.
 
-## Speech-to-Text
+## Voice — OpenWhispr
 
-After entering command mode (double-tap RALT), tap **T** 1-3 times to select correction depth:
+The old KLOR recorder/depth/correction pipeline is not part of the active path.
 
-| Taps | Pipeline | Description |
-|------|----------|-------------|
-| T x1 | Layer 1 | Raw ElevenLabs Scribe v2 transcription |
-| T x2 | L1 + L2 | + domain-specific corrections (regex + fuzzy lexicon matching) |
-| T x3 | L1+L2+L3 | + LLM post-processing for grammar cleanup |
+- **RALT×2 → T**: firmware emits **Ctrl+Shift+F8** for normal OpenWhispr dictation and exits command mode.
+- **RALT×2 → C**: firmware emits **Ctrl+Shift+F9** for OpenWhispr Voice Assistant and exits command mode. With OpenWhispr's **Share screen context** enabled, OpenWhispr captures the active screen itself and sends it with the spoken assistant command.
 
-Recording starts automatically. Press **RALT** or **T** again to stop. Result is copied to clipboard.
+Both are stateless in firmware. OpenWhispr is the single source of truth; there is no depth counter, recording flag, screenshot helper, or bridge hop for either key.
 
-While recording, a slim waveform overlay stays visible at the top center of the active monitor and reacts live to microphone activity. The same centered box changes to “Transcribing audio…” and then shows the word/character result in larger text before closing. If the overlay cannot start, the bridge falls back to the hardened Omarchy/mako notification flow:
+Configure OpenWhispr once:
 
-- STT fallback notifications remain finite and clear correctly after state changes
-- `Processing with LLM...` is also treated as a finite flow notification
-- STT notifications are intentionally not sent as critical urgency
-- STT fallbacks, LLM, and prompt-picker notifications use the same explicit notification-flow lifecycle in the bridge
-- These STT UI and LLM notification behaviors are verified working and locked; do not change them unless the user explicitly asks
+- **Dictation hotkey:** `Control+Shift+F8`
+- **Voice Assistant hotkey:** `Control+Shift+F9`
+- **Share screen context:** enabled for Voice Assistant
+- **Voice Assistant model:** vision-capable (or configure OpenWhispr's dedicated screen-context vision model)
+- **Dictation activation:** Toggle
+- **Speech to Text:** Self-Hosted
+- **Server URL:** `http://127.0.0.1:8765`
+- **Model:** `scribe_v2`
+
+The C action is an assistant command with screenshot context, not ordinary transcript cleanup.
 
 ## Prompt Picker
 
@@ -122,7 +125,7 @@ Locked layer contract:
 - NAV is navigation-only and must keep workspace switching, move-to-workspace, silent move-to-workspace, group navigation, and resize on the arrow cluster
 - NAV arrows use thumb modifiers for focus, swap, group move, monitor move, and resize
 - Dedicated group-focus keys `Super+Ctrl+Left/Right` remain on NAV
-- STT notifications, LLM notifications, and prompt-picker notifications are verified working and must not be changed unless explicitly requested
+- LLM and prompt-picker notifications remain verified behavior.
 
 ## Home Row Mods
 
@@ -176,7 +179,7 @@ Toggle on/off: ADJUST layer (LOWER+RAISE), second key from bottom-left (`AC_TOGG
 
 **API Keys:**
 - [OpenRouter](https://openrouter.ai/) — LLM text transformations
-- [ElevenLabs](https://elevenlabs.io/) — speech-to-text (optional, only for STT)
+- [ElevenLabs](https://elevenlabs.io/) — Scribe v2 transcription used by the OpenWhispr localhost adapter
 
 ## Quick Start
 
@@ -258,7 +261,7 @@ No firmware reflash needed:
 
 Prompt/snippet edit behavior:
 
-- `prompts.yml` text changes are picked up on the next LLM use, and on the next depth-3 STT post-process
+- `prompts.yml` text changes are picked up on the next KLOR LLM use; dictation cleanup is configured in OpenWhispr
 - `snippets.yml` changes are picked up the next time the prompt picker opens
 - `actions.yml`, `config.yml`, bridge code, and setup changes still require a restart or redeploy
 
@@ -338,13 +341,14 @@ Klor-Omarchy-keymap/
 ├── bridge/                          # Python bridge daemon + config templates
 │   ├── klor-bridge.py               # Linux daemon (Wayland)
 │   ├── klor-bridge-windows.py       # Windows daemon
-│   ├── stt_listening_window.py      # Live microphone waveform overlay
-│   ├── config.yml                   # Bridge settings (USB IDs, LLM, STT, brightness)
-│   ├── actions.yml                  # Action registry (26 letter keys + STT + brightness)
+│   ├── openwhispr_elevenlabs_shim.py # Active OpenWhispr → ElevenLabs adapter
+│   ├── stt_listening_window.py      # Historical custom-STT helper; not deployed
+│   ├── config.yml                   # Active non-voice bridge settings
+│   ├── actions.yml                  # Non-voice bridge action registry
 │   ├── prompts.yml                  # LLM prompt templates
 │   ├── snippets.yml                 # Prompt snippet library for Prompt Picker (P key)
-│   ├── lexicon.yml                  # Domain vocabulary for STT
-│   └── corrections.yml             # Regex corrections for STT
+│   ├── lexicon.yml                  # Historical custom-STT data; not deployed
+│   └── corrections.yml             # Historical custom-STT data; not deployed
 ├── keyboards/                       # QMK firmware source
 │   └── geigeigeist/klor/keymaps/plain/
 │       ├── keymap.c                 # Main firmware
