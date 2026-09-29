@@ -95,7 +95,7 @@ class VendorMultipartTests(unittest.TestCase):
             b'name="no_verbatim"',
             b'name="language_code"',
             b"da",
-            b'name="keyterms"',
+            b'name="keyterms[]"',
             b"ZynexGroup",
             b'name="file"; filename="audio.webm"',
             b"abc",
