@@ -22,8 +22,10 @@
 #   0x11  ACTION_BRIGHTNESS_UP  — Brightness increase (right encoder CW)
 #   0x12  ACTION_BRIGHTNESS_DOWN— Brightness decrease (right encoder CCW)
 #
-# Current T dictation never reaches this registry: firmware emits F8 directly
-# for OpenWhispr and exits command mode.
+# T and C never reach this registry:
+#   T -> F8 OpenWhispr dictation
+#   C -> F9 OpenWhispr Voice Assistant with native screen context
+# Both exit command mode immediately.
 
 actions:
   # ── Configured actions ──────────────────────────────────────────
@@ -97,12 +99,6 @@ actions:
     action_id: 0x42          # B key
     type: unconfigured
     key: b
-    description: Unassigned — edit to add your action
-
-  placeholder_c:
-    action_id: 0x43          # C key
-    type: unconfigured
-    key: c
     description: Unassigned — edit to add your action
 
   placeholder_f:
