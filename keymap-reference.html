@@ -540,7 +540,7 @@
 <div class="lc s2">
   <div class="lh">
     <span class="ln ln-c">Command Mode &mdash; AI Bridge</span>
-    <span class="la">Double-tap RALT &rarr; press a letter key &middot; 3s timeout &middot; ESC cancels &middot; RALT or T stops STT &middot; Results &rarr; clipboard, paste with Ctrl+V</span>
+    <span class="la">Double-tap RALT &rarr; press a letter key &middot; 3s timeout &middot; ESC cancels &middot; T &rarr; OpenWhispr F8 toggle &middot; LLM results &rarr; clipboard</span>
   </div>
   <div class="cmd-grid">
     <!-- Compact letter grid -->
@@ -550,7 +550,7 @@
         <div class="k ca"><span class="m">W</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
         <div class="k cx"><span class="m">E</span><span class="s" style="color:var(--rd)">Prompt</span></div>
         <div class="k cx"><span class="m">R</span><span class="s" style="color:var(--rd)">Email</span></div>
-        <div class="k ct"><span class="m">T</span><span class="s" style="color:var(--or)">STT 1-3&times;</span></div>
+        <div class="k ct"><span class="m">T</span><span class="s" style="color:var(--or)">Whispr</span></div>
         <div style="width:28px"></div>
         <div class="k ca"><span class="m">Y</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
         <div class="k ca"><span class="m">U</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
@@ -593,22 +593,22 @@
         <tr><td><span class="kb2">S</span></td><td>Summarize</td><td>Condense to key points</td></tr>
         <tr><td><span class="kb2">D</span></td><td>DA &rarr; EN</td><td>Translate Danish to English</td></tr>
         <tr><td><span class="kb2">N</span></td><td>EN &rarr; DA</td><td>Translate English to Danish</td></tr>
-        <tr><td><span class="kb2 kb3">T &times;1-3</span></td><td>Speech-to-Text</td><td>Tap count = correction depth (1=raw, 2=+domain, 3=+LLM)</td></tr>
-        <tr><td><span class="kb2" style="background:transparent;border-color:var(--txd);color:var(--txd)">ESC</span></td><td>Cancel</td><td>Exit command mode &middot; stops STT if active</td></tr>
+        <tr><td><span class="kb2 kb3">T</span></td><td>OpenWhispr</td><td>Emit one F8 toggle; repeat command mode + T to toggle again</td></tr>
+        <tr><td><span class="kb2" style="background:transparent;border-color:var(--txd);color:var(--txd)">ESC</span></td><td>Cancel</td><td>Exit command mode</td></tr>
       </table>
     </div>
-    <!-- STT depth guide -->
+    <!-- OpenWhispr guide -->
     <div style="min-width:320px">
-      <div style="font-size:14px;font-weight:700;color:var(--txb);margin-bottom:8px">STT Correction Depth</div>
+      <div style="font-size:14px;font-weight:700;color:var(--txb);margin-bottom:8px">OpenWhispr Dictation</div>
       <table class="ct" style="font-size:12.5px">
-        <tr><th>Taps</th><th>Pipeline</th><th>Description</th></tr>
-        <tr><td><span class="kb2 kb3">T&times;1</span></td><td>Layer 1</td><td>Raw ElevenLabs Scribe v2 transcription</td></tr>
-        <tr><td><span class="kb2 kb3">T&times;2</span></td><td>L1 + L2</td><td>+ domain corrections (regex + fuzzy lexicon)</td></tr>
-        <tr><td><span class="kb2 kb3">T&times;3</span></td><td>L1+L2+L3</td><td>+ LLM post-processing for grammar cleanup</td></tr>
+        <tr><th>Gesture</th><th>Owner</th><th>Behavior</th></tr>
+        <tr><td><span class="kb2 kb3">RALT&times;2 &rarr; T</span></td><td>Keyboard</td><td>Emit one F8 hotkey tap</td></tr>
+        <tr><td><span class="kb2 kb3">Repeat</span></td><td>OpenWhispr</td><td>Toggle dictation again</td></tr>
+        <tr><td><span class="kb2 kb3">State</span></td><td>OpenWhispr</td><td>Firmware stores no dictation-active flag</td></tr>
       </table>
       <div style="font-size:11.5px;color:var(--txd);margin-top:10px;line-height:1.5">
-        Recording starts automatically after tap count resolves (300ms window).<br>
-        Press <strong style="color:var(--txb)">RALT</strong> or <strong style="color:var(--txb)">T</strong> again to stop recording.
+        OpenWhispr owns recording, cleanup, and text insertion.<br>
+        ElevenLabs Scribe v2 is reached through the localhost adapter.
       </div>
     </div>
   </div>
@@ -647,7 +647,7 @@
     <h3>Quick Reference</h3>
     <ul class="qr">
       <li><strong>Enter command mode:</strong> Double-tap Right Alt (350ms window)</li>
-      <li><strong>Stop STT recording:</strong> Press RALT or T again</li>
+      <li><strong>Toggle dictation:</strong> Double-tap RALT &rarr; T; repeat to toggle again</li>
       <li><strong>All results:</strong> Copied to clipboard &rarr; paste with Ctrl+V</li>
       <li><strong>Caps lock:</strong> LOWER layer &rarr; CAPS key</li>
       <li><strong>Bootloader (combo):</strong> 5&times; all 4 thumbs on one half (&lt;3s)</li>
