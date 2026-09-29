@@ -10,7 +10,7 @@ The system has two parts:
 
 1. **Firmware** (runs on the keyboard) — Handles typing, layers, home row mods, Danish characters, autocorrect, and detects command mode activation. When you trigger a command, the keyboard sends a 32-byte USB HID packet to the host.
 
-2. **Host** — The KLOR Python bridge handles non-dictation Raw HID actions (OpenRouter, prompt picker, brightness). **OpenWhispr** owns dictation. The keyboard emits OpenWhispr's F8 toggle directly; OpenWhispr records audio and inserts the result. A tiny localhost adapter lets OpenWhispr keep using the existing ElevenLabs Scribe v2 API key.
+2. **Host** — The KLOR Python bridge handles non-OpenWhispr Raw HID actions (OpenRouter, prompt picker, brightness). **OpenWhispr** owns both voice modes: T emits F8 for normal dictation; C emits F9 for the Voice Assistant with native screen context. A tiny localhost adapter lets OpenWhispr keep using the existing ElevenLabs Scribe v2 API key.
 
 ```
 ┌─────────────┐    Raw HID (USB)     ┌──────────────┐
@@ -41,37 +41,34 @@ The system has two parts:
 | **S** | Summarize | Condenses selected text to key points |
 | **D** | DA → EN | Translates Danish to English |
 | **N** | EN → DA | Translates English to Danish |
-| **T** | OpenWhispr dictation | Emit one F8 toggle and exit command mode |
+| **T** | OpenWhispr dictation | Emit F8 and exit command mode |
+| **C** | OpenWhispr + screen | Emit F9 Voice Assistant hotkey; OpenWhispr captures screen context |
 | **ESC** | Cancel | Exits command mode |
 
-All 26 letter keys are mapped in firmware. 18 are unconfigured placeholders — assign them to custom prompts by editing `actions.yml` and `prompts.yml`. No firmware reflash needed.
+All 26 letter keys are mapped in firmware. T and C are direct OpenWhispr hotkeys; 16 letters remain unconfigured placeholders that can be assigned in `actions.yml`/`prompts.yml` without reflashing firmware.
 
 **Output behavior:** Results are written to clipboard only. Paste manually with Ctrl+V. This is intentional — it avoids focus-stealing and gives you control over placement.
 
-## Dictation — OpenWhispr
+## Voice — OpenWhispr
 
-Dictation no longer runs through the custom KLOR recorder/STT/correction pipeline.
+The old KLOR recorder/depth/correction pipeline is not part of the active path.
 
-1. Double-tap **RALT** to enter command mode.
-2. Press **T** once. Firmware sends **F8** directly to the host and exits command mode.
-3. OpenWhispr records, transcribes, cleans up, and inserts the text.
-4. To toggle dictation off, double-tap **RALT** and press **T** again.
+- **RALT×2 → T**: firmware emits **F8** for normal OpenWhispr dictation and exits command mode.
+- **RALT×2 → C**: firmware emits **F9** for OpenWhispr Voice Assistant and exits command mode. With OpenWhispr's **Share screen context** enabled, OpenWhispr captures the active screen itself and sends it with the spoken assistant command.
 
-Firmware intentionally stores no dictation-active bit. OpenWhispr is the single source of truth, so stopping from OpenWhispr's own UI or because of an error cannot desynchronize the keyboard.
+Both are stateless in firmware. OpenWhispr is the single source of truth; there is no depth counter, recording flag, screenshot helper, or bridge hop for either key.
 
-OpenWhispr should be configured with:
+Configure OpenWhispr once:
 
 - **Dictation hotkey:** `F8`
-- **Activation:** Toggle
+- **Voice Assistant hotkey:** `F9`
+- **Share screen context:** enabled for Voice Assistant
+- **Dictation activation:** Toggle
 - **Speech to Text:** Self-Hosted
 - **Server URL:** `http://127.0.0.1:8765`
 - **Model:** `scribe_v2`
 
-`openwhispr-elevenlabs.service` runs `bridge/openwhispr_elevenlabs_shim.py`. It implements OpenWhispr's self-hosted `/audio/transcriptions` contract and forwards audio to ElevenLabs Scribe v2. It reuses the existing OS-keyring entry `klor-bridge` / `elevenlabs_key`; the secret is never copied into the repository.
-
-OpenWhispr's custom dictionary is forwarded as Scribe keyterms, so vocabulary biasing stays in the maintained dictation app rather than in keyboard firmware. See [`OPENWHISPR.md`](OPENWHISPR.md) for setup and rollback details.
-
-The former `STTPipeline`, depth-1/2/3 logic, waveform helper, lexicon/correction files, and `ACTION_STT (0x10)` are retained only as rollback material on this experiment branch. `LEGACY_STT_ENABLED = False` keeps that runtime inactive.
+The C action is an assistant command with screenshot context, not ordinary transcript cleanup.
 
 ## Prompt Picker
 
