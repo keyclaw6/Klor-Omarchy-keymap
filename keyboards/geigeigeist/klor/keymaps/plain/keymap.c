@@ -440,6 +440,12 @@ static uint8_t cmd_action_for_key(uint16_t keycode) {
 static bool process_command_mode(uint16_t keycode, keyrecord_t *record) {
     if (!record->event.pressed) return false;  // only act on press
 
+    // RALT owns its own state machine. Let it handle the stop so no stray
+    // Alt press or half-completed double-tap leaks through.
+    if (keycode == KC_RALT && openwhispr_dictation_active) {
+        return true;
+    }
+
     // ESC cancels command mode and cleanly stops OpenWhispr if we started it.
     if (keycode == KC_ESC) {
         openwhispr_stop_dictation();
@@ -501,6 +507,7 @@ static bool process_ralt_tap(keyrecord_t *record) {
         if (openwhispr_dictation_active) {
             openwhispr_stop_dictation();
             ralt_tap_count = 0;
+            ralt_interrupted = true; // release must not start a new double-tap
             return false;
         }
 
