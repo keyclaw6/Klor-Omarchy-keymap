@@ -45,7 +45,7 @@ class ControlBehavior(unittest.TestCase):
 
     def test_training(self): self.check_case("training")
     def test_command(self): self.check_case("command")
-    def test_stt(self): self.check_case("stt")
+    def test_dictation(self): self.check_case("dictation")
     def test_ralt(self): self.check_case("ralt")
     def test_nav(self): self.check_case("nav")
     def test_raw_hid(self): self.check_case("raw_hid")
