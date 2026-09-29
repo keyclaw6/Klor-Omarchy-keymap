@@ -41,8 +41,8 @@ The system has two parts:
 | **S** | Summarize | Condenses selected text to key points |
 | **D** | DA → EN | Translates Danish to English |
 | **N** | EN → DA | Translates English to Danish |
-| **T** | OpenWhispr dictation | Toggle recording (one press starts, T or RALT stops) |
-| **ESC** | Cancel | Exits command mode (stops OpenWhispr if this session started it) |
+| **T** | OpenWhispr dictation | Emit one F8 toggle and exit command mode |
+| **ESC** | Cancel | Exits command mode |
 
 All 26 letter keys are mapped in firmware. 18 are unconfigured placeholders — assign them to custom prompts by editing `actions.yml` and `prompts.yml`. No firmware reflash needed.
 
@@ -53,9 +53,11 @@ All 26 letter keys are mapped in firmware. 18 are unconfigured placeholders — 
 Dictation no longer runs through the custom KLOR recorder/STT/correction pipeline.
 
 1. Double-tap **RALT** to enter command mode.
-2. Press **T** once. Firmware sends **F8** directly to the host.
+2. Press **T** once. Firmware sends **F8** directly to the host and exits command mode.
 3. OpenWhispr records, transcribes, cleans up, and inserts the text.
-4. Press **T**, **RALT**, or **ESC** to stop the session through the same F8 toggle.
+4. To toggle dictation off, double-tap **RALT** and press **T** again.
+
+Firmware intentionally stores no dictation-active bit. OpenWhispr is the single source of truth, so stopping from OpenWhispr's own UI or because of an error cannot desynchronize the keyboard.
 
 OpenWhispr should be configured with:
 
