@@ -56,8 +56,6 @@ static const struct klor_control_config *active_cfg;
 static bool command_active;
 static bool training_mode;
 
-static bool openwhispr_dictation_active;
-
 static bool ralt_held;
 static bool ralt_interrupted;
 static uint8_t ralt_tap_count;
@@ -237,14 +235,6 @@ static void command_deactivate(void) {
     k_work_cancel_delayable(&command_timeout_work);
 }
 
-static void stop_openwhispr_and_exit(int64_t timestamp) {
-    if (openwhispr_dictation_active) {
-        tap_encoded(KLOR_OPENWHISPR_KEY, timestamp);
-        openwhispr_dictation_active = false;
-    }
-    command_deactivate();
-}
-
 static void command_activate(const struct klor_control_config *cfg) {
     active_cfg = cfg;
     command_active = true;
@@ -254,7 +244,7 @@ static void command_activate(const struct klor_control_config *cfg) {
 static void command_timeout_work_cb(struct k_work *work) {
     ARG_UNUSED(work);
 
-    if (command_active && !openwhispr_dictation_active) {
+    if (command_active) {
         command_deactivate();
     }
 }
@@ -269,15 +259,9 @@ static void tap_encoded(uint32_t encoded, int64_t timestamp) {
 }
 
 static int handle_openwhispr_press(int64_t timestamp) {
+    // OpenWhispr owns recording/transcription/insertion and its own toggle state.
     tap_encoded(KLOR_OPENWHISPR_KEY, timestamp);
-    openwhispr_dictation_active = !openwhispr_dictation_active;
-
-    if (openwhispr_dictation_active) {
-        k_work_cancel_delayable(&command_timeout_work);
-    } else {
-        command_deactivate();
-    }
-
+    command_deactivate();
     return ZMK_BEHAVIOR_OPAQUE;
 }
 
@@ -287,13 +271,6 @@ static int handle_ralt(bool pressed, struct zmk_behavior_binding_event event,
         ralt_held = true;
         ralt_interrupted = false;
         ralt_press_started = event.timestamp;
-
-        if (openwhispr_dictation_active) {
-            stop_openwhispr_and_exit(event.timestamp);
-            ralt_tap_count = 0;
-            ralt_interrupted = true; /* release must not start a new double-tap */
-            return ZMK_BEHAVIOR_OPAQUE;
-        }
 
         ralt_forwarded = !training_mode;
         if (ralt_forwarded) {
@@ -449,30 +426,21 @@ static int position_listener(const zmk_event_t *eh) {
     bool eat = false;
 
     if (command_active) {
-        /* RALT owns its own state machine. Bubble it so handle_ralt() can stop
-         * OpenWhispr without emitting a stray Alt or creating a partial tap. */
-        if (is_ralt_binding(binding) && openwhispr_dictation_active) {
-            /* handled below by the behavior itself */
-        } else if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_ESCAPE)) {
-            stop_openwhispr_and_exit(ev->timestamp);
+        if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_ESCAPE)) {
+            command_deactivate();
             eat = true;
         } else if (key >= ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_A) &&
                    key <= ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_Z)) {
             if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_T)) {
-                // OpenWhispr owns recording/transcription/insertion; firmware
-                // only emits the configured host hotkey.
                 handle_openwhispr_press(ev->timestamp);
             } else {
-                if (openwhispr_dictation_active) {
-                    stop_openwhispr_and_exit(ev->timestamp);
-                }
                 (void)klor_bridge_send_action(
                     0x41 + key - ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_A), 0);
                 command_deactivate();
             }
             eat = true;
         } else {
-            stop_openwhispr_and_exit(ev->timestamp);
+            command_deactivate();
         }
     }
 
