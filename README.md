@@ -341,7 +341,8 @@ Klor-Omarchy-keymap/
 ├── bridge/                          # Python bridge daemon + config templates
 │   ├── klor-bridge.py               # Linux daemon (Wayland)
 │   ├── klor-bridge-windows.py       # Windows daemon
-│   ├── openwhispr_elevenlabs_shim.py # Active OpenWhispr → ElevenLabs adapter\n│   ├── stt_listening_window.py      # Legacy rollback-only waveform helper
+│   ├── openwhispr_elevenlabs_shim.py # Active OpenWhispr → ElevenLabs adapter
+│   ├── stt_listening_window.py      # Legacy rollback-only waveform helper
 │   ├── config.yml                   # Bridge settings (legacy STT block retained for rollback)
 │   ├── actions.yml                  # Action registry (legacy 0x10 STT entry retained)
 │   ├── prompts.yml                  # LLM prompt templates
