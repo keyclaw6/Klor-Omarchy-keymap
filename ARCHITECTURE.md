@@ -6,18 +6,17 @@ Technical reference for the KLOR AI Writing Workstation. Covers the firmware, br
 
 The active system has three responsibilities with a deliberately narrow boundary:
 
-1. **Firmware (QMK or ZMK)** — typing/layers plus command-mode input. Non-dictation actions use the existing 32-byte Raw HID protocol. Dictation never sends audio or STT packets; T emits the OpenWhispr F8 hotkey directly.
+1. **Firmware (QMK or ZMK)** — typing/layers plus command-mode input. Bridge actions use the existing 32-byte Raw HID protocol. OpenWhispr actions bypass the bridge completely: T emits F8 for normal dictation; C emits F9 for Voice Assistant with native screen context.
 2. **KLOR bridge (Python)** — handles non-dictation actions such as OpenRouter transformations, prompt picker and bridge-side helpers. Legacy custom STT code remains in source for rollback but `LEGACY_STT_ENABLED = False` prevents it from starting.
 3. **OpenWhispr** — owns microphone capture, dictation state, cleanup, custom dictionary, history and text insertion. Its Self-Hosted transcription request goes to a localhost protocol adapter, which forwards the audio to ElevenLabs Scribe v2 using the existing keyring credential.
 
 ```text
 KLOR keyboard
-├─ normal command letter ── Raw HID ──> KLOR bridge ──> OpenRouter / helpers
-└─ command T ────────────── F8 ───────> OpenWhispr
-                                             │
-                                             ├─ record / cleanup / insert
-                                             └─ POST localhost:8765/audio/transcriptions
-                                                    └─ ElevenLabs Scribe v2
+├─ normal bridge action ─── Raw HID ──> KLOR bridge ──> OpenRouter / helpers
+├─ command T ────────────── F8 ───────> OpenWhispr dictation
+│                                            └─ localhost:8765 ──> ElevenLabs Scribe v2
+└─ command C ────────────── F9 ───────> OpenWhispr Voice Assistant
+                                             └─ native screen-context screenshot
 ```
 
 See `OPENWHISPR.md` for host configuration, credential reuse, acceptance testing and rollback.
@@ -133,9 +132,10 @@ Once active, the next letter keypress is intercepted by `process_command_mode()`
 1. `cmd_action_for_key(keycode)` maps the keycode to an action ID
 2. Mod-tap wrappers (`LGUI_T(KC_A)` etc.) are stripped to extract the base keycode
 3. All 26 letters return their ASCII uppercase code (0x41-0x5A)
-4. T (KC_T) returns 0xFF sentinel → emit one F8 OpenWhispr toggle and exit command mode
-5. ESC cancels command mode
-6. Any unmapped key exits command mode and passes through
+4. T returns local sentinel 0xFF → emit F8 OpenWhispr dictation hotkey and exit
+5. C returns local sentinel 0xFE → emit F9 OpenWhispr Voice Assistant hotkey and exit
+6. ESC cancels command mode
+7. Any unmapped key exits command mode and passes through
 
 Command mode times out after 3 seconds (`COMMAND_MODE_TIMEOUT`).
 
@@ -145,7 +145,7 @@ Command mode times out after 3 seconds (`COMMAND_MODE_TIMEOUT`).
 Letter  Hex   Action
 A       0x41  unconfigured
 B       0x42  unconfigured
-C       0x43  unconfigured
+C       0xFE  → OpenWhispr F9 Voice Assistant + screen context (no Raw HID packet)
 D       0x44  translate_da_en
 E       0x45  prompt_expand
 F       0x46  unconfigured
@@ -178,13 +178,16 @@ Special / reserved:
 
 Unconfigured IDs are valid in firmware — the bridge logs a notice and does nothing. To assign an action, edit `actions.yml` and `prompts.yml` only (no firmware reflash).
 
-### OpenWhispr Dictation State
+### OpenWhispr Voice Actions
 
-There is deliberately **no firmware-side OpenWhispr state**.
+There is deliberately **no firmware-side OpenWhispr state** and no depth selection.
 
-Each command-mode T press emits exactly one F8 key tap and exits command mode. Starting and stopping are therefore the same stateless operation from the keyboard's perspective. To toggle again, enter command mode again and press T.
+- T emits exactly one F8 key tap for normal dictation, then exits command mode.
+- C emits exactly one F9 key tap for Voice Assistant, then exits command mode.
+- OpenWhispr's **Share screen context** setting owns screenshot capture for the C path.
+- Neither action produces a Raw HID packet or enters the Python bridge.
 
-This keeps OpenWhispr as the single source of truth and prevents drift if recording ends from OpenWhispr's UI, an error, timeout, or any other app-side path. There is no 300 ms T-tap window, no 1/2/3 depth parameter, and no firmware STT packet in the active path.
+This keeps OpenWhispr as the single source of truth and avoids mode/recording drift if the app stops, errors, times out, or is controlled from its own UI.
 
 ### HID Packet Format
 
@@ -275,7 +278,7 @@ Note: The bridge does NOT auto-paste results. This is intentional — it gives t
 
 ### OpenWhispr Dictation Integration
 
-Dictation is intentionally outside `KlorBridge._dispatch_action()`. Current firmware does not send `ACTION_STT (0x10)`. If a legacy 0x10 packet nevertheless arrives, `stt_toggle` is ignored while `LEGACY_STT_ENABLED = False`.
+Both OpenWhispr actions are intentionally outside `KlorBridge._dispatch_action()`. Current firmware sends neither dictation nor screen-context commands over Raw HID. If a legacy `ACTION_STT (0x10)` packet nevertheless arrives, it is ignored while `LEGACY_STT_ENABLED = False`.
 
 `bridge/openwhispr_elevenlabs_shim.py` is the only KLOR-owned component on the active dictation data path. It:
 
@@ -286,7 +289,7 @@ Dictation is intentionally outside `KlorBridge._dispatch_action()`. Current firm
 5. forwards the original encoded audio bytes to ElevenLabs; and
 6. returns the OpenAI-style JSON shape `{ "text": "..." }` that OpenWhispr expects.
 
-OpenWhispr, not the adapter, performs dictation cleanup and text insertion. Its custom dictionary prompt is translated into repeated ElevenLabs `keyterms[]` fields.
+OpenWhispr, not the adapter, performs dictation cleanup and text insertion. Its custom dictionary prompt is translated into repeated ElevenLabs `keyterms[]` fields. Screen capture belongs entirely to OpenWhispr's Voice Assistant path and does not touch the adapter.
 
 The old `STTPipeline`, waveform UI, correction pipeline, lexicon/corrections and flow verifier are retained as rollback material only.
 
