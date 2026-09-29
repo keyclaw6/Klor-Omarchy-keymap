@@ -148,9 +148,9 @@ layers were compared, including the two encoder pushes and transparent thumbs.
 | Home-row modifiers | GACS / SCAG, right-side L uses left Alt, semicolon uses right GUI. 180 ms balanced hold-tap, 0 ms quick-tap, 120 ms prior-idle. Both encoder pushes and all thumbs are exempt from the opposite-hand rule. Ctrl/Shift alone use speculative holds. |
 | G / H | Tap letters, hold NAV, opposite-hand rule with thumb/push exemptions; training does not suppress these. |
 | Training | Volatile flag, no hidden layer. Bare GUI/Ctrl/Shift on BASE and Ctrl/Shift/Alt on NAV are suppressed. Transparent LOWER/RAISE/ADJUST thumb modifiers continue working. Direct NAV is suppressed on every layer; RAlt still double-taps but sends no held modifier. Release matching prevents stuck keys when toggled while a key is down. |
-| Command mode | No hidden layer. Uses the currently resolved key binding, unwraps home-row/layer taps, and times out after 3 s except while the tracked OpenWhispr toggle is active. Unmapped keys stop dictation, exit, and retain their normal behavior; consumed presses have consumed releases. |
-| Dictation | T emits the OpenWhispr F8 toggle directly; no Raw HID STT packet or depth logic. T again stops. RAlt stops through its own state machine without Alt leakage. ESC stops/cancels. Another command stops OpenWhispr before dispatch. |
-| Escape | Consumed to cancel command mode; if this command session started OpenWhispr, ESC emits the F8 stop toggle first. |
+| Command mode | No hidden layer. Uses the currently resolved key binding, unwraps home-row/layer taps, and times out after 3 s. Unmapped keys exit and retain their normal behavior; consumed presses have consumed releases. |
+| Dictation | T emits one OpenWhispr F8 toggle directly and exits command mode; no Raw HID STT packet, depth logic, or firmware-side dictation state. Toggle again with a fresh double-RAlt → T invocation. |
+| Escape | Consumed to cancel command mode. OpenWhispr state is intentionally not mirrored in firmware. |
 | NAV arrows | Same modifier-dependent actions, including Ctrl resize and Ctrl+Alt horizontal workspace actions. Existing held modifiers remain in the report, as in QMK. |
 | Danish Unicode | Linux Ctrl+Shift+U, unmodified hexadecimal, Space; Shift XOR Caps Lock selects case. Caps temporarily disabled/restored; existing modifiers and keys restored. 10 ms report spacing. |
 | Encoders | Left volume, right brightness, both workspace navigation on NAV; two quadrature edges per event, matching QMK resolution 2. |
