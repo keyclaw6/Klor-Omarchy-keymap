@@ -119,7 +119,7 @@ deploy_configs() {
     done
 
     # Always overwrite bridge code/helpers (these are code, not user config)
-    for f in klor-bridge.py prompt_picker_helper.py prompt_picker_window.py stt_listening_window.py; do
+    for f in klor-bridge.py prompt_picker_helper.py prompt_picker_window.py stt_listening_window.py openwhispr_elevenlabs_shim.py; do
         src="$SCRIPT_DIR/bridge/$f"
         dst="$CONFIG_DIR/$f"
         if [[ -f "$src" ]]; then
@@ -228,25 +228,25 @@ install_udev() {
 
 # ── Install systemd service ──────────────────────────────────────────────────
 
-install_service() {
-    info "Installing systemd user service..."
+install_services() {
+    info "Installing systemd user services..."
     mkdir -p "$SERVICE_DIR"
 
-    local svc_src="$SCRIPT_DIR/systemd/klor-bridge.service"
-    local svc_dst="$SERVICE_DIR/klor-bridge.service"
-
-    if [[ -f "$svc_src" ]]; then
-        cp "$svc_src" "$svc_dst"
-    elif [[ -f "$CONFIG_DIR/../systemd/user/klor-bridge.service" ]]; then
-        : # already in place
-    else
-        warn "Service file not found. Skipping."
-        return
-    fi
+    for svc in klor-bridge.service openwhispr-elevenlabs.service; do
+        local src="$SCRIPT_DIR/systemd/$svc"
+        local dst="$SERVICE_DIR/$svc"
+        if [[ -f "$src" ]]; then
+            cp "$src" "$dst"
+            info "  Installed $svc"
+        else
+            warn "  $svc not found; skipping."
+        fi
+    done
 
     systemctl --user daemon-reload
-    info "Service installed. Enable with: systemctl --user enable --now klor-bridge"
+    info "Services installed."
 }
+
 
 # ── Configure API keys ───────────────────────────────────────────────────────
 
@@ -273,15 +273,27 @@ PYEOF
         warn "  Skipped OpenRouter key."
     fi
 
-    read -rp "  ElevenLabs API key: " elevenlabs_key
-    if [[ -n "$elevenlabs_key" ]]; then
-        python3 - "$elevenlabs_key" <<'PYEOF'
+    if python3 - <<'PYEOF'
+import keyring, sys
+try:
+    sys.exit(0 if keyring.get_password("klor-bridge", "elevenlabs_key") else 1)
+except Exception:
+    sys.exit(1)
+PYEOF
+    then
+        info "  Existing ElevenLabs key found; OpenWhispr adapter will reuse it."
+    else
+        read -rsp "  ElevenLabs API key: " elevenlabs_key
+        echo ""
+        if [[ -n "$elevenlabs_key" ]]; then
+            python3 - "$elevenlabs_key" <<'PYEOF'
 import sys, keyring
 keyring.set_password("klor-bridge", "elevenlabs_key", sys.argv[1])
 PYEOF
-        info "  ElevenLabs key saved to keyring."
-    else
-        warn "  Skipped ElevenLabs key."
+            info "  ElevenLabs key saved to the existing KLOR keyring slot."
+        else
+            warn "  Skipped ElevenLabs key."
+        fi
     fi
 }
 
@@ -324,7 +336,7 @@ main() {
     echo ""
     install_udev || warn "udev rule installation failed — run with sudo or install manually."
     echo ""
-    install_service
+    install_services
     echo ""
     setup_wayland_env
     echo ""
@@ -338,10 +350,20 @@ main() {
     fi
     echo ""
     echo "  Next steps:"
-    echo "    1. Build/flash firmware from stock QMK: cp ~/qmk_firmware/.build/geigeigeist_klor_2040_plain.uf2 /run/media/$USER/RPI-RP2/"
-    echo "    2. Start bridge:  systemctl --user enable --now klor-bridge"
-    echo "    3. Check logs:    journalctl --user -u klor-bridge -f"
-    echo "    4. Manual test:   python3 ~/.config/klor-bridge/klor-bridge.py --verbose"
+    echo "    1. Install/start the OpenWhispr desktop app (official OpenWhispr release)."
+    echo "    2. In OpenWhispr set dictation hotkey = F8 and activation mode = Toggle."
+    echo "    3. OpenWhispr Speech to Text → Self-Hosted:"
+    echo "         Server URL: http://127.0.0.1:8765"
+    echo "         Model:      scribe_v2"
+    echo "    4. Start services:"
+    echo "         systemctl --user enable --now klor-bridge openwhispr-elevenlabs"
+    echo "    5. Verify adapter/key:"
+    echo "         curl -s http://127.0.0.1:8765/health"
+    echo "    6. Build/flash the firmware from this branch."
+    echo "    7. Test: double-tap RALT → T to start; T or RALT to stop."
+    echo ""
+    echo "  Dictation no longer uses the KLOR bridge audio/STT pipeline."
+    echo "  Legacy STT files remain in this branch only as rollback material."
     echo ""
 }
 
