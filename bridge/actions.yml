@@ -17,13 +17,13 @@
 #   prompt_picker — Open searchable popup to insert a text snippet from snippets.yml
 #   unconfigured  — Placeholder; bridge logs a notice and does nothing
 #
-# Special non-letter action IDs (sent directly by firmware, not via command mode):
-#   0x10  ACTION_STT            — Speech-to-text toggle (T key, depth 1-3)
+# Special action IDs:
+#   0x10  ACTION_STT            — LEGACY rollback-only custom STT ID (not sent now)
 #   0x11  ACTION_BRIGHTNESS_UP  — Brightness increase (right encoder CW)
 #   0x12  ACTION_BRIGHTNESS_DOWN— Brightness decrease (right encoder CCW)
 #
-# The T key (0x54) is NOT listed here — it uses a special firmware path
-# that sends ACTION_STT (0x10) with a depth parameter (1-3 taps).
+# Current T dictation never reaches this registry: firmware emits F8 directly
+# for OpenWhispr and exits command mode.
 
 actions:
   # ── Configured actions ──────────────────────────────────────────
@@ -78,10 +78,10 @@ actions:
     description: Translate English text to Danish
 
   transcribe:
-    action_id: 0x10          # Special STT action (not ASCII — firmware sends 0x10)
+    action_id: 0x10          # Legacy rollback-only ID; current firmware does not send it
     type: stt_toggle
     key: t
-    description: Toggle speech-to-text (tap count = correction depth)
+    description: Legacy custom speech-to-text toggle (disabled at runtime)
 
   # ── Unconfigured placeholders ───────────────────────────────────
   # These keys are mapped in firmware but have no action assigned yet.
