@@ -7,7 +7,6 @@ static const struct klor_control_config config = {
     .nav_layer = 4,
     .command_timeout_ms = 3000,
     .ralt_tap_window_ms = 350,
-    .stt_tap_window_ms = 300,
 };
 static struct zmk_behavior_binding pressed_bindings[44];
 static unsigned status_callbacks;
@@ -25,9 +24,9 @@ static void flush_usb(void) {
     } while (raw_hid_tx_queue.count);
 }
 static void reset_state(void) {
-    command_active = training_mode = stt_counting = stt_session_active = false;
+    command_active = training_mode = openwhispr_dictation_active = false;
     ralt_held = ralt_interrupted = ralt_forwarded = false;
-    stt_tap_count = ralt_tap_count = 0;
+    ralt_tap_count = 0;
     ralt_press_started = ralt_first_tap_at = 0;
     memset(consumed, 0, sizeof consumed);
     memset(training_forwarded, 0, sizeof training_forwarded);
@@ -41,7 +40,7 @@ static void reset_state(void) {
     key_count = packet_count = 0;
     explicit_mods = 0;
     now = 10000;
-    command_timeout_work.pending = stt_finalize_work.pending = false;
+    command_timeout_work.pending = false;
     raw_hid_tx_queue = (struct msgq){0};
     raw_hid_tx_sem.count = 1;
     control_device.config = &config;
@@ -57,8 +56,8 @@ static void time_passes(int64_t ms) {
     int64_t target = now + ms;
     for (;;) {
         struct k_work_delayable *first = NULL;
-        struct k_work_delayable *timers[] = {&command_timeout_work, &stt_finalize_work};
-        for (unsigned i = 0; i < 2; i++)
+        struct k_work_delayable *timers[] = {&command_timeout_work};
+        for (unsigned i = 0; i < 1; i++)
             if (timers[i]->pending && timers[i]->due <= target &&
                 (!first || timers[i]->due < first->due))
                 first = timers[i];
@@ -171,6 +170,12 @@ static void test_training(void) {
          "HRM/GH, RALT");
 }
 
+static void assert_openwhispr_pair(unsigned offset) {
+    assert(key_count >= offset + 2);
+    assert(keys[offset].key == KLOR_OPENWHISPR_KEY && keys[offset].down);
+    assert(keys[offset + 1].key == KLOR_OPENWHISPR_KEY && !keys[offset + 1].down);
+}
+
 static void test_command(void) {
     const char *wrappers[] = {"kp", "hml", "hmr", "hml_fast", "hmr_fast", "nav_l", "nav_r"};
     for (unsigned w = 0; w < ARRAY_SIZE(wrappers); w++)
@@ -179,10 +184,10 @@ static void test_command(void) {
             layers[0][0] = BIND(wrappers[w], w ? 4 : KEY(4 + letter), w ? KEY(4 + letter) : 0);
             command_activate(&config);
             assert(physical(0, true) == ZMK_EV_EVENT_HANDLED);
-            if (letter == 19) {
-                assert(stt_counting && !packet_count);
-                time_passes(300);
-                assert_action(0, 0x10, 1);
+            if (letter == 19) { /* T */
+                assert(command_active && openwhispr_dictation_active && !packet_count);
+                assert(key_count == 2);
+                assert_openwhispr_pair(0);
             } else {
                 assert(!command_active);
                 assert_action(0, 0x41 + letter, 0);
@@ -190,8 +195,9 @@ static void test_command(void) {
             active_layers[1] = true;
             layers[1][0] = BIND("kp", KEY(30), 0);
             assert(physical(0, false) == ZMK_EV_EVENT_HANDLED);
-            assert(!key_count);
+            assert(key_count == (letter == 19 ? 2u : 0u));
         }
+
     struct zmk_behavior_binding unmapped[] = {
         BIND("kp", KEY(82), 0),
         BIND("kp", LC(KEY(22)), 0),
@@ -213,99 +219,70 @@ static void test_command(void) {
         assert(!command_active && !packet_count);
         assert(physical(0, false) == ZMK_EV_EVENT_BUBBLE);
     }
-    for (unsigned session = 0; session < 3; session++) {
+
+    for (unsigned active = 0; active < 2; active++) {
         reset_state();
         layers[0][10] = BIND("kp", KEY(41), 0); /* ESC */
         command_activate(&config);
-        stt_counting = session == 1;
-        stt_tap_count = stt_counting ? 1 : 0;
-        stt_session_active = session == 2;
-        if (stt_counting)
-            k_work_reschedule(&stt_finalize_work, 300);
-
-        int press_result = physical(10, true);
-        if (session == 1) {
-            /* QMK finalizes the T depth first, then lets ESC pass through. */
-            assert(press_result == ZMK_EV_EVENT_BUBBLE);
-            assert(command_active && !stt_counting && stt_session_active);
-            assert_action(0, 0x10, 1);
-            assert(key_count == 1 && keys[0].down);
-            assert(physical(10, false) == ZMK_EV_EVENT_BUBBLE);
-            assert(key_count == 2 && !keys[1].down);
-        } else {
-            assert(press_result == ZMK_EV_EVENT_HANDLED);
-            assert(!command_active && !stt_counting && !stt_session_active && !key_count);
-            assert(physical(10, false) == ZMK_EV_EVENT_HANDLED);
-            if (session == 2)
-                assert_action(0, 0x10, 0);
-            else
-                assert(packet_count == 0);
-        }
-        time_passes(310);
-        assert(packet_count == (session ? 1u : 0u));
+        openwhispr_dictation_active = active;
+        assert(physical(10, true) == ZMK_EV_EVENT_HANDLED);
+        assert(!command_active && !openwhispr_dictation_active && !packet_count);
+        assert(key_count == (active ? 2u : 0u));
+        if (active)
+            assert_openwhispr_pair(0);
+        assert(physical(10, false) == ZMK_EV_EVENT_HANDLED);
     }
+
     reset_state();
     command_activate(&config);
     time_passes(2999);
     assert(command_active);
     time_passes(1);
     assert(!command_active);
+
     reset_state();
     layers[0][36] = BIND("klor_ctrl", KLOR_CTRL_TRAIN_MOD, KEY(224));
     physical(36, true);
     command_activate(&config);
     physical(36, false);
-    assert(key_count == 2 && !keys[1].down); /* A mode switch must not strand an earlier key. */
-    puts("PASS command: 26 letters x7 behavior types, current layer, all unmapped kinds, QMK "
-         "ESC/counting order, timeout, release pairing");
+    assert(key_count == 2 && !keys[1].down);
+
+    puts("PASS command: 26 letters x7 behavior types, OpenWhispr T routing, current layer, "
+         "unmapped kinds, ESC, timeout, release pairing");
 }
 
-static void test_stt(void) {
-    for (unsigned depth = 1; depth <= 3; depth++) {
-        reset_state();
-        layers[0][4] = BIND("kp", KEY(23), 0);
-        enter_command();
-        for (unsigned i = 0; i < depth; i++)
-            tap(4);
-        if (depth < 3) {
-            assert(packet_count == 0);
-            time_passes(300);
-        } else
-            assert(packet_count == 1);
-        assert_action(0, 0x10, depth);
-        assert(command_active && stt_session_active && !stt_counting);
-        time_passes(4000);
-        assert(command_active);
-        for (unsigned i = 0; i < depth; i++)
-            tap(4);
-        if (depth < 3) {
-            assert(packet_count == 1);
-            time_passes(300);
-        } else
-            assert(packet_count == 2);
-        assert_action(1, 0x10, depth);
-        assert(!command_active && !stt_session_active && !key_count);
-    }
+static void test_dictation(void) {
     reset_state();
-    layers[0][4] = BIND("kp", KEY(23), 0);
-    layers[0][11] = BIND("hml", KEY(227), KEY(4));
+    layers[0][4] = BIND("kp", KEY(23), 0); /* T */
+    enter_command();
+
+    tap(4);
+    assert(command_active && openwhispr_dictation_active && !packet_count);
+    assert(key_count == 2);
+    assert_openwhispr_pair(0);
+
+    time_passes(4000);
+    assert(command_active && openwhispr_dictation_active);
+
+    tap(4);
+    assert(!command_active && !openwhispr_dictation_active && !packet_count);
+    assert(key_count == 4);
+    assert_openwhispr_pair(2);
+
+    reset_state();
+    layers[0][4] = BIND("kp", KEY(23), 0); /* T */
+    layers[0][0] = BIND("kp", KEY(4), 0);  /* A */
     enter_command();
     tap(4);
-    assert(physical(11, true) == ZMK_EV_EVENT_BUBBLE);
-    assert_action(0, 0x10, 1);
-    assert(stt_session_active && command_active && !consumed[11]);
-    assert(!strcmp(pressed_bindings[11].behavior_dev, "hml"));
-    assert(physical(11, false) == ZMK_EV_EVENT_BUBBLE);
-    assert(!key_count);
-    time_passes(400);
-    assert(packet_count == 1);
-    layers[0][0] = BIND("kp", KEY(4), 0);
+    assert_openwhispr_pair(0);
     tap(0);
-    assert_action(1, 0x10, 0);
-    assert_action(2, 'A', 0);
-    assert(!command_active);
-    puts("PASS STT: depths1/2/3 start and stop,300ms timer, active timeout exemption, HRM "
-         "passthrough, stop-before-action");
+    assert(!command_active && !openwhispr_dictation_active);
+    assert(key_count == 4);
+    assert_openwhispr_pair(2);
+    assert(packet_count == 1);
+    assert_action(0, 'A', 0);
+
+    puts("PASS dictation: OpenWhispr F8 start/stop, timeout exemption, stop-before-action");
 }
 
 static void test_ralt(void) {
@@ -352,16 +329,20 @@ static void test_ralt(void) {
     physical(40, false);
     assert(!key_count);
     reset_state();
-    layers[0][4] = BIND("kp", KEY(23), 0);
+    layers[0][4] = BIND("kp", KEY(23), 0); /* T */
     enter_command();
     tap(4);
-    time_passes(300);
+    assert(openwhispr_dictation_active && command_active && key_count == 2);
+    assert_openwhispr_pair(0);
     physical(40, true);
-    assert_action(1, 0x10, 0);
-    assert(!stt_session_active && !command_active);
+    assert(!openwhispr_dictation_active && !command_active);
+    assert(key_count == 4);
+    assert_openwhispr_pair(2);
+    assert(!packet_count && ralt_interrupted);
     physical(40, false);
-    puts("PASS RALT: completed taps,350ms bounds, all position interruptors, pending tap "
-         "cancellation, matching releases, STT stop");
+    assert(key_count == 4 && !ralt_tap_count);
+    puts("PASS RALT: completed taps,350ms bounds, interruptors, matching releases, "
+         "OpenWhispr stop without Alt leakage");
 }
 
 static void test_nav(void) {
@@ -463,8 +444,8 @@ int main(int argc, char **argv) {
         test_training();
     else if (!strcmp(argv[1], "command"))
         test_command();
-    else if (!strcmp(argv[1], "stt"))
-        test_stt();
+    else if (!strcmp(argv[1], "dictation"))
+        test_dictation();
     else if (!strcmp(argv[1], "ralt"))
         test_ralt();
     else if (!strcmp(argv[1], "nav"))
