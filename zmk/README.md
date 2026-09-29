@@ -184,6 +184,6 @@ Before retiring QMK, test each half's isolated boot gesture, then the 19.2 kbaud
 split pair: all keys/layers, encoder direction and detents, cross-hand NAV chords,
 training with LOWER/RAISE/ADJUST, rapid typing/rolls, Danish characters with held
 modifiers/Caps, USB BIOS boot protocol, bridge reconnect/heartbeat/actions, and
-STT depth/start/stop. Test resets and a typing soak. Software tests cannot verify
+OpenWhispr dictation start/stop. Test resets and a typing soak. Software tests cannot verify
 matrix wiring, diode polarity, USB host behavior, encoder direction or electrical
 signal integrity. Do not hot-plug the powered TRS/TRRS split cable.
