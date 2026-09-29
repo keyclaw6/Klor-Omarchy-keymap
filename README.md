@@ -125,7 +125,7 @@ Locked layer contract:
 - NAV is navigation-only and must keep workspace switching, move-to-workspace, silent move-to-workspace, group navigation, and resize on the arrow cluster
 - NAV arrows use thumb modifiers for focus, swap, group move, monitor move, and resize
 - Dedicated group-focus keys `Super+Ctrl+Left/Right` remain on NAV
-- STT notifications, LLM notifications, and prompt-picker notifications are verified working and must not be changed unless explicitly requested
+- LLM and prompt-picker notifications remain verified behavior. The old custom STT notification/overlay path is rollback-only on this branch.
 
 ## Home Row Mods
 
