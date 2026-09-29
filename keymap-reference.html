@@ -573,7 +573,7 @@
       <div class="kr">
         <div class="k ca"><span class="m">Z</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
         <div class="k ca"><span class="m">X</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
-        <div class="k ca"><span class="m">C</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
+        <div class="k ct"><span class="m">C</span><span class="s" style="color:var(--or)">Screen</span></div>
         <div class="k ca"><span class="m">V</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
         <div class="k ca"><span class="m">B</span><span class="s" style="color:var(--txd)">&mdash;</span></div>
         <div style="width:28px"></div>
@@ -593,7 +593,8 @@
         <tr><td><span class="kb2">S</span></td><td>Summarize</td><td>Condense to key points</td></tr>
         <tr><td><span class="kb2">D</span></td><td>DA &rarr; EN</td><td>Translate Danish to English</td></tr>
         <tr><td><span class="kb2">N</span></td><td>EN &rarr; DA</td><td>Translate English to Danish</td></tr>
-        <tr><td><span class="kb2 kb3">T</span></td><td>OpenWhispr</td><td>Emit one F8 toggle; repeat command mode + T to toggle again</td></tr>
+        <tr><td><span class="kb2 kb3">T</span></td><td>OpenWhispr Dictation</td><td>Emit F8 normal dictation hotkey</td></tr>
+        <tr><td><span class="kb2 kb3">C</span></td><td>OpenWhispr + Screen</td><td>Emit F9 Voice Assistant hotkey; OpenWhispr captures screen context</td></tr>
         <tr><td><span class="kb2" style="background:transparent;border-color:var(--txd);color:var(--txd)">ESC</span></td><td>Cancel</td><td>Exit command mode</td></tr>
       </table>
     </div>
@@ -602,12 +603,12 @@
       <div style="font-size:14px;font-weight:700;color:var(--txb);margin-bottom:8px">OpenWhispr Dictation</div>
       <table class="ct" style="font-size:12.5px">
         <tr><th>Gesture</th><th>Owner</th><th>Behavior</th></tr>
-        <tr><td><span class="kb2 kb3">RALT&times;2 &rarr; T</span></td><td>Keyboard</td><td>Emit one F8 hotkey tap</td></tr>
-        <tr><td><span class="kb2 kb3">Repeat</span></td><td>OpenWhispr</td><td>Toggle dictation again</td></tr>
-        <tr><td><span class="kb2 kb3">State</span></td><td>OpenWhispr</td><td>Firmware stores no dictation-active flag</td></tr>
+        <tr><td><span class="kb2 kb3">RALT&times;2 &rarr; T</span></td><td>OpenWhispr</td><td>F8 normal dictation</td></tr>
+        <tr><td><span class="kb2 kb3">RALT&times;2 &rarr; C</span></td><td>OpenWhispr</td><td>F9 Voice Assistant + screen context</td></tr>
+        <tr><td><span class="kb2 kb3">State</span></td><td>OpenWhispr</td><td>Firmware stores no voice-mode state</td></tr>
       </table>
       <div style="font-size:11.5px;color:var(--txd);margin-top:10px;line-height:1.5">
-        OpenWhispr owns recording, cleanup, and text insertion.<br>
+        OpenWhispr owns recording, screen capture, cleanup, assistant routing, and insertion.<br>
         ElevenLabs Scribe v2 is reached through the localhost adapter.
       </div>
     </div>
@@ -647,7 +648,8 @@
     <h3>Quick Reference</h3>
     <ul class="qr">
       <li><strong>Enter command mode:</strong> Double-tap Right Alt (350ms window)</li>
-      <li><strong>Toggle dictation:</strong> Double-tap RALT &rarr; T; repeat to toggle again</li>
+      <li><strong>Dictation:</strong> Double-tap RALT &rarr; T (F8)</li>
+      <li><strong>Screen-context assistant:</strong> Double-tap RALT &rarr; C (F9)</li>
       <li><strong>All results:</strong> Copied to clipboard &rarr; paste with Ctrl+V</li>
       <li><strong>Caps lock:</strong> LOWER layer &rarr; CAPS key</li>
       <li><strong>Bootloader (combo):</strong> 5&times; all 4 thumbs on one half (&lt;3s)</li>
