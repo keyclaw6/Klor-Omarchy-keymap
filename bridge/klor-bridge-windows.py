@@ -3,7 +3,7 @@
 KLOR Bridge (Windows) — AI writing assistant daemon for the KLOR split keyboard.
 
 Windows-specific version that uses pyautogui + pyperclip instead of wtype + wl-clipboard.
-Same protocol and config files as the Linux version.
+Same protocol and config files as the Linux version. Dictation is owned by\nOpenWhispr; the legacy custom STT classes below are rollback-only and disabled.
 
 Usage:
     python klor-bridge-windows.py              # run in foreground
@@ -29,7 +29,7 @@ import yaml
 # ─── Constants ────────────────────────────────────────────────────────────────
 
 CONFIG_DIR = Path.home() / ".config" / "klor-bridge"
-PACKET_SIZE = 32  # QMK Raw HID packet size
+PACKET_SIZE = 32  # QMK Raw HID packet size\nLEGACY_STT_ENABLED = False  # OpenWhispr is the active dictation owner
 
 # Bridge protocol command IDs (must match firmware defines)
 CMD_BRIDGE_ACTION = 0x20
@@ -669,7 +669,7 @@ class KlorBridge:
         self.hid = HIDConnection(self.config)
         self.platform = Platform(self.config)
         self.llm = LLMClient(self.config)
-        self.stt = STTPipeline(self.config, self.llm, self.prompts)
+        self.stt = STTPipeline(self.config, self.llm, self.prompts) if LEGACY_STT_ENABLED else None
 
         # STT state
         self._stt_depth = 1
@@ -826,7 +826,10 @@ class KlorBridge:
             if action_type == "llm_text":
                 await self._handle_llm_text(action)
             elif action_type == "stt_toggle":
-                await self._handle_stt_toggle(param)
+                if LEGACY_STT_ENABLED:
+                    await self._handle_stt_toggle(param)
+                else:
+                    log.warning("Ignoring legacy STT bridge action; dictation is owned by OpenWhispr")
             elif action_type == "prompt_picker":
                 await self._handle_prompt_picker(action)
             elif action_type == "unconfigured":
