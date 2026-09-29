@@ -32,7 +32,7 @@ PORT = int(os.environ.get("OPENWHISPR_ELEVENLABS_PORT", "8765"))
 ELEVENLABS_URL = "https://api.elevenlabs.io/v1/speech-to-text"
 DEFAULT_MODEL = "scribe_v2"
 MAX_BODY_BYTES = 25 * 1024 * 1024
-FORBIDDEN_KEYTERM_CHARS = set("<>{}[]\\")
+FORBIDDEN_KEYTERM_CHARS = set("<>{}[]\\\\")
 KEYRING_SERVICE = "klor-bridge"
 KEYRING_USERNAME = "elevenlabs_key"
 
@@ -149,7 +149,7 @@ def build_vendor_multipart(
     if language:
         field("language_code", language)
     for term in keyterms:
-        field("keyterms", term)
+        field("keyterms[]", term)
 
     content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
     safe_filename = os.path.basename(filename or "audio.webm").replace('"', "")
