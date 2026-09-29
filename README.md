@@ -10,7 +10,7 @@ The system has two parts:
 
 1. **Firmware** (runs on the keyboard) — Handles typing, layers, home row mods, Danish characters, autocorrect, and detects command mode activation. When you trigger a command, the keyboard sends a 32-byte USB HID packet to the host.
 
-2. **Host** — The KLOR Python bridge handles non-OpenWhispr Raw HID actions (OpenRouter, prompt picker, brightness). **OpenWhispr** owns both voice modes: T emits F8 for normal dictation; C emits F9 for the Voice Assistant with native screen context. A tiny localhost adapter lets OpenWhispr keep using the existing ElevenLabs Scribe v2 API key.
+2. **Host** — The KLOR Python bridge handles non-OpenWhispr Raw HID actions (OpenRouter, prompt picker, brightness). **OpenWhispr** owns both voice modes: T emits Ctrl+Shift+F8 for normal dictation; C emits Ctrl+Shift+F9 for the Voice Assistant with native screen context. A tiny localhost adapter lets OpenWhispr keep using the existing ElevenLabs Scribe v2 API key.
 
 ```
 ┌─────────────┐    Raw HID (USB)     ┌──────────────┐
@@ -41,8 +41,8 @@ The system has two parts:
 | **S** | Summarize | Condenses selected text to key points |
 | **D** | DA → EN | Translates Danish to English |
 | **N** | EN → DA | Translates English to Danish |
-| **T** | OpenWhispr dictation | Emit F8 and exit command mode |
-| **C** | OpenWhispr + screen | Emit F9 Voice Assistant hotkey; OpenWhispr captures screen context |
+| **T** | OpenWhispr dictation | Emit Ctrl+Shift+F8 and exit command mode |
+| **C** | OpenWhispr + screen | Emit Ctrl+Shift+F9 Voice Assistant hotkey; OpenWhispr captures screen context |
 | **ESC** | Cancel | Exits command mode |
 
 All 26 letter keys are mapped in firmware. T and C are direct OpenWhispr hotkeys; 16 letters remain unconfigured placeholders that can be assigned in `actions.yml`/`prompts.yml` without reflashing firmware.
@@ -53,15 +53,15 @@ All 26 letter keys are mapped in firmware. T and C are direct OpenWhispr hotkeys
 
 The old KLOR recorder/depth/correction pipeline is not part of the active path.
 
-- **RALT×2 → T**: firmware emits **F8** for normal OpenWhispr dictation and exits command mode.
-- **RALT×2 → C**: firmware emits **F9** for OpenWhispr Voice Assistant and exits command mode. With OpenWhispr's **Share screen context** enabled, OpenWhispr captures the active screen itself and sends it with the spoken assistant command.
+- **RALT×2 → T**: firmware emits **Ctrl+Shift+F8** for normal OpenWhispr dictation and exits command mode.
+- **RALT×2 → C**: firmware emits **Ctrl+Shift+F9** for OpenWhispr Voice Assistant and exits command mode. With OpenWhispr's **Share screen context** enabled, OpenWhispr captures the active screen itself and sends it with the spoken assistant command.
 
 Both are stateless in firmware. OpenWhispr is the single source of truth; there is no depth counter, recording flag, screenshot helper, or bridge hop for either key.
 
 Configure OpenWhispr once:
 
-- **Dictation hotkey:** `F8`
-- **Voice Assistant hotkey:** `F9`
+- **Dictation hotkey:** `Control+Shift+F8`
+- **Voice Assistant hotkey:** `Control+Shift+F9`
 - **Share screen context:** enabled for Voice Assistant
 - **Dictation activation:** Toggle
 - **Speech to Text:** Self-Hosted
