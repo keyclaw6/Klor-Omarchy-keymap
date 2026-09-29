@@ -351,18 +351,13 @@ static bool training_mode = false;
 
 // State machine for the AI bridge command mode.
 // Double-tap right ALT enters command mode. Letter actions still go through
-// Raw HID to the Python bridge, but dictation is deliberately separate:
-// T emits OpenWhispr's F8 toggle hotkey directly to the host. OpenWhispr owns
-// recording, transcription, cleanup and text insertion end-to-end.
+// Raw HID to the Python bridge. Dictation is only a host hotkey: T emits F8
+// and exits command mode; OpenWhispr alone owns recording and dictation state.
 
 #define COMMAND_MODE_TIMEOUT 3000  // Exit command mode after 3s of no input
 
 static bool     cmd_mode_active = false;
 static uint16_t cmd_mode_timer  = 0;
-
-// We only mirror OpenWhispr's toggle state so command mode can provide the
-// familiar "T/RALT to stop" behavior. Audio never flows through the KLOR bridge.
-static bool openwhispr_dictation_active = false;
 
 // Send a bridge action packet via Raw HID (32 bytes, zero-padded)
 static void bridge_send_action(uint8_t action_id, uint8_t param) {
@@ -371,26 +366,6 @@ static void bridge_send_action(uint8_t action_id, uint8_t param) {
     data[1] = action_id;
     data[2] = param;
     host_raw_hid_send(data, sizeof(data));
-}
-
-static void openwhispr_toggle_dictation(void) {
-    tap_code(OPENWHISPR_DICTATION_KEY);
-    openwhispr_dictation_active = !openwhispr_dictation_active;
-
-    if (openwhispr_dictation_active) {
-        // Keep command mode alive while dictating so T or RALT can stop it.
-        cmd_mode_timer = timer_read();
-    } else {
-        cmd_mode_active = false;
-    }
-}
-
-static void openwhispr_stop_dictation(void) {
-    if (openwhispr_dictation_active) {
-        tap_code(OPENWHISPR_DICTATION_KEY);
-        openwhispr_dictation_active = false;
-    }
-    cmd_mode_active = false;
 }
 
 // Map a keycode to an action ID during command mode.
@@ -441,40 +416,28 @@ static uint8_t cmd_action_for_key(uint16_t keycode) {
 static bool process_command_mode(uint16_t keycode, keyrecord_t *record) {
     if (!record->event.pressed) return false;  // only act on press
 
-    // RALT owns its own state machine. Let it handle the stop so no stray
-    // Alt press or half-completed double-tap leaks through.
-    if (keycode == KC_RALT && openwhispr_dictation_active) {
-        return true;
-    }
-
-    // ESC cancels command mode and cleanly stops OpenWhispr if we started it.
     if (keycode == KC_ESC) {
-        openwhispr_stop_dictation();
+        cmd_mode_active = false;
         return false;
     }
 
     uint8_t action = cmd_action_for_key(keycode);
 
     if (action == 0xFF) {
-        // T is now one simple OpenWhispr toggle. No custom recording pipeline,
-        // tap-depth semantics, post-processing tiers or bridge STT state.
-        openwhispr_toggle_dictation();
+        // OpenWhispr owns the complete dictation lifecycle. Firmware only
+        // sends its configured toggle hotkey and immediately leaves command mode.
+        tap_code(OPENWHISPR_DICTATION_KEY);
+        cmd_mode_active = false;
         return false;
     }
 
     if (action > 0) {
-        // Never leave a dictation session running when switching to another
-        // command-mode action.
-        if (openwhispr_dictation_active) {
-            openwhispr_stop_dictation();
-        }
         bridge_send_action(action, 0);
         cmd_mode_active = false;
         return false;
     }
 
-    // Unmapped key: stop dictation, exit command mode, then pass the key through.
-    openwhispr_stop_dictation();
+    cmd_mode_active = false;
     return true;
 }
 
@@ -503,14 +466,6 @@ static bool process_ralt_tap(keyrecord_t *record) {
         ralt_held = true;
         ralt_interrupted = false;
         ralt_press_timer = timer_read();
-
-        // While OpenWhispr is dictating, a single RALT press stops it immediately.
-        if (openwhispr_dictation_active) {
-            openwhispr_stop_dictation();
-            ralt_tap_count = 0;
-            ralt_interrupted = true; // release must not start a new double-tap
-            return false;
-        }
 
         // Training Mode: skip held-Alt modifier registration, but keep the
         // rest of the double-tap state machine running so the double-tap →
@@ -807,16 +762,13 @@ static void boot_combo_tick(void) {
 // └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
 void matrix_scan_user(void) {
-    // Command mode timeout is suppressed while OpenWhispr dictation is active.
-    if (cmd_mode_active && !openwhispr_dictation_active &&
-        timer_elapsed(cmd_mode_timer) > COMMAND_MODE_TIMEOUT) {
+    if (cmd_mode_active && timer_elapsed(cmd_mode_timer) > COMMAND_MODE_TIMEOUT) {
         cmd_mode_active = false;
     }
 
     // Bootloader combo: 5× all thumbs on one half
     boot_combo_tick();
-}
-// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+}// ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 // │ T R I - L A Y E R   C O N F I G                                                                                                            │
 // └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 
