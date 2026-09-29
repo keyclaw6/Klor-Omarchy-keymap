@@ -3,15 +3,18 @@
 KLOR Bridge (Windows) — AI writing assistant daemon for the KLOR split keyboard.
 
 Windows-specific version that uses pyautogui + pyperclip instead of wtype + wl-clipboard.
-Same protocol and config files as the Linux version. Dictation is owned by\nOpenWhispr; the legacy custom STT classes below are rollback-only and disabled.
+Same protocol and config files as the Linux version. Dictation is owned by
+OpenWhispr; the legacy custom STT classes below are rollback-only and disabled.
 
 Usage:
     python klor-bridge-windows.py              # run in foreground
     python klor-bridge-windows.py --verbose    # debug logging
 
-Dependencies:
-    pip install hidapi openai pyyaml keyring sounddevice numpy aiohttp pyautogui pyperclip
-    (On Arch Linux use python-hid instead of hidapi: pacman -S python-hid)
+Active dependencies:
+    pip install hidapi openai pyyaml keyring pyautogui pyperclip
+
+Legacy rollback-only STT code additionally used sounddevice, numpy, and aiohttp.
+(On Arch Linux use python-hid instead of hidapi: pacman -S python-hid)
 """
 
 from __future__ import annotations
