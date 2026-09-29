@@ -589,7 +589,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         }
     }
 
-    // ── Double-tap RALT → Command Mode / single RALT stops OpenWhispr ──
+    // ── Double-tap RALT → Command Mode ──
     if (keycode == KC_RALT) {
         return process_ralt_tap(record);
     }
