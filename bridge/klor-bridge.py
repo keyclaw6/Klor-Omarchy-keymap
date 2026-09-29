@@ -41,7 +41,7 @@ import yaml
 # ─── Constants ────────────────────────────────────────────────────────────────
 
 CONFIG_DIR = Path.home() / ".config" / "klor-bridge"
-PACKET_SIZE = 32  # QMK Raw HID packet size
+PACKET_SIZE = 32  # QMK Raw HID packet size\nLEGACY_STT_ENABLED = False  # OpenWhispr is the active dictation owner
 
 # Bridge protocol command IDs (must match firmware defines)
 CMD_BRIDGE_ACTION = 0x20
@@ -999,7 +999,7 @@ class KlorBridge:
         self.hid = HIDConnection(self.config)
         self.platform = Platform(self.config)
         self.llm = LLMClient(self.config)
-        self.stt = STTPipeline(self.config, self.llm, self.prompts)
+        self.stt = STTPipeline(self.config, self.llm, self.prompts) if LEGACY_STT_ENABLED else None
         self._llm_action_lock = asyncio.Lock()
         self._llm_action_active = False
 
@@ -1166,7 +1166,10 @@ class KlorBridge:
             if action_type == "llm_text":
                 await self._handle_llm_text(action)
             elif action_type == "stt_toggle":
-                await self._handle_stt_toggle(param)
+                if LEGACY_STT_ENABLED:
+                    await self._handle_stt_toggle(param)
+                else:
+                    log.warning("Ignoring legacy STT bridge action; dictation is owned by OpenWhispr")
             elif action_type == "prompt_picker":
                 await self._handle_prompt_picker(action)
             elif action_type == "unconfigured":
@@ -1811,8 +1814,8 @@ def main():
     except KeyboardInterrupt:
         log.info("Shutting down...")
     finally:
-        # Ensure audio stream is cleaned up
-        if bridge.stt.is_recording:
+        # Legacy STT is normally disabled; keep rollback cleanup safe.
+        if bridge.stt is not None and bridge.stt.is_recording:
             if bridge.stt._stream:
                 bridge.stt._stream.stop()
                 bridge.stt._stream.close()
