@@ -41,7 +41,8 @@ import yaml
 # ─── Constants ────────────────────────────────────────────────────────────────
 
 CONFIG_DIR = Path.home() / ".config" / "klor-bridge"
-PACKET_SIZE = 32  # QMK Raw HID packet size\nLEGACY_STT_ENABLED = False  # OpenWhispr is the active dictation owner
+PACKET_SIZE = 32  # QMK Raw HID packet size
+LEGACY_STT_ENABLED = False  # OpenWhispr is the active dictation owner
 
 # Bridge protocol command IDs (must match firmware defines)
 CMD_BRIDGE_ACTION = 0x20
