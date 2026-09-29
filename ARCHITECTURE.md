@@ -6,16 +6,16 @@ Technical reference for the KLOR AI Writing Workstation. Covers the firmware, br
 
 The active system has three responsibilities with a deliberately narrow boundary:
 
-1. **Firmware (QMK or ZMK)** — typing/layers plus command-mode input. Bridge actions use the existing 32-byte Raw HID protocol. OpenWhispr actions bypass the bridge completely: T emits F8 for normal dictation; C emits F9 for Voice Assistant with native screen context.
+1. **Firmware (QMK or ZMK)** — typing/layers plus command-mode input. Bridge actions use the existing 32-byte Raw HID protocol. OpenWhispr actions bypass the bridge completely: T emits Ctrl+Shift+F8 for normal dictation; C emits Ctrl+Shift+F9 for Voice Assistant with native screen context.
 2. **KLOR bridge (Python)** — handles non-dictation actions such as OpenRouter transformations, prompt picker and bridge-side helpers. Legacy custom STT code remains in source for rollback but `LEGACY_STT_ENABLED = False` prevents it from starting.
 3. **OpenWhispr** — owns microphone capture, dictation state, cleanup, custom dictionary, history and text insertion. Its Self-Hosted transcription request goes to a localhost protocol adapter, which forwards the audio to ElevenLabs Scribe v2 using the existing keyring credential.
 
 ```text
 KLOR keyboard
 ├─ normal bridge action ─── Raw HID ──> KLOR bridge ──> OpenRouter / helpers
-├─ command T ────────────── F8 ───────> OpenWhispr dictation
+├─ command T ───── Ctrl+Shift+F8 ─────> OpenWhispr dictation
 │                                            └─ localhost:8765 ──> ElevenLabs Scribe v2
-└─ command C ────────────── F9 ───────> OpenWhispr Voice Assistant
+└─ command C ───── Ctrl+Shift+F9 ─────> OpenWhispr Voice Assistant
                                              └─ native screen-context screenshot
 ```
 
@@ -132,8 +132,8 @@ Once active, the next letter keypress is intercepted by `process_command_mode()`
 1. `cmd_action_for_key(keycode)` maps the keycode to an action ID
 2. Mod-tap wrappers (`LGUI_T(KC_A)` etc.) are stripped to extract the base keycode
 3. All 26 letters return their ASCII uppercase code (0x41-0x5A)
-4. T returns local sentinel 0xFF → emit F8 OpenWhispr dictation hotkey and exit
-5. C returns local sentinel 0xFE → emit F9 OpenWhispr Voice Assistant hotkey and exit
+4. T returns local sentinel 0xFF → emit Ctrl+Shift+F8 OpenWhispr dictation hotkey and exit
+5. C returns local sentinel 0xFE → emit Ctrl+Shift+F9 OpenWhispr Voice Assistant hotkey and exit
 6. ESC cancels command mode
 7. Any unmapped key exits command mode and passes through
 
@@ -145,7 +145,7 @@ Command mode times out after 3 seconds (`COMMAND_MODE_TIMEOUT`).
 Letter  Hex   Action
 A       0x41  unconfigured
 B       0x42  unconfigured
-C       0xFE  → OpenWhispr F9 Voice Assistant + screen context (no Raw HID packet)
+C       0xFE  → OpenWhispr Ctrl+Shift+F9 Voice Assistant + screen context (no Raw HID packet)
 D       0x44  translate_da_en
 E       0x45  prompt_expand
 F       0x46  unconfigured
@@ -162,7 +162,7 @@ P       0x50  prompt_picker
 Q       0x51  unconfigured
 R       0x52  write_email
 S       0x53  summarize
-T       0xFF  → OpenWhispr F8 toggle (no Raw HID packet)
+T       0xFF  → OpenWhispr Ctrl+Shift+F8 dictation (no Raw HID packet)
 U       0x55  unconfigured
 V       0x56  unconfigured
 W       0x57  unconfigured
@@ -182,8 +182,8 @@ Unconfigured IDs are valid in firmware — the bridge logs a notice and does not
 
 There is deliberately **no firmware-side OpenWhispr state** and no depth selection.
 
-- T emits exactly one F8 key tap for normal dictation, then exits command mode.
-- C emits exactly one F9 key tap for Voice Assistant, then exits command mode.
+- T emits exactly one Ctrl+Shift+F8 chord for normal dictation, then exits command mode.
+- C emits exactly one Ctrl+Shift+F9 chord for Voice Assistant, then exits command mode.
 - OpenWhispr's **Share screen context** setting owns screenshot capture for the C path.
 - Neither action produces a Raw HID packet or enters the Python bridge.
 
