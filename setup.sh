@@ -50,46 +50,30 @@ install_packages() {
             # python-hid provides the 'hid' module (NOT python-hidapi, which
             # conflicts with python-hid required by qmk). The bridge supports both.
             sudo pacman -S --needed --noconfirm \
-                python python-yaml python-openai python-keyring \
-                python-numpy python-aiohttp python-hid \
+                python python-yaml python-openai python-keyring python-hid \
                 wtype wl-clipboard brightnessctl ddcutil
-
-            # python-sounddevice is AUR-only
-            if ! pacman -Qi python-sounddevice &>/dev/null; then
-                if command -v omarchy-pkg-aur-add &>/dev/null; then
-                    info "Installing python-sounddevice from AUR via omarchy..."
-                    omarchy-pkg-aur-add python-sounddevice
-                elif command -v yay &>/dev/null; then
-                    yay -S --needed --noconfirm python-sounddevice
-                elif command -v paru &>/dev/null; then
-                    paru -S --needed --noconfirm python-sounddevice
-                else
-                    warn "python-sounddevice not found in repos. Install manually from AUR."
-                    warn "  yay -S python-sounddevice  OR  paru -S python-sounddevice"
-                fi
-            fi
             ;;
 
         debian)
             info "Installing Debian/Ubuntu packages..."
             sudo apt update
             sudo apt install -y \
-                python3 python3-pip python3-yaml python3-numpy python3-aiohttp \
+                python3 python3-pip python3-yaml \
                 wtype wl-clipboard libhidapi-hidraw0 brightnessctl ddcutil
-            pip3 install --user openai keyring sounddevice hidapi
+            pip3 install --user openai keyring hidapi
             ;;
 
         fedora)
             info "Installing Fedora packages..."
             sudo dnf install -y \
-                python3 python3-pip python3-pyyaml python3-numpy python3-aiohttp \
+                python3 python3-pip python3-pyyaml \
                 wtype wl-clipboard hidapi brightnessctl ddcutil
-            pip3 install --user openai keyring sounddevice hid
+            pip3 install --user openai keyring hid
             ;;
 
         *)
             error "Unknown distro. Install these manually:"
-            echo "  Python 3.10+, pip, pyyaml, openai, keyring, sounddevice, numpy, aiohttp, hid (or hidapi)"
+            echo "  Python 3.10+, pip, pyyaml, openai, keyring, hid (or hidapi)"
             echo "  System: wtype, wl-clipboard, brightnessctl, ddcutil"
             return 1
             ;;
@@ -360,7 +344,7 @@ main() {
     echo "    5. Verify adapter/key:"
     echo "         curl -s http://127.0.0.1:8765/health"
     echo "    6. Build/flash the firmware from this branch."
-    echo "    7. Test: double-tap RALT → T to start; T or RALT to stop."
+    echo "    7. Test: double-tap RALT → T to toggle dictation; repeat to toggle it off."
     echo ""
     echo "  Dictation no longer uses the KLOR bridge audio/STT pipeline."
     echo "  Legacy STT files remain in this branch only as rollback material."
