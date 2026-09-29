@@ -42,13 +42,12 @@
 LOG_MODULE_REGISTER(klor_omarchy, CONFIG_ZMK_LOG_LEVEL);
 
 #define KLOR_PACKET_SIZE 32
-#define KLOR_RALT ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_RIGHTALT)
+#define KLOR_RALT ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_RIGHTALT)\n#define KLOR_OPENWHISPR_KEY ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_F8)
 
 struct klor_control_config {
     uint8_t nav_layer;
     uint16_t command_timeout_ms;
     uint16_t ralt_tap_window_ms;
-    uint16_t stt_tap_window_ms;
 };
 
 static const struct klor_control_config *active_cfg;
@@ -56,9 +55,7 @@ static const struct klor_control_config *active_cfg;
 static bool command_active;
 static bool training_mode;
 
-static bool stt_counting;
-static bool stt_session_active;
-static uint8_t stt_tap_count;
+static bool openwhispr_dictation_active;
 
 static bool ralt_held;
 static bool ralt_interrupted;
@@ -71,9 +68,8 @@ static bool ralt_forwarded;
 static bool training_forwarded[ZMK_KEYMAP_LEN];
 
 static void command_timeout_work_cb(struct k_work *work);
-static void stt_finalize_work_cb(struct k_work *work);
+static void tap_encoded(uint32_t encoded, int64_t timestamp);
 K_WORK_DELAYABLE_DEFINE(command_timeout_work, command_timeout_work_cb);
-K_WORK_DELAYABLE_DEFINE(stt_finalize_work, stt_finalize_work_cb);
 
 #if IS_ENABLED(CONFIG_KLOR_OMARCHY_RAW_HID)
 
@@ -240,15 +236,11 @@ static void command_deactivate(void) {
     k_work_cancel_delayable(&command_timeout_work);
 }
 
-static void stop_stt_and_exit(void) {
-    if (stt_session_active || stt_counting) {
-        (void)klor_bridge_send_action(KLOR_ACTION_STT, 0);
+static void stop_openwhispr_and_exit(int64_t timestamp) {
+    if (openwhispr_dictation_active) {
+        tap_encoded(KLOR_OPENWHISPR_KEY, timestamp);
+        openwhispr_dictation_active = false;
     }
-
-    stt_counting = false;
-    stt_tap_count = 0;
-    stt_session_active = false;
-    k_work_cancel_delayable(&stt_finalize_work);
     command_deactivate();
 }
 
@@ -261,32 +253,9 @@ static void command_activate(const struct klor_control_config *cfg) {
 static void command_timeout_work_cb(struct k_work *work) {
     ARG_UNUSED(work);
 
-    if (command_active && !stt_counting && !stt_session_active) {
+    if (command_active && !openwhispr_dictation_active) {
         command_deactivate();
     }
-}
-
-static void stt_finalize(void) {
-    if (!stt_counting || active_cfg == NULL) {
-        return;
-    }
-
-    uint8_t depth = CLAMP(stt_tap_count, 1, 3);
-    (void)klor_bridge_send_action(KLOR_ACTION_STT, depth);
-    stt_counting = false;
-    stt_tap_count = 0;
-
-    stt_session_active = !stt_session_active;
-    if (stt_session_active) {
-        k_work_cancel_delayable(&command_timeout_work);
-    } else {
-        command_deactivate();
-    }
-}
-
-static void stt_finalize_work_cb(struct k_work *work) {
-    ARG_UNUSED(work);
-    stt_finalize();
 }
 
 static void tap_encoded(uint32_t encoded, int64_t timestamp) {
@@ -298,23 +267,14 @@ static void tap_encoded(uint32_t encoded, int64_t timestamp) {
     (void)raise_zmk_keycode_state_changed_from_encoded(encoded, false, timestamp);
 }
 
-static int handle_stt_press(void) {
-    if (active_cfg == NULL) {
-        return ZMK_BEHAVIOR_OPAQUE;
-    }
+static int handle_openwhispr_press(int64_t timestamp) {
+    tap_encoded(KLOR_OPENWHISPR_KEY, timestamp);
+    openwhispr_dictation_active = !openwhispr_dictation_active;
 
-    if (!stt_counting) {
-        stt_counting = true;
-        stt_tap_count = 1;
-    } else if (stt_tap_count < 3) {
-        stt_tap_count++;
-    }
-
-    if (stt_tap_count >= 3) {
-        k_work_cancel_delayable(&stt_finalize_work);
-        stt_finalize();
+    if (openwhispr_dictation_active) {
+        k_work_cancel_delayable(&command_timeout_work);
     } else {
-        k_work_reschedule(&stt_finalize_work, K_MSEC(active_cfg->stt_tap_window_ms));
+        command_deactivate();
     }
 
     return ZMK_BEHAVIOR_OPAQUE;
@@ -327,8 +287,8 @@ static int handle_ralt(bool pressed, struct zmk_behavior_binding_event event,
         ralt_interrupted = false;
         ralt_press_started = event.timestamp;
 
-        if (stt_session_active) {
-            stop_stt_and_exit();
+        if (openwhispr_dictation_active) {
+            stop_openwhispr_and_exit(event.timestamp);
             ralt_tap_count = 0;
             return ZMK_BEHAVIOR_OPAQUE;
         }
@@ -487,27 +447,18 @@ static int position_listener(const zmk_event_t *eh) {
     bool eat = false;
 
     if (command_active) {
-        /* QMK checks the STT tap-counting window before its ESC cancel path.
-         * Any different key (including ESC) finalizes the count, then passes
-         * the original behavior through while the new recording stays active. */
-        if (stt_counting) {
-            if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_T)) {
-                handle_stt_press();
-                eat = true;
-            } else {
-                stt_finalize();
-            }
-        } else if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_ESCAPE)) {
-            stop_stt_and_exit();
+        if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_ESCAPE)) {
+            stop_openwhispr_and_exit(ev->timestamp);
             eat = true;
         } else if (key >= ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_A) &&
                    key <= ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_Z)) {
             if (key == ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_T)) {
-                handle_stt_press();
+                // OpenWhispr owns recording/transcription/insertion; firmware
+                // only emits the configured host hotkey.
+                handle_openwhispr_press(ev->timestamp);
             } else {
-                if (stt_session_active) {
-                    (void)klor_bridge_send_action(KLOR_ACTION_STT, 0);
-                    stt_session_active = false;
+                if (openwhispr_dictation_active) {
+                    stop_openwhispr_and_exit(ev->timestamp);
                 }
                 (void)klor_bridge_send_action(
                     0x41 + key - ZMK_HID_USAGE(HID_USAGE_KEY, HID_USAGE_KEY_KEYBOARD_A), 0);
@@ -515,7 +466,7 @@ static int position_listener(const zmk_event_t *eh) {
             }
             eat = true;
         } else {
-            stop_stt_and_exit();
+            stop_openwhispr_and_exit(ev->timestamp);
         }
     }
 
@@ -602,7 +553,6 @@ static const struct behavior_driver_api klor_control_driver_api = {
         .nav_layer = DT_INST_PROP(n, nav_layer),                                                   \
         .command_timeout_ms = DT_INST_PROP(n, command_timeout_ms),                                 \
         .ralt_tap_window_ms = DT_INST_PROP(n, ralt_tap_window_ms),                                 \
-        .stt_tap_window_ms = DT_INST_PROP(n, stt_tap_window_ms),                                   \
     };                                                                                             \
     BEHAVIOR_DT_INST_DEFINE(n, control_init, NULL, NULL, &klor_control_config_##n, POST_KERNEL,    \
                             CONFIG_KERNEL_INIT_PRIORITY_DEFAULT, &klor_control_driver_api);
