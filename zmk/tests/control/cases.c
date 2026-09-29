@@ -24,7 +24,7 @@ static void flush_usb(void) {
     } while (raw_hid_tx_queue.count);
 }
 static void reset_state(void) {
-    command_active = training_mode = openwhispr_dictation_active = false;
+    command_active = training_mode = false;
     ralt_held = ralt_interrupted = ralt_forwarded = false;
     ralt_tap_count = 0;
     ralt_press_started = ralt_first_tap_at = 0;
@@ -185,7 +185,7 @@ static void test_command(void) {
             command_activate(&config);
             assert(physical(0, true) == ZMK_EV_EVENT_HANDLED);
             if (letter == 19) { /* T */
-                assert(command_active && openwhispr_dictation_active && !packet_count);
+                assert(!command_active && !packet_count);
                 assert(key_count == 2);
                 assert_openwhispr_pair(0);
             } else {
@@ -220,18 +220,12 @@ static void test_command(void) {
         assert(physical(0, false) == ZMK_EV_EVENT_BUBBLE);
     }
 
-    for (unsigned active = 0; active < 2; active++) {
-        reset_state();
-        layers[0][10] = BIND("kp", KEY(41), 0); /* ESC */
-        command_activate(&config);
-        openwhispr_dictation_active = active;
-        assert(physical(10, true) == ZMK_EV_EVENT_HANDLED);
-        assert(!command_active && !openwhispr_dictation_active && !packet_count);
-        assert(key_count == (active ? 2u : 0u));
-        if (active)
-            assert_openwhispr_pair(0);
-        assert(physical(10, false) == ZMK_EV_EVENT_HANDLED);
-    }
+    reset_state();
+    layers[0][10] = BIND("kp", KEY(41), 0); /* ESC */
+    command_activate(&config);
+    assert(physical(10, true) == ZMK_EV_EVENT_HANDLED);
+    assert(!command_active && !packet_count && !key_count);
+    assert(physical(10, false) == ZMK_EV_EVENT_HANDLED);
 
     reset_state();
     command_activate(&config);
@@ -247,42 +241,30 @@ static void test_command(void) {
     physical(36, false);
     assert(key_count == 2 && !keys[1].down);
 
-    puts("PASS command: 26 letters x7 behavior types, OpenWhispr T routing, current layer, "
-         "unmapped kinds, ESC, timeout, release pairing");
+    puts("PASS command: 26 letters x7 behavior types, stateless OpenWhispr T routing, "
+         "current layer, unmapped kinds, ESC, timeout, release pairing");
 }
 
 static void test_dictation(void) {
     reset_state();
     layers[0][4] = BIND("kp", KEY(23), 0); /* T */
-    enter_command();
 
+    enter_command();
     tap(4);
-    assert(command_active && openwhispr_dictation_active && !packet_count);
+    assert(!command_active && !packet_count);
     assert(key_count == 2);
     assert_openwhispr_pair(0);
 
-    time_passes(4000);
-    assert(command_active && openwhispr_dictation_active);
-
-    tap(4);
-    assert(!command_active && !openwhispr_dictation_active && !packet_count);
-    assert(key_count == 4);
-    assert_openwhispr_pair(2);
-
-    reset_state();
-    layers[0][4] = BIND("kp", KEY(23), 0); /* T */
-    layers[0][0] = BIND("kp", KEY(4), 0);  /* A */
+    /* Toggle again through a fresh command invocation. Firmware deliberately
+     * keeps no dictation-active bit; OpenWhispr is the single source of truth. */
+    key_count = 0;
     enter_command();
     tap(4);
+    assert(!command_active && !packet_count);
+    assert(key_count == 2);
     assert_openwhispr_pair(0);
-    tap(0);
-    assert(!command_active && !openwhispr_dictation_active);
-    assert(key_count == 4);
-    assert_openwhispr_pair(2);
-    assert(packet_count == 1);
-    assert_action(0, 'A', 0);
 
-    puts("PASS dictation: OpenWhispr F8 start/stop, timeout exemption, stop-before-action");
+    puts("PASS dictation: command+T emits one F8 tap and keeps dictation state in OpenWhispr");
 }
 
 static void test_ralt(void) {
@@ -328,21 +310,8 @@ static void test_ralt(void) {
     training_mode = false;
     physical(40, false);
     assert(!key_count);
-    reset_state();
-    layers[0][4] = BIND("kp", KEY(23), 0); /* T */
-    enter_command();
-    tap(4);
-    assert(openwhispr_dictation_active && command_active && key_count == 2);
-    assert_openwhispr_pair(0);
-    physical(40, true);
-    assert(!openwhispr_dictation_active && !command_active);
-    assert(key_count == 4);
-    assert_openwhispr_pair(2);
-    assert(!packet_count && ralt_interrupted);
-    physical(40, false);
-    assert(key_count == 4 && !ralt_tap_count);
-    puts("PASS RALT: completed taps,350ms bounds, interruptors, matching releases, "
-         "OpenWhispr stop without Alt leakage");
+    puts("PASS RALT: completed taps,350ms bounds, interruptors and matching releases");
+
 }
 
 static void test_nav(void) {
