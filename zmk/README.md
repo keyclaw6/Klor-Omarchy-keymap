@@ -17,7 +17,7 @@ Carried over:
 - NAV encoder workspace switching;
 - volatile Training Mode;
 - double-tap right Alt command mode;
-- 1/2/3-tap speech-to-text depth;
+- OpenWhispr F8 dictation toggle from command-mode T;
 - the existing 32-byte KLOR Raw HID bridge protocol;
 - the existing USB VID/PID and vendor HID usage page/usage so
   `bridge/klor-bridge.py` does not need a protocol rewrite;
@@ -148,9 +148,9 @@ layers were compared, including the two encoder pushes and transparent thumbs.
 | Home-row modifiers | GACS / SCAG, right-side L uses left Alt, semicolon uses right GUI. 180 ms balanced hold-tap, 0 ms quick-tap, 120 ms prior-idle. Both encoder pushes and all thumbs are exempt from the opposite-hand rule. Ctrl/Shift alone use speculative holds. |
 | G / H | Tap letters, hold NAV, opposite-hand rule with thumb/push exemptions; training does not suppress these. |
 | Training | Volatile flag, no hidden layer. Bare GUI/Ctrl/Shift on BASE and Ctrl/Shift/Alt on NAV are suppressed. Transparent LOWER/RAISE/ADJUST thumb modifiers continue working. Direct NAV is suppressed on every layer; RAlt still double-taps but sends no held modifier. Release matching prevents stuck keys when toggled while a key is down. |
-| Command mode | No hidden layer. Uses the currently resolved key binding, unwraps home-row/layer taps, times out after 3 s except during STT. Unmapped keys exit and retain their normal behavior; consumed presses have consumed releases. |
-| STT | T tap depth 1/2/3, 300 ms window, third tap finalizes immediately. Active-session T uses the same depth/toggle protocol. RAlt or an unmapped key stops with parameter 0. A different key during counting finalizes first and passes its original behavior through, as QMK does. |
-| Escape | Matches QMK ordering: normally consumed to cancel command mode or stop recording. If pressed inside the 300 ms T-tap counting window, the count finalizes first and Escape passes through normally while the newly started recording remains active. |
+| Command mode | No hidden layer. Uses the currently resolved key binding, unwraps home-row/layer taps, and times out after 3 s except while the tracked OpenWhispr toggle is active. Unmapped keys stop dictation, exit, and retain their normal behavior; consumed presses have consumed releases. |
+| Dictation | T emits the OpenWhispr F8 toggle directly; no Raw HID STT packet or depth logic. T again stops. RAlt stops through its own state machine without Alt leakage. ESC stops/cancels. Another command stops OpenWhispr before dispatch. |
+| Escape | Consumed to cancel command mode; if this command session started OpenWhispr, ESC emits the F8 stop toggle first. |
 | NAV arrows | Same modifier-dependent actions, including Ctrl resize and Ctrl+Alt horizontal workspace actions. Existing held modifiers remain in the report, as in QMK. |
 | Danish Unicode | Linux Ctrl+Shift+U, unmodified hexadecimal, Space; Shift XOR Caps Lock selects case. Caps temporarily disabled/restored; existing modifiers and keys restored. 10 ms report spacing. |
 | Encoders | Left volume, right brightness, both workspace navigation on NAV; two quadrature edges per event, matching QMK resolution 2. |
