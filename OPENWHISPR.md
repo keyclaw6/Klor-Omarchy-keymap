@@ -60,14 +60,12 @@ A healthy adapter reports `ok: true`. `elevenlabs_key_configured` should also be
 ## Keyboard behavior
 
 - Double-tap RALT: enter command mode.
-- T: toggle OpenWhispr dictation immediately.
-- T again: stop dictation and exit command mode.
-- RALT while dictating: stop dictation without leaking an Alt keystroke.
-- ESC while dictating: stop dictation and cancel command mode.
-- Another command-mode letter while dictating: stop OpenWhispr first, then dispatch that normal KLOR action.
-- The 3-second command timeout is suspended while this command-mode session owns an active OpenWhispr toggle.
+- T: emit one F8 hotkey tap and immediately exit command mode.
+- To toggle dictation off, enter command mode again and press T again.
+- Firmware stores no OpenWhispr/dictation-active state.
+- RALT, ESC, and other commands keep their normal command-mode behavior; they do not guess whether OpenWhispr is currently recording.
 
-QMK and ZMK use the same behavior.
+This deliberate statelessness avoids firmware/app state drift if OpenWhispr stops because of an error, cancellation, timeout, or UI action. QMK and ZMK use the same behavior.
 
 ## Rollback material
 
@@ -80,10 +78,9 @@ Rollback is therefore a code/config switch rather than data recovery. Do not mer
 1. Start OpenWhispr and both user services.
 2. Confirm `/health` says the ElevenLabs key is configured.
 3. Focus a normal text field.
-4. Double-tap RALT, press T, dictate Danish and English, then press T.
-5. Confirm OpenWhispr inserts the transcript in the focused field.
-6. Repeat and stop with RALT; confirm no Alt/menu behavior leaks into the app.
-7. Repeat and stop with ESC.
-8. While dictating, invoke another KLOR command and confirm dictation stops before that command runs.
-9. Add a distinctive word to OpenWhispr's custom dictionary and confirm it reaches Scribe as a keyterm.
-10. Reboot/log in and repeat once to verify autostart/service behavior.
+4. Double-tap RALT, press T, and dictate Danish and English.
+5. Double-tap RALT and press T again to stop/toggle OpenWhispr.
+6. Confirm OpenWhispr inserts the transcript in the focused field.
+7. Repeat after cancelling/stopping once from OpenWhispr's own UI, then verify the next keyboard toggle still behaves correctly (no firmware state drift).
+8. Add a distinctive word to OpenWhispr's custom dictionary and confirm it reaches Scribe as a keyterm.
+9. Reboot/log in and repeat once to verify autostart/service behavior.
