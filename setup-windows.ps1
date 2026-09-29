@@ -103,8 +103,8 @@ Write-Host '  $env:KLOR_ELEVENLABS_KEY = "..."' -ForegroundColor White
 Write-Host ""
 Write-Host "=== Running ===" -ForegroundColor Cyan
 Write-Host "1. Start OpenWhispr and configure:" -ForegroundColor Yellow
-Write-Host "   Dictation hotkey       = F8 (Toggle)" -ForegroundColor White
-Write-Host "   Voice Assistant hotkey = F9" -ForegroundColor White
+Write-Host "   Dictation hotkey       = Control+Shift+F8 (Toggle)" -ForegroundColor White
+Write-Host "   Voice Assistant hotkey = Control+Shift+F9" -ForegroundColor White
 Write-Host "   Share screen context   = enabled" -ForegroundColor White
 Write-Host "   Speech to Text         = Self-Hosted, http://127.0.0.1:8765, scribe_v2" -ForegroundColor White
 Write-Host ""
@@ -115,7 +115,7 @@ Write-Host "3. Start the non-voice KLOR bridge:" -ForegroundColor Yellow
 Write-Host "   python $bridgeDst" -ForegroundColor White
 Write-Host ""
 Write-Host "Keyboard voice mappings:" -ForegroundColor Yellow
-Write-Host "   RALT x2 -> T = normal OpenWhispr dictation (F8)" -ForegroundColor White
-Write-Host "   RALT x2 -> C = Voice Assistant + native screen context (F9)" -ForegroundColor White
+Write-Host "   RALT x2 -> T = normal OpenWhispr dictation" -ForegroundColor White
+Write-Host "   RALT x2 -> C = Voice Assistant + native screen context" -ForegroundColor White
 Write-Host ""
 Write-Host "Setup complete!" -ForegroundColor Green
