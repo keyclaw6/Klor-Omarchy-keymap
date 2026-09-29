@@ -113,7 +113,8 @@ enum internal_nav_keycodes {
 // ASCII uppercase scheme: each letter A-Z maps to its ASCII code (0x41-0x5A).
 // The bridge daemon's actions.yml decides what each letter does.
 // To assign a new action, just add an entry in actions.yml — no firmware change needed.
-#define ACTION_STT              0x10  // Legacy custom STT bridge action; reserved for rollback\n#define OPENWHISPR_DICTATION_KEY KC_F8 // OpenWhispr toggle hotkey (configured host-side)
+#define ACTION_STT              0x10  // Legacy custom STT bridge action; reserved for rollback
+#define OPENWHISPR_DICTATION_KEY KC_F8 // OpenWhispr toggle hotkey (configured host-side)
 #define ACTION_BRIGHTNESS_UP    0x11  // Brightness increase (from right encoder)
 #define ACTION_BRIGHTNESS_DOWN  0x12  // Brightness decrease (from right encoder)
 
