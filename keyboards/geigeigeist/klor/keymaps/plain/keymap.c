@@ -114,7 +114,8 @@ enum internal_nav_keycodes {
 // The bridge daemon's actions.yml decides what each letter does.
 // To assign a new action, just add an entry in actions.yml — no firmware change needed.
 #define ACTION_STT              0x10  // Legacy custom STT bridge action; reserved for rollback
-#define OPENWHISPR_DICTATION_KEY KC_F8 // OpenWhispr dictation hotkey\n#define OPENWHISPR_CONTEXT_KEY   KC_F9 // OpenWhispr Voice Assistant + screen context
+#define OPENWHISPR_DICTATION_KEY C(S(KC_F8)) // dedicated host chord; avoids ADJUST-layer F8 collision
+#define OPENWHISPR_CONTEXT_KEY   C(S(KC_F9)) // Voice Assistant + screen context
 #define ACTION_BRIGHTNESS_UP    0x11  // Brightness increase (from right encoder)
 #define ACTION_BRIGHTNESS_DOWN  0x12  // Brightness decrease (from right encoder)
 
