@@ -1177,7 +1177,7 @@ def main():
     except KeyboardInterrupt:
         log.info("Shutting down...")
     finally:
-        if bridge.stt.is_recording:
+        if bridge.stt is not None and bridge.stt.is_recording:
             if bridge.stt._stream:
                 bridge.stt._stream.stop()
                 bridge.stt._stream.close()
