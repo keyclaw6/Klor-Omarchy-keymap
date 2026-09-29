@@ -88,7 +88,7 @@ deploy_configs() {
     mkdir -p "$CONFIG_DIR"
 
     # Copy config files (don't overwrite existing)
-    for f in config.yml actions.yml prompts.yml lexicon.yml corrections.yml snippets.yml; do
+    for f in config.yml actions.yml prompts.yml snippets.yml; do
         src="$SCRIPT_DIR/bridge/$f"
         dst="$CONFIG_DIR/$f"
         if [[ -f "$src" ]]; then
@@ -103,7 +103,7 @@ deploy_configs() {
     done
 
     # Always overwrite bridge code/helpers (these are code, not user config)
-    for f in klor-bridge.py prompt_picker_helper.py prompt_picker_window.py stt_listening_window.py openwhispr_elevenlabs_shim.py; do
+    for f in klor-bridge.py prompt_picker_helper.py prompt_picker_window.py openwhispr_elevenlabs_shim.py; do
         src="$SCRIPT_DIR/bridge/$f"
         dst="$CONFIG_DIR/$f"
         if [[ -f "$src" ]]; then
