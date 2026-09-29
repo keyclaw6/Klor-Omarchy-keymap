@@ -423,9 +423,9 @@ static bool process_command_mode(uint16_t keycode, keyrecord_t *record) {
     uint8_t action = cmd_action_for_key(keycode);
 
     if (action == 0xFF || action == 0xFE) {
-        // OpenWhispr owns both lifecycles. Firmware emits only the configured
-        // host hotkey: F8 = dictation, F9 = Voice Assistant with screen context.
-        tap_code(action == 0xFF ? OPENWHISPR_DICTATION_KEY : OPENWHISPR_CONTEXT_KEY);
+        // OpenWhispr owns both lifecycles. These dedicated chords avoid
+        // collisions with the real F8/F9 keys on the ADJUST layer.
+        tap_code16(action == 0xFF ? OPENWHISPR_DICTATION_KEY : OPENWHISPR_CONTEXT_KEY);
         cmd_mode_active = false;
         return false;
     }
