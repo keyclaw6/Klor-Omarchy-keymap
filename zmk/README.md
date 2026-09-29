@@ -17,7 +17,7 @@ Carried over:
 - NAV encoder workspace switching;
 - volatile Training Mode;
 - double-tap right Alt command mode;
-- OpenWhispr F8 dictation from command-mode T and F9 Voice Assistant + screen context from C;
+- OpenWhispr Ctrl+Shift+F8 dictation from T and Ctrl+Shift+F9 Voice Assistant + screen context from C;
 - the existing 32-byte KLOR Raw HID bridge protocol;
 - the existing USB VID/PID and vendor HID usage page/usage so
   `bridge/klor-bridge.py` does not need a protocol rewrite;
@@ -149,7 +149,7 @@ layers were compared, including the two encoder pushes and transparent thumbs.
 | G / H | Tap letters, hold NAV, opposite-hand rule with thumb/push exemptions; training does not suppress these. |
 | Training | Volatile flag, no hidden layer. Bare GUI/Ctrl/Shift on BASE and Ctrl/Shift/Alt on NAV are suppressed. Transparent LOWER/RAISE/ADJUST thumb modifiers continue working. Direct NAV is suppressed on every layer; RAlt still double-taps but sends no held modifier. Release matching prevents stuck keys when toggled while a key is down. |
 | Command mode | No hidden layer. Uses the currently resolved key binding, unwraps home-row/layer taps, and times out after 3 s. Unmapped keys exit and retain their normal behavior; consumed presses have consumed releases. |
-| OpenWhispr | T emits F8 for normal dictation; C emits F9 for Voice Assistant with native screen context. Both exit command mode immediately. No Raw HID voice packet, depth logic, screenshot helper, or firmware-side app state. |
+| OpenWhispr | T emits Ctrl+Shift+F8 for normal dictation; C emits Ctrl+Shift+F9 for Voice Assistant with native screen context. Both exit command mode immediately. No Raw HID voice packet, depth logic, screenshot helper, or firmware-side app state. |
 | Escape | Consumed to cancel command mode. OpenWhispr state is intentionally not mirrored in firmware. |
 | NAV arrows | Same modifier-dependent actions, including Ctrl resize and Ctrl+Alt horizontal workspace actions. Existing held modifiers remain in the report, as in QMK. |
 | Danish Unicode | Linux Ctrl+Shift+U, unmodified hexadecimal, Space; Shift XOR Caps Lock selects case. Caps temporarily disabled/restored; existing modifiers and keys restored. 10 ms report spacing. |
@@ -184,6 +184,6 @@ Before retiring QMK, test each half's isolated boot gesture, then the 19.2 kbaud
 split pair: all keys/layers, encoder direction and detents, cross-hand NAV chords,
 training with LOWER/RAISE/ADJUST, rapid typing/rolls, Danish characters with held
 modifiers/Caps, USB BIOS boot protocol, bridge reconnect/heartbeat/actions, and
-OpenWhispr T/F8 dictation and C/F9 screen-context assistant. Test resets and a typing soak. Software tests cannot verify
+OpenWhispr T/Ctrl+Shift+F8 dictation and C/Ctrl+Shift+F9 screen-context assistant. Test resets and a typing soak. Software tests cannot verify
 matrix wiring, diode polarity, USB host behavior, encoder direction or electrical
 signal integrity. Do not hot-plug the powered TRS/TRRS split cable.
