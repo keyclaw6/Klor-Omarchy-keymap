@@ -84,18 +84,19 @@
   ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
     Active Actions:                                           Unconfigured (available for new actions):
-    ┌─────┬───────────────┬──────────────────────────────┐    A  B  C  F  H  J  K  L  M  O  Q  U  V  W  X  Y  Z
+    ┌─────┬───────────────┬──────────────────────────────┐    A  B  F  H  J  K  L  M  O  Q  U  V  W  X  Y  Z
     │ Key │ Type          │ Action                       │
     ├─────┼───────────────┼──────────────────────────────┤    OpenWhispr dictation:
-    │  D  │ llm_text      │ Translate Danish → English   │      RALT×2 → T = emit F8 toggle
-    │  E  │ llm_text      │ Prompt Expand                │      Repeat RALT×2 → T to toggle off
-    │  G  │ llm_text      │ Fix Grammar                  │      No firmware dictation state
-    │  I  │ llm_text      │ Improve Writing              │
-    │  N  │ llm_text      │ Translate English → Danish   │    OpenWhispr owns record/cleanup/insert
-    │  P  │ prompt_picker │ Open Snippet Picker          │    ElevenLabs Scribe via localhost adapter
+    │  C  │ host_hotkey   │ Assistant + screen context   │      C = F9 Voice Assistant + screenshot
+    │  D  │ llm_text      │ Translate Danish → English   │      T = F8 normal dictation
+    │  E  │ llm_text      │ Prompt Expand                │      No firmware voice state
+    │  G  │ llm_text      │ Fix Grammar                  │
+    │  I  │ llm_text      │ Improve Writing              │    OpenWhispr owns record/screen/cleanup
+    │  N  │ llm_text      │ Translate English → Danish   │    ElevenLabs Scribe via localhost adapter
+    │  P  │ prompt_picker │ Open Snippet Picker          │
     │  R  │ llm_text      │ Write Email (Nordic style)   │
     │  S  │ llm_text      │ Summarize                    │
-    │  T  │ host_hotkey   │ OpenWhispr F8 toggle         │
+    │  T  │ host_hotkey   │ OpenWhispr normal dictation  │
     └─────┴───────────────┴──────────────────────────────┘
 
   ╔════════════════════════════════════════════════════════════════════════════════════════════════╗
