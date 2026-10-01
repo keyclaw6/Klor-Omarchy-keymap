@@ -1,184 +1,119 @@
 #!/bin/bash
+# Both external monitors, one queued DDC worker. No firmware/bridge dependency.
 set -euo pipefail
 
 raw_step="${1:-up}"
 amount="${2:-5}"
 amount="${amount%%%}"
-
+[[ $amount =~ ^[0-9]{1,3}$ ]] || exit 2
 case "${raw_step,,}" in
-  up|increase|+|plus)
-    step="+$amount"
-    ;;
-  down|decrease|-|minus)
-    step="-$amount"
-    ;;
+  up|increase|+|plus) step=$((10#$amount));;
+  down|decrease|-|minus) step=$((-10#$amount));;
   *)
-    if [[ $raw_step =~ ^([0-9]+)%-$ ]]; then
-      step="-${BASH_REMATCH[1]}"
-    elif [[ $raw_step =~ ^([+-]?[0-9]+)%?$ ]]; then
-      step="${BASH_REMATCH[1]}"
+    if [[ $raw_step =~ ^([0-9]{1,3})%-$ ]]; then
+      step=$((-10#${BASH_REMATCH[1]}))
+    elif [[ $raw_step =~ ^([+-]?)([0-9]{1,3})%?$ ]]; then
+      step=$((10#${BASH_REMATCH[2]}))
+      [[ ${BASH_REMATCH[1]} != - ]] || step=$((-step))
     else
       exit 2
     fi
     ;;
 esac
 
-if [[ ! $step =~ ^[+-]?[0-9]+$ ]]; then
-  exit 2
-fi
-
-state_dir="${XDG_CACHE_HOME:-$HOME/.cache}/brightness-display-ddc"
-state_lock="$state_dir/state.lock"
-pending_file="$state_dir/pending_delta"
-worker_file="$state_dir/worker"
-bus_file="$state_dir/buses"
-
+# Session-local queue; kernel locks disappear even if the worker is killed.
+state_dir="${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/klor-brightness-ddc"
 mkdir -p "$state_dir"
+exec 9>"$state_dir/queue.lock"
+exec 8>"$state_dir/worker.lock"
+flock 9
+current=0
+[[ ! -s $state_dir/pending ]] || read -r current <"$state_dir/pending"
+printf '%s\n' "$((current + step))" >"$state_dir/pending"
+if ! flock -n 8; then
+  exit 0
+fi
+flock -u 9
 
+# Discover fresh buses for each worker instead of persisting bus numbers across
+# reboots or reconnects. Filter invalid/unsupported DDC displays.
 detect_buses() {
-  local detect_output
-
-  detect_output="$(/usr/bin/ddcutil detect --brief 2>/dev/null || true)"
-  mapfile -t buses < <(printf '%s\n' "$detect_output" | grep -oE '/dev/i2c-[0-9]+' | sed 's#/dev/i2c-##')
-
-  if (( ${#buses[@]} == 0 )); then
-    return 1
-  fi
-
-  printf '%s\n' "${buses[@]}" > "$bus_file"
-}
-
-load_buses() {
-  buses=()
-
-  if [[ -s $bus_file ]]; then
-    mapfile -t buses < "$bus_file"
-  fi
-
-  if (( ${#buses[@]} == 0 )); then
-    detect_buses || return 1
-    mapfile -t buses < "$bus_file"
-  fi
-}
-
-read_first_percent() {
   local output
+  output=$(timeout 15 ddcutil detect --brief 8>&- 9>&-) || return 1
+  mapfile -t buses < <(printf '%s\n' "$output" | awk '
+    /^Display [0-9]+/ { valid=1 }
+    /^Invalid display/ { valid=0 }
+    valid && /I2C bus:/ { sub(/^.*\/dev\/i2c-/, ""); if ($0 ~ /^[0-9]+$/) print }
+  ')
+  (( ${#buses[@]} > 0 ))
+}
 
-  output="$(/usr/bin/ddcutil --bus "${buses[0]}" getvcp 10 2>/dev/null || true)"
-  if [[ $output =~ current\ value\ =\ *([0-9]+) ]]; then
-    printf '%s\n' "${BASH_REMATCH[1]}"
-    return 0
-  fi
-
+apply_bus() {
+  local bus=$1 delta=$2 output current maximum target percent attempt
+  for attempt in 1 2; do
+    if output=$(timeout 5 ddcutil --bus "$bus" getvcp 10 --brief 8>&- 9>&-); then
+      break
+    fi
+    (( attempt < 2 )) || return 1
+  done
+  read -r current maximum < <(printf '%s\n' "$output" | awk '
+    $1 == "VCP" && toupper($2) == "10" && $3 == "C" { print $4, $5; exit }
+  ')
+  [[ $current =~ ^[0-9]+$ && $maximum =~ ^[0-9]+$ ]] && (( maximum > 0 )) || return 1
+  # Delta is percentage points, even for monitors whose VCP maximum isn't 100.
+  target=$((current + (delta * maximum / 100)))
+  (( target >= 0 )) || target=0
+  (( target <= maximum )) || target=$maximum
+  # Retry the same absolute target: a timed-out write may already have applied.
+  for attempt in 1 2; do
+    if timeout 5 ddcutil --bus "$bus" setvcp 10 "$target" --noverify 8>&- 9>&-; then
+      percent=$(((target * 100 + maximum / 2) / maximum))
+      printf '%s\n' "$percent" >"$state_dir/percent-$bus"
+      return 0
+    fi
+  done
   return 1
 }
 
-apply_relative_delta() {
-  local delta="$1"
-  local sign="+"
-  local amount="$delta"
-  local failures=0
-  local percent=""
-  local pid
-  local attempt
-  local -a pids=()
-
-  (( delta == 0 )) && return 0
-
-  load_buses || return 1
-
-  if (( delta < 0 )); then
-    sign="-"
-    amount=$(( -delta ))
-  fi
-
-  for attempt in 0 1; do
-    failures=0
-    pids=()
-    for bus in "${buses[@]}"; do
-      /usr/bin/ddcutil --bus "$bus" setvcp 10 "$sign" "$amount" --noverify >/dev/null 2>&1 &
-      pids+=("$!")
-    done
-
-    for pid in "${pids[@]}"; do
-      if ! wait "$pid"; then
-        (( failures += 1 ))
-      fi
-    done
-
-    if (( failures < ${#buses[@]} )) || (( attempt == 1 )); then
-      break
-    fi
-
-    detect_buses || return 1
-    mapfile -t buses < "$bus_file"
-  done
-
-  if command -v omarchy-swayosd-brightness >/dev/null 2>&1; then
-    percent="$(read_first_percent || true)"
-    if [[ -n $percent ]]; then
-      omarchy-swayosd-brightness "$percent" >/dev/null 2>&1 || true
-    fi
-  fi
-}
-
-queue_delta() {
-  local current=0
-  local next
-  local became_worker=0
-
-  exec 9> "$state_lock"
-  flock 9
-
-  if [[ -f $pending_file ]]; then
-    current="$(<"$pending_file")"
-  fi
-
-  next=$(( current + step ))
-  printf '%s\n' "$next" > "$pending_file"
-
-  if [[ ! -e $worker_file ]]; then
-    : > "$worker_file"
-    became_worker=1
-  fi
-
-  flock -u 9
-  exec 9>&-
-
-  (( became_worker == 1 ))
-}
-
-take_pending_delta() {
-  local delta=0
-
-  exec 9> "$state_lock"
-  flock 9
-
-  if [[ -f $pending_file ]]; then
-    delta="$(<"$pending_file")"
-  fi
-
-  printf '0\n' > "$pending_file"
-
-  if (( delta == 0 )); then
-    rm -f "$worker_file"
-  fi
-
-  flock -u 9
-  exec 9>&-
-
-  printf '%s\n' "$delta"
-}
-
-if ! queue_delta; then
-  exit 0
-fi
-
+status=0
+buses=()
 while true; do
-  delta="$(take_pending_delta)"
+  flock 9
+  read -r delta <"$state_dir/pending"
   if (( delta == 0 )); then
-    break
+    # Release the worker lock while holding the queue lock. An arriving turn
+    # must either be consumed here or acquire the worker lock itself.
+    flock -u 8
+    flock -u 9
+    exit "$status"
+  fi
+  printf '0\n' >"$state_dir/pending"
+  flock -u 9
+
+  if (( ${#buses[@]} == 0 )) && ! detect_buses; then
+    echo 'KLOR brightness: no accessible DDC monitors detected' >&2
+    status=1
+    continue
   fi
 
-  apply_relative_delta "$delta" || true
+  pids=()
+  for bus in "${buses[@]}"; do
+    apply_bus "$bus" "$delta" &
+    pids+=("$!")
+  done
+  failed=0
+  for i in "${!pids[@]}"; do
+    if ! wait "${pids[$i]}"; then
+      echo "KLOR brightness: DDC failed on bus ${buses[$i]}" >&2
+      failed=1
+      status=1
+    fi
+  done
+  if (( failed )); then
+    # Rediscover for the next batch without repeating successful writes.
+    buses=()
+  elif command -v omarchy-osd >/dev/null 2>&1; then
+    percent=$(<"$state_dir/percent-${buses[0]}")
+    omarchy-osd -i brightness -p "$percent" 8>&- 9>&- >/dev/null 2>&1 || true
+  fi
 done

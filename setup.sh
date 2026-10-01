@@ -8,6 +8,7 @@ set -euo pipefail
 # Usage:
 #   bash setup.sh              # interactive (prompts for API keys)
 #   bash setup.sh --no-keys    # skip API key setup
+#   bash setup.sh --brightness-only # install/reload only host brightness controls
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="$HOME/.config/klor-bridge"
@@ -135,74 +136,7 @@ deploy_configs() {
 # ── Omarchy external monitor brightness ──────────────────────────────────────
 
 install_omarchy_brightness() {
-    local helper_src="$SCRIPT_DIR/hypr/brightness-display-ddc.sh"
-    local hypr_dir="$HOME/.config/hypr"
-    local helper_dst="$hypr_dir/brightness-display-ddc.sh"
-    local bindings="$hypr_dir/bindings.conf"
-
-    if [[ ! -f "$helper_src" ]]; then
-        warn "Omarchy DDC brightness helper not found. Skipping media-key override."
-        return
-    fi
-
-    mkdir -p "$hypr_dir"
-    cp "$helper_src" "$helper_dst"
-    chmod +x "$helper_dst"
-    touch "$bindings"
-
-    python3 - "$bindings" "$helper_dst" <<'PYEOF'
-from pathlib import Path
-import sys
-
-bindings = Path(sys.argv[1])
-helper = sys.argv[2]
-begin = "# KLOR external monitor brightness begin"
-end = "# KLOR external monitor brightness end"
-stale_unbinds = {
-    "unbind = , XF86MonBrightnessUp",
-    "unbind = , XF86MonBrightnessDown",
-    "unbind = ALT, XF86MonBrightnessUp",
-    "unbind = ALT, XF86MonBrightnessDown",
-}
-block = [
-    begin,
-    "# Route display media keys through DDC/CI for external monitors.",
-    "unbind = , XF86MonBrightnessUp",
-    "unbind = , XF86MonBrightnessDown",
-    "unbind = ALT, XF86MonBrightnessUp",
-    "unbind = ALT, XF86MonBrightnessDown",
-    f"bindeld = , XF86MonBrightnessUp, Brightness up, exec, {helper} up 5",
-    f"bindeld = , XF86MonBrightnessDown, Brightness down, exec, {helper} down 5",
-    f"bindeld = ALT, XF86MonBrightnessUp, Brightness up precise, exec, {helper} up 1",
-    f"bindeld = ALT, XF86MonBrightnessDown, Brightness down precise, exec, {helper} down 1",
-    end,
-]
-
-lines = bindings.read_text().splitlines()
-updated = []
-in_block = False
-for line in lines:
-    stripped = line.strip()
-    if stripped == begin:
-        in_block = True
-        continue
-    if in_block:
-        if stripped == end:
-            in_block = False
-        continue
-    if "brightness-display-ddc.sh" in line:
-        continue
-    if stripped in stale_unbinds:
-        continue
-    updated.append(line)
-
-if updated and updated[-1].strip():
-    updated.append("")
-updated.extend(block)
-bindings.write_text("\n".join(updated) + "\n")
-PYEOF
-
-    info "Installed Omarchy external-monitor brightness helper and media-key overrides."
+    python3 "$SCRIPT_DIR/hypr/install-brightness.py"
 }
 
 # ── Install udev rule ────────────────────────────────────────────────────────
@@ -302,6 +236,14 @@ setup_wayland_env() {
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 main() {
+    if [[ "${1:-}" == "--brightness-only" ]]; then
+        install_omarchy_brightness
+        if command -v hyprctl >/dev/null 2>&1; then
+            hyprctl reload
+            hyprctl configerrors
+        fi
+        return
+    fi
     echo ""
     echo "╔══════════════════════════════════════════╗"
     echo "║   KLOR Bridge — Setup Script             ║"

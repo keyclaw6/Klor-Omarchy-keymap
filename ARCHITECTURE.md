@@ -369,7 +369,7 @@ The current Linux prompt picker behavior is verified working and locked. Do not 
 
 The right rotary encoder uses custom keycodes `BRIGHT_UP` / `BRIGHT_DOWN` (defined as `QK_KB_0` / `QK_KB_1`), handled in `process_record_user`. Each tick taps `KC_BRIU` / `KC_BRID` — standard media brightness keycodes.
 
-On Omarchy external-monitor setups, `setup.sh` installs `~/.config/hypr/brightness-display-ddc.sh` plus Hyprland media-key overrides so those standard brightness keys adjust DDC/CI brightness instead of Omarchy's default laptop-backlight helper.
+On Omarchy external-monitor setups, `setup.sh` installs `~/.config/hypr/brightness-display-ddc.sh` plus Hyprland media-key overrides so each turn adjusts both external monitors through DDC/CI, regardless of focus. Quattro uses `bindings.lua`; older versions use `bindings.conf`. Run `bash setup.sh --brightness-only` to install and reload just the host controls, without flashing firmware or changing bridge settings. The helper queues rapid turns under kernel locks, discovers buses afresh for each worker, scales steps to each monitor's brightness range, and retries absolute writes without repeating successful changes on the other monitor.
 
 The bridge daemon also handles brightness action IDs `0x11` (`ACTION_BRIGHTNESS_UP`) / `0x12` (`ACTION_BRIGHTNESS_DOWN`) by calling the same DDC helper when present, then falling back to Omarchy media-key shortcuts.
 

@@ -241,7 +241,7 @@ default-timeout=5000
 
 ## Brightness Control
 
-The right rotary encoder sends standard media brightness keycodes (`KC_BRID` / `KC_BRIU`). On Omarchy external-monitor setups, `setup.sh` installs a Hyprland override that routes those media keys through `~/.config/hypr/brightness-display-ddc.sh`, using DDC/CI instead of Omarchy's default laptop-backlight helper.
+The right rotary encoder sends standard media brightness keycodes (`KC_BRID` / `KC_BRIU`). On Omarchy external-monitor setups, `setup.sh` installs a Hyprland override that routes those media keys through `~/.config/hypr/brightness-display-ddc.sh`, so each turn adjusts both external monitors through DDC/CI, regardless of focus. Quattro uses `bindings.lua`; older versions use `bindings.conf`. Run `bash setup.sh --brightness-only` to install and reload just the host controls, without flashing firmware or changing bridge settings. The helper queues rapid turns under kernel locks, discovers buses afresh for each worker, scales steps to each monitor's brightness range, and retries absolute writes without repeating successful changes on the other monitor.
 
 The bridge also handles Raw HID brightness action IDs (`0x11`/`0x12`) by calling the same DDC helper when present. DDC/CI access still requires I2C permissions:
 
